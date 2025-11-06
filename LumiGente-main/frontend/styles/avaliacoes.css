@@ -1,0 +1,354 @@
+/* ===== AVALIAÇÕES - Aba de Avaliações ===== */
+
+/* Botões de alternância */
+.btn-toggle {
+    padding: 10px 20px;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.btn-toggle:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.btn-toggle.active {
+    background: white;
+    color: #0d556d;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.btn-toggle i {
+    font-size: 14px;
+}
+
+/* Visualizações de avaliações */
+.avaliacoes-view {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Tabs de avaliação */
+.avaliacoes-tabs {
+    margin-bottom: 24px;
+}
+
+.avaliacao-tab {
+    background: none;
+    border: none;
+    padding: 12px 20px;
+    color: #6b7280;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.avaliacao-tab:hover {
+    color: #0d556d;
+    background: #f9fafb;
+}
+
+.avaliacao-tab.active {
+    color: #0d556d;
+    border-bottom-color: #0d556d;
+    font-weight: 600;
+}
+
+.aba-avaliacao-content.hidden {
+    display: none;
+}
+
+/* Pergunta do formulário */
+.pergunta-avaliacao {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.pergunta-avaliacao-header {
+    display: flex;
+    align-items: start;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.pergunta-numero-badge {
+    background: #0d556d;
+    color: white;
+    min-width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.pergunta-titulo {
+    flex: 1;
+    color: #111827;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.pergunta-obrigatoria-badge {
+    color: #ef4444;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Opções de resposta */
+.opcoes-resposta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.opcao-resposta-item {
+    padding: 14px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: white;
+}
+
+.opcao-resposta-item:hover {
+    border-color: #0d556d;
+    background: #f0f9ff;
+}
+
+.opcao-resposta-item.selecionada {
+    border-color: #0d556d;
+    background: #dbeafe;
+    font-weight: 600;
+}
+
+.opcao-resposta-item input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+/* Escala de avaliação */
+.escala-resposta {
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.escala-opcao {
+    flex: 1;
+    min-width: 60px;
+    padding: 16px 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.escala-opcao:hover {
+    border-color: #0d556d;
+    background: #f0f9ff;
+}
+
+.escala-opcao.selecionada {
+    border-color: #0d556d;
+    background: #0d556d;
+    color: white;
+}
+
+.escala-numero {
+    font-size: 24px;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.escala-label {
+    font-size: 12px;
+    display: block;
+}
+
+/* Sim/Não */
+.simnao-resposta {
+    display: flex;
+    gap: 12px;
+}
+
+.simnao-opcao {
+    flex: 1;
+    padding: 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    font-size: 16px;
+    background: white;
+}
+
+.simnao-opcao:hover {
+    border-color: #0d556d;
+    background: #f0f9ff;
+}
+
+.simnao-opcao.selecionada {
+    border-color: #10b981;
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.simnao-opcao.selecionada.nao {
+    border-color: #ef4444;
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Botões seletores de template */
+.btn-template-selector {
+    flex: 1;
+    padding: 16px 24px;
+    border: 2px solid #e5e7eb;
+    background: white;
+    color: #6b7280;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-template-selector:hover {
+    border-color: #0d556d;
+    background: #f0f9ff;
+    color: #0d556d;
+}
+
+.btn-template-selector.active {
+    border-color: #0d556d;
+    background: #0d556d;
+    color: white;
+}
+
+.btn-template-selector i {
+    font-size: 18px;
+}
+
+/* Lista de perguntas na edição */
+.lista-perguntas-edicao {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+    padding: 16px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.pergunta-item-edicao {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+}
+
+.pergunta-item-edicao:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pergunta-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 12px;
+}
+
+.pergunta-item-numero {
+    background: #0d556d;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.pergunta-item-acoes {
+    display: flex;
+    gap: 8px;
+}
+
+/* Badge de tipo de pergunta */
+.badge-tipo-pergunta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    border: 1px solid;
+}
+
+.badge-tipo-texto {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #93c5fd;
+}
+
+.badge-tipo-multipla_escolha {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.badge-tipo-escala {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: #86efac;
+}
+
+.badge-tipo-sim_nao {
+    background: #e0e7ff;
+    color: #3730a3;
+    border-color: #c7d2fe;
+}
+
+.badge-tipo-pergunta i {
+    font-size: 12px;
+}

@@ -1,0 +1,11 @@
+/* Modal close button hover effects */
+.modal-content button[data-action*="fechar"],
+.modal-content button[data-action*="close"] {
+    transition: all 0.3s ease;
+}
+
+.modal-content button[data-action*="fechar"]:hover,
+.modal-content button[data-action*="close"]:hover {
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+}

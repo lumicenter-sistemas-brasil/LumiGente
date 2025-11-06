@@ -1,0 +1,27 @@
+.DS_Store
+Thumbs.db
+node_modules/
+.env
+.env.*
+npm-debug.log*
+logs/
+*.log
+.cache/
+.vscode/
+.idea/
+.cursor/
+service/
+dist/
+coverage/
+temp/
+tmp/
+
+# Backend local config
+LumiGente-main/backend/.env
+LumiGente-main/backend/.env.*
+LumiGente-main/backend/node_modules/
+
+# Frontend local build artefacts
+LumiGente-main/frontend/node_modules/
+LumiGente-main/frontend/dist/
+

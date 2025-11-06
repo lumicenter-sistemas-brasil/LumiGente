@@ -1,0 +1,2030 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0d556d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/x-icon" href="../assets/favicon/iconLumiGente.ico">
+    <title>Painel de Feedback - LumiGente</title>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Crítico -->
+    <link rel="stylesheet" href="../styles/variables.css">
+    <link rel="stylesheet" href="../styles/base.css">
+    <link rel="stylesheet" href="../styles/sidebar.css">
+    <link rel="stylesheet" href="../styles/layout.css">
+    <link rel="stylesheet" href="../styles/components.css">
+    <link rel="stylesheet" href="../styles/dashboard.css">
+    <link rel="stylesheet" href="../styles/notifications.css">
+    <link rel="stylesheet" href="../styles/email-popup.css">
+    <link rel="stylesheet" href="../styles/modal-buttons.css">
+    <script src="../js/modules/shared/css-loader.js"></script>
+    <script src="../js/modules/shared/mobile-init.js"></script>
+</head>
+<body>
+    <!-- Overlay para sidebar mobile -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    
+    <!-- Email Popup -->
+    <div class="email-popup-overlay" id="email-popup-overlay">
+        <div class="email-popup">
+            <div class="email-popup-header">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+                <h3>Cadastre seu Email</h3>
+            </div>
+            
+            <!-- Step 1: Email Input -->
+            <div class="email-popup-body" id="email-popup-step-1">
+                <p>Para receber notificações importantes e conseguir alterar sua senha, cadastre seu email abaixo:</p>
+                <input type="email" class="email-popup-input" id="email-popup-input" placeholder="seu.email@exemplo.com">
+            </div>
+            <div class="email-popup-actions" id="email-popup-actions-1">
+                <button class="email-popup-btn email-popup-btn-secondary" onclick="EmailPopup.dismiss()">Agora não</button>
+                <button class="email-popup-btn email-popup-btn-primary" onclick="EmailPopup.save()">Enviar Token</button>
+            </div>
+            
+            <!-- Step 2: Token Verification -->
+            <div class="email-popup-body" id="email-popup-step-2" style="display: none;">
+                <p>Digite o token de 6 dígitos enviado para seu email:</p>
+                <input type="text" class="email-popup-input" id="email-popup-token-input" placeholder="000000" maxlength="6">
+            </div>
+            <div class="email-popup-actions" id="email-popup-actions-2" style="display: none;">
+                <button class="email-popup-btn email-popup-btn-secondary" onclick="EmailPopup.cancelToken()">Voltar</button>
+                <button class="email-popup-btn email-popup-btn-primary" onclick="EmailPopup.verifyToken()">Verificar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <img src="../assets/images/logo.png" alt="LumiGente Logo" class="logo-img">
+                </div>
+                <button class="sidebar-close-btn" title="Fechar Menu">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            
+            <div class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    Dashboard
+                </button>
+                <button class="nav-item" data-tab="feedback">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Feedbacks
+                </button>
+                <button class="nav-item" data-tab="recognition">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                    Reconhecimentos
+                </button>
+                <button class="nav-item" data-tab="team">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Equipe
+                </button>
+                <button class="nav-item" data-tab="analytics">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    Relatórios
+                </button>
+                <button class="nav-item" data-tab="humor">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    Humor do Dia
+                </button>
+                <button class="nav-item" data-tab="objetivos">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                    Objetivos
+                </button>
+                <button class="nav-item" data-tab="pesquisas">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    Pesquisas
+                </button>
+                <button class="nav-item" data-tab="avaliacoes">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    Avaliações
+                </button>
+                <button class="nav-item" data-tab="historico" id="historico-tab">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Histórico
+                </button>
+                <button class="nav-item" data-tab="configuracoes">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>
+                    Configurações
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button class="sidebar-toggle" title="Alternar Menu">
+                        <span></span>
+                    </button>
+                    <h2 id="page-title">Dashboard</h2>
+                </div>
+                <div class="header-right">
+                    <div style="position: relative;">
+                        <button class="notification-btn" id="notifications-btn" title="Notificações">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                            <span class="notifications-badge" id="notifications-badge">0</span>
+                        </button>
+                        <div class="notifications-dropdown hidden" id="notifications-dropdown">
+                            <div class="notifications-header">
+                                <h3>Notificações</h3>
+                                <button class="mark-all-read-btn" title="Marcar todas como lidas">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                    <span>Marcar todas</span>
+                                </button>
+                            </div>
+                            <div class="notifications-list" id="notifications-list">
+                                <div class="notification-empty">Carregando...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="notification-btn" title="Logout">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                    <div style="position: relative;">
+                        <div class="user-info" id="user-info-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            <span>Carregando...</span>
+                        </div>
+                        <div class="user-info-dropdown" id="user-info-dropdown">
+                            <div class="user-info-content">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M6.168 18.849A4 4 0 0 1 10 16h4a4 4 0 0 1 3.834 2.855"/></svg>
+                                <span id="user-info-name">Carregando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <main class="content">
+                <!-- Dashboard -->
+                <div id="dashboard-content" class="tab-content">
+                    <!-- Metrics -->
+                    <div class="metrics-grid" style="margin-top: 0px">
+                        <div class="metric-card">
+                            <div class="metric-card-content">
+                                <div class="metric-info">
+                                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="margin-right: 8px;"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>Feedbacks Recebidos</h3>
+                                    <div class="value" id="feedbacks-received-count">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-card-content">
+                                <div class="metric-info">
+                                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Reconhecimentos Recebidos</h3>
+                                    <div class="value" id="recognitions-received-count">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-card-content">
+                                <div class="metric-info">
+                                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-right: 8px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Feedbacks Enviados</h3>
+                                    <div class="value" id="feedbacks-sent-count">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-card" style="flex-direction: column; align-items: stretch;">
+                            <div class="metric-info">
+                                <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Ações Rápidas</h3>
+                            </div>
+                            <div class="quick-actions-dropdown" style="margin-top: 16px; position: relative;">
+                                <button class="btn btn-amber quick-actions-toggle" data-action="toggleQuickActionsDropdown" style="width: 100%; justify-content: space-between; z-index: 1001;">
+                                    <span>Selecione uma ação</span>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                </button>
+                                <div class="quick-actions-menu hidden" id="quick-actions-menu" style="z-index: 1001;">
+                                    <button class="quick-action-item" data-action="openFeedbackModal">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        Enviar Feedback
+                                    </button>
+                                    <button class="quick-action-item" data-action="openRecognitionModal">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                                        Reconhecer Colega
+                                    </button>
+                                    <button class="quick-action-item" data-action="openNewObjetivoModal">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                                        Novo Objetivo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Humor dos Colegas (Dashboard) -->
+                    <div class="card" id="dashboard-colleagues-humor-card" style="display: none;">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" style="margin-right: 8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            Humor dos Colegas Hoje
+                        </h3>
+                        <div id="dashboard-colleagues-humor-today">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Recognitions -->
+                    <div class="card">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="margin-right: 8px;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                            Últimos Reconhecimentos
+                        </h3>
+                        <p style="color: #6b7280; font-size: 14px; margin-bottom: 16px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-right: 4px; vertical-align: middle;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/></svg>
+                            Mostra os últimos reconhecimentos enviados e recebidos
+                        </p>
+                        <div class="recognitions-list" id="recognitions-list">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando reconhecimentos...
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Gamification Dashboard -->
+                    <div class="card">
+                        <h3>
+                            <i data-lucide="gamepad-2" style="color: #8b5cf6; width: 24px; height: 24px; margin-right: 8px;"></i>
+                            Gamificação
+                        </h3>
+                        <div class="gamification-content">
+                            <!-- Informações do usuário logado -->
+                            <div class="user-ranking-info" id="user-ranking-info" style="display: none;">
+                                <div class="user-ranking-card">
+                                    <div class="user-ranking-position">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+                                        <span id="user-position">-</span>
+                                    </div>
+                                    <div class="user-ranking-details">
+                                        <div class="user-ranking-name">Você</div>
+                                        <div class="user-ranking-points" id="user-total-points">- pontos</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Top 10 usuários -->
+                            <div class="leaderboard-preview" id="leaderboard-preview">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando leaderboard...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feedback Section -->
+                <div id="feedback-content" class="tab-content hidden">
+                    <!-- Feedback Tabs -->
+                    <div class="feedback-tabs" style="margin-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
+                        <div style="display: flex; gap: 24px;">
+                            <button class="feedback-tab active" data-feedback-tab="received" data-action="switchFeedbackTab" data-param="received">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+                                Feedbacks Recebidos
+                            </button>
+                            <button class="feedback-tab" data-feedback-tab="sent" data-action="switchFeedbackTab" data-param="sent">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                Feedbacks Enviados
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="margin: 0;">Filtros</h3>
+                            <button class="btn btn-amber" data-action="openFeedbackModal">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                Novo Feedback
+                            </button>
+                        </div>
+                        <button class="filters-toggle-btn" data-action="toggleFilters" data-param="feedback-filters">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            <span>Mostrar Filtros</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div class="filters-container collapsed" id="feedback-filters">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Data Início</label>
+                                <input type="date" class="form-input" id="feedback-date-start" onchange="Feedbacks.loadList()">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Data Fim</label>
+                                <input type="date" class="form-input" id="feedback-date-end" onchange="Feedbacks.loadList()">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tipo</label>
+                                <select class="form-select" id="feedback-type-filter" onchange="Feedbacks.loadList()">
+                                    <option value="">Todos</option>
+                                    <option value="Positivo">Positivo</option>
+                                    <option value="Desenvolvimento">Desenvolvimento</option>
+                                    <option value="Sugestão">Sugestão</option>
+                                    <option value="Outros">Outros</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Categoria</label>
+                                <select class="form-select" id="feedback-category-filter" onchange="Feedbacks.loadList()">
+                                    <option value="">Todas</option>
+                                    <option value="Comunicação">Comunicação</option>
+                                    <option value="Trabalho em Equipe">Trabalho em Equipe</option>
+                                    <option value="Proatividade">Proatividade</option>
+                                    <option value="Qualidade do Trabalho">Qualidade do Trabalho</option>
+                                    <option value="Pontualidade">Pontualidade</option>
+                                    <option value="Organização">Organização</option>
+                                    <option value="Criatividade">Criatividade</option>
+                                    <option value="Resolução de Problemas">Resolução de Problemas</option>
+                                    <option value="Relacionamento Interpessoal">Relacionamento Interpessoal</option>
+                                    <option value="Comprometimento">Comprometimento</option>
+                                    <option value="Desenvolvimento Profissional">Desenvolvimento Profissional</option>
+                                    <option value="Liderança">Liderança</option>
+                                    <option value="Outros">Outros</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="display: flex; align-items: flex-end;">
+                                <button class="btn btn-secondary" data-action="clearFeedbackFilters">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    Limpar Filtros
+                                </button>
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+
+                    <div class="feedback-list" id="feedback-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Carregando feedbacks...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Development Sections -->
+                <!-- Recognition Section -->
+                <div id="recognition-content" class="tab-content hidden">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="margin: 0;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                                Meus Reconhecimentos
+                            </h3>
+                            <button class="btn btn-amber" data-action="openRecognitionModal">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                Novo Reconhecimento
+                            </button>
+                        </div>
+
+                        <button class="filters-toggle-btn" onclick="toggleRecognitionFilters()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            Filtros
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+
+                        <div class="filters-container collapsed" id="recognition-filters-container">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Data Início</label>
+                                    <input type="date" class="form-input" id="recognition-date-start" onchange="Recognitions.loadAll()">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Data Fim</label>
+                                    <input type="date" class="form-input" id="recognition-date-end" onchange="Recognitions.loadAll()">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Badge</label>
+                                    <select class="form-select" id="recognition-badge-filter" onchange="Recognitions.loadAll()">
+                                        <option value="">Todos</option>
+                                        <option value="Inovador">Inovador</option>
+                                        <option value="Colaborativo">Colaborativo</option>
+                                        <option value="Dedicado">Dedicado</option>
+                                        <option value="Criativo">Criativo</option>
+                                        <option value="Outros">Outros</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="display: flex; align-items: flex-end;">
+                                    <button class="btn btn-secondary" data-action="clearRecognitionFilters">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        Limpar Filtros
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="recognitions-list" id="my-recognitions-list">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando reconhecimentos...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="team-content" class="tab-content hidden">
+                    <div class="card">
+                        <h3>
+                            <i class="fas fa-users" style="color: #3b82f6;"></i>
+                            Gestão de Equipe
+                        </h3>
+                        <p>Gerencie sua equipe, visualize métricas e acompanhe o desempenho dos colaboradores.</p>
+                    </div>
+
+                    <!-- Métricas da Equipe -->
+                    <div class="dashboard-grid" style="margin-bottom: 0px">
+                        <div class="card">
+                            <h3>
+                                <i class="fas fa-chart-line" style="color: #10b981;"></i>
+                                Métricas da Equipe
+                            </h3>
+                            <div id="team-metrics">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando métricas...
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3>
+                                <i class="fas fa-user-check" style="color: #f59e0b;"></i>
+                                Status dos Colaboradores
+                            </h3>
+                            <div id="team-status">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando status...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Membros da Equipe -->
+                    <div class="card">
+                        <h3>
+                            <i class="fas fa-list" style="color: #8b5cf6;"></i>
+                            Membros da Equipe
+                        </h3>
+                        <div class="team-filters">
+                            <div class="filter-group" style="flex: 1; max-width: 500px;">
+                                <label>
+                                    <i class="fas fa-building"></i>
+                                    Pesquisar Departamento:
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="team-department-search" 
+                                    class="form-input"
+                                    placeholder="Digite para buscar departamento..." 
+                                    oninput="filterDepartmentSearch()"
+                                    autocomplete="off"
+                                />
+                                <div id="department-suggestions" class="department-suggestions hidden"></div>
+                            </div>
+                            
+                            <div class="filter-group" style="flex: 1; max-width: 500px;">
+                                <label>
+                                    <i class="fas fa-user-search"></i>
+                                    Pesquisar Usuário:
+                                </label>
+                                <div class="searchable-select">
+                                    <input 
+                                        type="text" 
+                                        class="form-input" 
+                                        id="team-user-search" 
+                                        placeholder="Digite para buscar colaborador..." 
+                                        oninput="filterTeamUsers('team-user-search', 'team-user-list')"
+                                        autocomplete="off"
+                                    />
+                                    <div class="select-dropdown" id="team-user-list">
+                                        <div class="select-option" data-value="" data-action="selectTeamUser" data-param="Todos os usuários">
+                                            Todos os usuários
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="team-selected-user" value="">
+                            </div>
+                            
+                            <div class="filter-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                <label style="opacity: 0; pointer-events: none;">Ações:</label>
+                                <button class="btn-clear-filters" data-action="clearTeamFilters" title="Limpar todos os filtros">
+                                    <i class="fas fa-times-circle"></i>
+                                    Limpar Filtros
+                                </button>
+                            </div>
+                        </div>
+                        <div id="team-members-list">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando membros da equipe...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="analytics-content" class="tab-content hidden">
+                    <div class="card">
+                        <h3>
+                            <i class="fas fa-chart-bar" style="color: #3b82f6;"></i>
+                            Relatórios e Análises
+                        </h3>
+                        <p>Visualize relatórios detalhados e análises sobre o engajamento e desempenho da equipe.</p>
+                    </div>
+
+                    <!-- Filtros de Período -->
+                    <div class="card">
+                        <div class="analytics-filters-container">
+                            <div class="filter-item">
+                                <label for="analytics-period">Período:</label>
+                                <select id="analytics-period" class="analytics-select">
+                                    <option value="7">Últimos 7 dias</option>
+                                    <option value="30" selected>Últimos 30 dias</option>
+                                    <option value="90">Últimos 90 dias</option>
+                                    <option value="365">Último ano</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label for="analytics-department">Departamento:</label>
+                                <select id="analytics-department" class="analytics-select">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <button class="btn btn-amber" data-action="loadAnalytics">
+                                    <i class="fas fa-sync-alt"></i>
+                                    Atualizar Dados
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Indicadores Principais -->
+                    <div class="dashboard-grid">
+                        <!-- Engajamento Geral -->
+                        <div class="card" style="margin-bottom: 0px">
+                            <h3>
+                                <i class="fas fa-heart" style="color: #ef4444;"></i>
+                                Engajamento Geral
+                            </h3>
+                            <div id="engagement-metrics">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Humor da Equipe -->
+                        <div class="card" style="margin-bottom: 0px">
+                            <h3>
+                                <i class="fas fa-smile" style="color: #f59e0b;"></i>
+                                Humor da Equipe
+                            </h3>
+                            <div id="mood-metrics">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Feedbacks e Reconhecimentos -->
+                        <div class="card" style="margin-bottom: 0px">
+                            <h3>
+                                <i class="fas fa-comments" style="color: #3b82f6;"></i>
+                                Feedbacks & Reconhecimentos
+                            </h3>
+                            <div id="feedback-metrics">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gamificação -->
+                        <div class="card" style="margin-bottom: 0px">
+                            <h3>
+                                <i class="fas fa-trophy" style="color: #8b5cf6;"></i>
+                                Gamificação
+                            </h3>
+                            <div id="gamification-metrics">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Objetivos -->
+                        <div class="card" style="margin-bottom: 0px">
+                            <h3>
+                                <i class="fas fa-target" style="color: #10b981;"></i>
+                                Objetivos
+                            </h3>
+                            <div id="objectives-metrics">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Performance da Equipe -->
+                        <div class="card" style="margin-bottom: 0px">
+                            <h3>
+                                <i class="fas fa-chart-line" style="color: #06b6d4;"></i>
+                                Performance da Equipe
+                            </h3>
+                            <div id="performance-metrics">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ranking de Colaboradores -->
+                    <div class="card">
+                        <h3>
+                            <i class="fas fa-medal" style="color: #f59e0b;"></i>
+                            Top Colaboradores da Equipe
+                        </h3>
+                        <div id="top-users-ranking">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando ranking...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos Detalhados -->
+                    <div class="card">
+                        <h3>
+                            <i class="fas fa-chart-line" style="color: #ef4444;"></i>
+                            Análise Temporal
+                        </h3>
+                        <div id="temporal-analysis">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando análise temporal...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Relatórios Exportáveis -->
+                    <div class="card">
+                        <h3>
+                            <i class="fas fa-download" style="color: #059669;"></i>
+                            Exportar Relatórios
+                        </h3>
+                        <div class="export-options">
+                            <button class="btn btn-amber" data-action="exportReport" data-param="pdf">
+                                <i class="fas fa-file-pdf"></i>
+                                Exportar PDF
+                            </button>
+                            <button class="btn btn-amber" data-action="exportReport" data-param="excel">
+                                <i class="fas fa-file-excel"></i>
+                                Exportar Excel
+                            </button>
+                            <button class="btn btn-amber" data-action="exportReport" data-param="csv">
+                                <i class="fas fa-file-csv"></i>
+                                Exportar CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Humor do Dia -->
+                <div id="humor-content" class="tab-content hidden">
+                    <div class="card">
+                        <h3>
+                            <i data-lucide="smile" style="color: #f59e0b; width: 20px; height: 20px; margin-right: 8px;"></i>
+                            Como está seu humor hoje?
+                        </h3>
+                        <div class="humor-section">
+                            <div class="humor-scale">
+                                <div class="humor-option" data-score="1">
+                                    <i data-lucide="frown" style="width: 48px; height: 48px; color: #f59e0b;"></i>
+                                    <span>Muito Triste</span>
+                                </div>
+                                <div class="humor-option" data-score="2">
+                                    <i data-lucide="meh" style="width: 48px; height: 48px; color: #f59e0b;"></i>
+                                    <span>Triste</span>
+                                </div>
+                                <div class="humor-option" data-score="3">
+                                    <i data-lucide="smile" style="width: 48px; height: 48px; color: #f59e0b;"></i>
+                                    <span>Neutro</span>
+                                </div>
+                                <div class="humor-option" data-score="4">
+                                    <i data-lucide="laugh" style="width: 48px; height: 48px; color: #f59e0b;"></i>
+                                    <span>Feliz</span>
+                                </div>
+                                <div class="humor-option" data-score="5">
+                                    <i data-lucide="smile-plus" style="width: 48px; height: 48px; color: #f59e0b;"></i>
+                                    <span>Muito Feliz</span>
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex-direction: column; display: flex; gap: 20px;">
+                                <label class="form-label">Descrição (opcional)</label>
+                                <textarea class="form-textarea" id="humor-description" placeholder="Como você está se sentindo hoje?"></textarea>
+                                <button class="btn btn-amber" data-action="submitHumor" style="width: 12rem;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                    Registrar Humor
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Métricas de Humor -->
+                    <div class="dashboard-grid">
+                        <div class="card" id="my-humor-card">
+                            <h3>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-right: 8px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                Seu Humor Hoje
+                            </h3>
+                            <div id="my-humor-today">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando...
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" id="company-humor-card" style="display: none;">
+                            <h3>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="margin-right: 8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                Humor da Equipe
+                            </h3>
+                            <div id="company-humor">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Carregando...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Humor dos Colegas (apenas para não-gestores) -->
+                    <div class="card" id="colleagues-humor-card" style="display: none;">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" style="margin-right: 8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            Humor dos Colegas Hoje
+                        </h3>
+                        <div id="colleagues-humor-today">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Histórico de Humor -->
+                    <div class="card">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" style="margin-right: 8px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            Histórico de Humor
+                        </h3>
+                        <div id="humor-history">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando histórico...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Objetivos -->
+                <div id="objetivos-content" class="tab-content hidden">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="margin: 0;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-right: 8px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                                Meus Objetivos
+                            </h3>
+                            <button class="btn btn-amber" data-action="openNewObjetivoModal">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                Novo Objetivo
+                            </button>
+                        </div>
+
+                        <button class="filters-toggle-btn" onclick="toggleObjetivosFilters()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            Filtros
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+
+                        <div class="filters-container collapsed" id="objetivos-filters-container">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Buscar por Nome</label>
+                                    <input type="text" class="form-input" id="objetivos-search" placeholder="Buscar objetivos..." oninput="Objetivos.loadList()">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Buscar por Responsável</label>
+                                    <input type="text" class="form-input" id="objetivos-responsavel-search" placeholder="Filtrar por responsável..." oninput="Objetivos.loadList()">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Buscar por Status</label>
+                                    <select class="form-select" id="objetivos-status-filter" onchange="Objetivos.loadList()">
+                                        <option value="">Todos os status</option>
+                                        <option value="Ativo">Ativo</option>
+                                        <option value="Agendado">Agendado</option>
+                                        <option value="Concluído">Concluído</option>
+                                        <option value="Expirado">Expirado</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="display: flex; align-items: flex-end;">
+                                    <button class="btn btn-secondary" onclick="clearObjetivosFilters()">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        Limpar Filtros
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="objetivos-list" id="objetivos-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Carregando objetivos...
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Pesquisas -->
+                <div id="pesquisas-content" class="tab-content hidden">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                                Minhas Pesquisas
+                            </h3>
+                            <div class="pesquisas-actions" id="pesquisas-actions-container">
+                                <button class="btn btn-success" data-action="openWindow" data-param="nova-pesquisa.html" data-features="width=1200,height=800" id="create-survey-btn">
+                                    <i data-lucide="plus"></i>
+                                    Nova Pesquisa
+                                </button>
+                                <button class="btn btn-info" data-action="openWindow" data-param="pesquisas-novo.html" data-features="width=1400,height=900" id="manage-survey-btn">
+                                    <i data-lucide="list"></i>
+                                    Gerenciar Pesquisas
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Filtros de Pesquisas -->
+                        <div class="card">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="margin: 0;">Filtros</h3>
+                                <button class="btn btn-secondary" data-action="clearSurveyFilters">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    Limpar Filtros
+                                </button>
+                            </div>
+                            <button class="filters-toggle-btn" data-action="toggleFilters" data-param="survey-filters">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                <span>Mostrar Filtros</span>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            </button>
+                            <div class="filters-container collapsed" id="survey-filters">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Pesquisar por Nome</label>
+                                        <input
+                                            type="text"
+                                            id="survey-name-search"
+                                            class="form-input"
+                                            placeholder="Digite para buscar pesquisa..."
+                                            oninput="filterSurveys()"
+                                            autocomplete="off"
+                                        />
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Filtrar por Status</label>
+                                        <select id="survey-status-filter" class="form-select" onchange="filterSurveys()">
+                                            <option value="">Todos</option>
+                                            <option value="ativa">Ativas</option>
+                                            <option value="encerrada">Encerradas</option>
+                                            <option value="respondida">Respondidas</option>
+                                            <option value="pendente">Sem Resposta</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="pesquisas-list" id="user-surveys-list">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando pesquisas...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Avaliações -->
+                <div id="avaliacoes-content" class="tab-content hidden">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <div>
+                                <h3 style="margin: 0;">
+                                    <i data-lucide="clipboard-check" style="color: #3b82f6;"></i>
+                                    Avaliações
+                                </h3>
+                                <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 14px;">Sistema de Avaliações - O conteúdo será personalizado de acordo com seu setor e permissões.</p>
+                            </div>
+                            
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <!-- Botão Editar Templates - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
+                                <button class="btn btn-amber" id="btn-editar-templates" data-action="abrirModalEditarQuestionarios" style="display: none;">
+                                    <i data-lucide="edit"></i>
+                                    Editar Templates
+                                </button>
+                                
+                                <!-- Botões de alternância - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
+                                <div id="avaliacoes-toggle-buttons" style="display: none;">
+                                    <div class="btn-group" style="display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 8px;">
+                                        <button class="btn-toggle active" data-view="minhas" data-action="toggleAvaliacoesView" data-param="minhas">
+                                            <i data-lucide="user"></i>
+                                            Minhas Avaliações
+                                        </button>
+                                        <button class="btn-toggle" data-view="todas" data-action="toggleAvaliacoesView" data-param="todas">
+                                            <i data-lucide="list"></i>
+                                            Todas as Avaliações
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visualização: Minhas Avaliações -->
+                    <div id="minhas-avaliacoes-view" class="avaliacoes-view">
+                        <div class="card">
+                            <h3>
+                                <i data-lucide="clipboard-list" style="color: #10b981;"></i>
+                                Avaliações Pendentes
+                            </h3>
+                            <div style="text-align: center; padding: 40px 20px;">
+                                <i data-lucide="clipboard-list" style="font-size: 64px; color: #e5e7eb; margin-bottom: 16px;"></i>
+                                <h4 style="color: #6b7280; margin-bottom: 8px;">Conteúdo em Desenvolvimento</h4>
+                                <p style="color: #9ca3af;">Suas avaliações para responder aparecerão aqui.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visualização: Todas as Avaliações (apenas para setores autorizados) -->
+                    <div id="todas-avaliacoes-view" class="avaliacoes-view" style="display: none;">
+                        <!-- Conteúdo dinâmico -->
+                        <div id="todas-avaliacoes-conteudo">
+                            <div class="card">
+                                <div style="text-align: center; padding: 40px 20px;">
+                                    <i data-lucide="tasks" style="font-size: 64px; color: #e5e7eb; margin-bottom: 16px;"></i>
+                                    <h4 style="color: #6b7280; margin-bottom: 8px;">Visão Administrativa</h4>
+                                    <p style="color: #9ca3af;">Lista completa de todas as avaliações da empresa.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configurações -->
+                <div id="configuracoes-content" class="tab-content hidden">
+                    <div class="config-section">
+                        <div class="config-section-header">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            <h3>Informações da Conta</h3>
+                        </div>
+                        <div class="config-item">
+                            <div class="config-item-info">
+                                <h4>Email</h4>
+                                <p id="user-email-display">Carregando...</p>
+                            </div>
+                            <div class="password-reset-container">
+                                <div id="email-initial">
+                                    <button class="btn btn-amber" id="email-action-btn" onclick="Configuracoes.startEmailProcess()">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+                                        Cadastrar Email
+                                    </button>
+                                </div>
+                                <div id="email-input-step" style="display: none;">
+                                    <p style="color: var(--color-gray-600); margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                        Digite seu email para receber o token de verificação.
+                                    </p>
+                                    <div class="token-input-group">
+                                        <input type="email" class="form-input" id="email-input" placeholder="seu.email@exemplo.com">
+                                        <button class="btn btn-amber" onclick="Configuracoes.requestEmailVerification()">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+                                            Enviar Token
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="Configuracoes.cancelEmailVerification()">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="email-token-input" style="display: none;">
+                                    <p style="color: var(--color-gray-600); margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                        Um token foi enviado para seu email. Insira-o abaixo para continuar.
+                                    </p>
+                                    <div class="token-input-group">
+                                        <input type="text" class="form-input" id="email-token-input-field" placeholder="Digite o token" maxlength="6" style="text-transform: uppercase;">
+                                        <button class="btn btn-amber" onclick="Configuracoes.verifyEmailToken()">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                            Verificar
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="Configuracoes.cancelEmailVerification()">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-section">
+                        <div class="config-section-header">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <h3>Segurança</h3>
+                        </div>
+                        <div class="config-item">
+                            <div class="config-item-info">
+                                <h4>Senha</h4>
+                                <p>Altere sua senha de acesso ao sistema</p>
+                            </div>
+                            <div class="password-reset-container">
+                                <div id="password-reset-initial">
+                                    <button class="btn btn-amber">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                        Alterar Senha
+                                    </button>
+                                </div>
+
+                                <!-- Passo 1: Informar senha atual e nova senha -->
+                                <div id="password-reset-current-password" style="display: none;">
+                                    <p style="color: var(--color-gray-600); margin-bottom: var(--spacing-lg); font-size: var(--font-size-sm);">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                        Informe sua senha atual e escolha uma nova senha. Um token será enviado para seu email para confirmar a alteração.
+                                    </p>
+                                    <div class="password-inputs">
+                                        <div class="form-group">
+                                            <label class="form-label">Senha Atual</label>
+                                            <input type="password" class="form-input" id="current-password-input" placeholder="Digite sua senha atual">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Nova Senha</label>
+                                            <input type="password" class="form-input" id="new-password-input-initial" placeholder="Digite a nova senha">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Confirmar Nova Senha</label>
+                                            <input type="password" class="form-input" id="confirm-password-input-initial" placeholder="Confirme a nova senha">
+                                        </div>
+                                        <div class="password-requirements">
+                                            <h5>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                                Requisitos da Senha:
+                                            </h5>
+                                            <ul>
+                                                <li>Mínimo de 6 caracteres</li>
+                                                <li>Diferente da senha atual</li>
+                                                <li>As senhas devem coincidir</li>
+                                            </ul>
+                                        </div>
+                                        <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+                                            <button class="btn btn-amber" id="initiate-password-change-btn">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                                Enviar Token
+                                            </button>
+                                            <button class="btn btn-secondary" id="cancel-initial-password-btn">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Passo 2: Confirmar com token -->
+                                <div id="password-reset-token-input" style="display: none;">
+                                    <p style="color: var(--color-gray-600); margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                        Um token foi enviado para seu email. Insira-o abaixo para continuar.
+                                    </p>
+                                    <div class="token-input-group">
+                                        <input type="text" class="form-input" id="reset-token-input" placeholder="Digite o token" maxlength="6" style="text-transform: uppercase;">
+                                        <button class="btn btn-amber">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                            Verificar
+                                        </button>
+                                        <button class="btn btn-secondary" id="cancel-token-btn">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Histórico Section -->
+                <div id="historico-content" class="tab-content hidden">
+                    <div class="card">
+                        <h3>
+                            <i data-lucide="history" style="color: #0d556d;"></i>
+                            Histórico de Feedbacks - Sistema Anterior
+                        </h3>
+                        <p>Visualize e analise os dados históricos do sistema anterior de feedbacks da empresa.</p>
+                    </div>
+
+                    <!-- Filtros de Histórico -->
+                    <div class="card">
+                        <h3>
+                            <i data-lucide="filter" style="color: #f59e0b;"></i>
+                            Filtros de Pesquisa
+                        </h3>
+                        <div class="historico-filters">
+                            <div class="filter-group">
+                                <label>Período:</label>
+                                <select id="historico-periodo" onchange="loadHistoricoData()">
+                                    <option value="todos">Todos os Períodos</option>
+                                    <option value="2023">2023</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2025">2025</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Tipo de Relatório:</label>
+                                <select id="historico-tipo" onchange="loadHistoricoData()">
+                                    <option value="todos">Todos os Relatórios</option>
+                                    <option value="avaliacao">Avaliação de Desempenho</option>
+                                    <option value="feedback">Conteúdo de Feedbacks</option>
+                                    <option value="humor">Histórico de Humor</option>
+                                    <option value="colaboradores">Listagem de Colaboradores</option>
+                                    <option value="medias">Médias de Feedbacks</option>
+                                    <option value="ranking">Ranking de Gamificação</option>
+                                    <option value="resumo">Resumo de Atividades</option>
+                                    <option value="turnover">Turnovers</option>
+                                    <option value="pdi">Planos de Desenvolvimento</option>
+                                    <option value="pesquisas">Pesquisas Rápidas</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Departamento:</label>
+                                <select id="historico-departamento" onchange="loadHistoricoData()">
+                                    <option value="todos">Todos os Departamentos</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+            <!-- Seção de Relatórios de Avaliação de Desempenho -->
+            <div class="card historico-section collapsed" data-tipo="avaliacao">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="clipboard-check" style="color: #10b981;"></i>
+                                    Avaliação de Desempenho por Colaborador
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="avaliacao">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="avaliacao-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de avaliação...
+                            </div>
+                            <div class="historico-table" id="avaliacao-table" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seção de Conteúdo de Feedbacks -->
+                    <div class="card historico-section collapsed" data-tipo="feedback">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="comments" style="color: #3b82f6;"></i>
+                                    Conteúdo de Feedbacks
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="feedback">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="feedback-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de feedbacks...
+                            </div>
+                            <div class="historico-table" id="feedback-table" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seção de Histórico de Humor -->
+                    <div class="card historico-section collapsed" data-tipo="humor">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="smile" style="color: #f59e0b;"></i>
+                                    Histórico de Humor
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="humor">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="humor-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de humor...
+                            </div>
+                            <div class="historico-table" id="humor-table" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seção de Listagem de Colaboradores -->
+                    <div class="card historico-section collapsed" data-tipo="colaboradores">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="users" style="color: #8b5cf6;"></i>
+                                    Listagem de Colaboradores
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="colaboradores">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="colaboradores-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de colaboradores...
+                            </div>
+                            <div class="historico-table" id="colaboradores-table" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seção de Médias de Feedbacks -->
+                    <div class="card historico-section collapsed" data-tipo="medias">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="bar-chart" style="color: #ef4444;"></i>
+                                    Médias de Feedbacks
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="medias">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="medias-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de médias...
+                            </div>
+                            <div class="historico-table" id="medias-table" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seção de Ranking de Gamificação -->
+                    <div class="card historico-section collapsed" data-tipo="ranking">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="trophy" style="color: #f59e0b;"></i>
+                                    Ranking de Gamificação
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="ranking">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="ranking-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de ranking...
+                            </div>
+                            <div class="historico-table" id="ranking-table" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seção de Resumo de Atividades -->
+                    <div class="card historico-section collapsed" data-tipo="resumo">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="line-chart" style="color: #059669;"></i>
+                                    Resumo de Atividades
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="resumo">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="resumo-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de resumo...
+                            </div>
+                            <div class="historico-table" id="resumo-table" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seção de Turnovers -->
+                    <div class="card historico-section collapsed" data-tipo="turnover">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="user-x" style="color: #dc2626;"></i>
+                                    Turnovers
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="turnover">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="turnover-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de turnover...
+                            </div>
+                            <div class="historico-table" id="turnover-table" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seção de Planos de Desenvolvimento Individual -->
+                    <div class="card historico-section collapsed" data-tipo="pdi">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="graduation-cap" style="color: #7c3aed;"></i>
+                                    Planos de Desenvolvimento Individual
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="pdi">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="pdi-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de PDI...
+                            </div>
+                            <div class="historico-table" id="pdi-table" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seção de Pesquisas Rápidas -->
+                    <div class="card historico-section collapsed" data-tipo="pesquisas">
+                        <div class="card-header">
+                            <div class="header-content">
+                                <h3>
+                                    <i data-lucide="poll" style="color: #0ea5e9;"></i>
+                                    Pesquisas Rápidas
+                                </h3>
+                                <div class="header-actions">
+                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="pesquisas">
+                                        <i data-lucide="download"></i>
+                                        Exportar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="historico-table-container">
+                            <div class="loading" id="pesquisas-loading">
+                                <div class="spinner"></div>
+                                Carregando dados de pesquisas...
+                            </div>
+                            <div class="historico-table" id="pesquisas-table" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedback-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+                    <h3 style="margin: 0;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        Novo Feedback
+                    </h3>
+                    <button type="button" data-action="closeFeedbackModal" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Para quem?</label>
+                    <div class="searchable-select">
+                        <input type="text" class="form-input" id="feedback-to-user-search" placeholder="Digite para buscar colaborador..." oninput="filterUsers('feedback-to-user-search', 'feedback-to-user-list')">
+                        <div class="select-dropdown" id="feedback-to-user-list">
+                            <div class="select-option" data-value="" data-action="selectUser" data-param="feedback-to-user">
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="feedback-to-user" value="">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tipo de Feedback</label>
+                    <select class="form-select" id="feedback-type">
+                        <option value="Positivo">Positivo</option>
+                        <option value="Desenvolvimento">Desenvolvimento</option>
+                        <option value="Sugestão">Sugestão</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Categoria</label>
+                    <select class="form-select" id="feedback-category">
+                        <option value="Comunicação">Comunicação</option>
+                        <option value="Trabalho em Equipe">Trabalho em Equipe</option>
+                        <option value="Proatividade">Proatividade</option>
+                        <option value="Qualidade do Trabalho">Qualidade do Trabalho</option>
+                        <option value="Pontualidade">Pontualidade</option>
+                        <option value="Organização">Organização</option>
+                        <option value="Criatividade">Criatividade</option>
+                        <option value="Resolução de Problemas">Resolução de Problemas</option>
+                        <option value="Relacionamento Interpessoal">Relacionamento Interpessoal</option>
+                        <option value="Comprometimento">Comprometimento</option>
+                        <option value="Desenvolvimento Profissional">Desenvolvimento Profissional</option>
+                        <option value="Liderança">Liderança</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Mensagem</label>
+                    <textarea class="form-textarea" id="feedback-message" placeholder="Descreva seu feedback de forma construtiva..." maxlength="1280"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-amber" data-action="submitFeedback" style="width: 100%;">
+                        <i data-lucide="send"></i>
+                        Enviar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recognition Modal -->
+    <div id="recognition-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                        Reconhecer Colega
+                    </h3>
+                    <button type="button" data-action="closeRecognitionModal" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Colaborador</label>
+                    <div class="searchable-select">
+                        <input type="text" class="form-input" id="recognition-to-user-search" placeholder="Digite para buscar colaborador..." oninput="filterUsers('recognition-to-user-search', 'recognition-to-user-list')">
+                        <div class="select-dropdown" id="recognition-to-user-list">
+                            <div class="select-option" data-value="" data-action="selectUser" data-param="recognition-to-user">
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="recognition-to-user" value="">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Badge de Reconhecimento</label>
+                    <div class="badge-grid">
+                        <div class="badge-option badge-purple" data-badge="Inovador">Inovador</div>
+                        <div class="badge-option badge-blue" data-badge="Colaborativo">Colaborativo</div>
+                        <div class="badge-option badge-green" data-badge="Dedicado">Dedicado</div>
+                        <div class="badge-option badge-pink" data-badge="Criativo">Criativo</div>
+                        <div class="badge-option badge-orange" data-badge="outro">Outro</div>
+                    </div>
+                    <div id="custom-badge-container" class="form-group" style="display: none; margin-top: 12px;">
+                        <label class="form-label">Badge Personalizado</label>
+                        <input type="text" class="form-input" id="custom-badge-input" placeholder="Digite o badge personalizado..." maxlength="30">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Motivo do Reconhecimento</label>
+                    <textarea class="form-textarea" id="recognition-message" placeholder="Descreva o que motivou este reconhecimento..." maxlength="1280"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-amber" data-action="submitRecognition" style="width: 100%;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                        Reconhecer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Objetivo Modal -->
+    <div id="objetivo-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;" id="objetivo-modal-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg>
+                        Novo Objetivo
+                    </h3>
+                    <button type="button" data-action="closeObjetivoModal" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Título</label>
+                    <input type="text" class="form-input" id="objetivo-titulo" placeholder="Digite o título do objetivo">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descrição</label>
+                    <textarea class="form-textarea" id="objetivo-descricao" placeholder="Descreva o objetivo..."></textarea>
+                </div>
+                <div class="form-group" id="responsavel-field">
+                    <label class="form-label">Responsáveis</label>
+                    <div class="multi-select-container">
+                        <div class="searchable-select">
+                            <input type="text" class="form-input" id="objetivo-responsavel-search" placeholder="Digite para buscar responsáveis..." oninput="filterObjetivoResponsaveis('objetivo-responsavel-search', 'objetivo-responsavel-list')">
+                            <div class="select-dropdown" id="objetivo-responsavel-list">
+                            </div>
+                        </div>
+                        
+                        <!-- Container para responsáveis selecionados -->
+                        <div id="selected-responsaveis-container" class="selected-responsaveis" style="margin-top: 8px; min-height: 40px;"></div>
+                    
+                        <!-- Campos hidden para armazenar os IDs selecionados -->
+                        <div id="responsaveis-selected" style="display: none;"></div>
+                    </div>
+                    <input type="hidden" id="objetivo-responsavel" value="">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Data Início</label>
+                        <input type="date" class="form-input" id="objetivo-data-inicio">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data Fim</label>
+                        <input type="date" class="form-input" id="objetivo-data-fim">
+                    </div>
+                </div>
+                
+                <!-- Campos para Check-in (ocultos por padrão) -->
+                <div id="checkin-fields" class="hidden">
+                    <div class="form-group">
+                        <label class="form-label">Progresso Atual (%)</label>
+                        <input type="number" class="form-input" id="checkin-progresso" min="0" max="100" placeholder="Digite o progresso atual">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Observações</label>
+                        <textarea class="form-textarea" id="checkin-observacoes" placeholder="Adicione observações sobre o progresso..."></textarea>
+                    </div>
+                </div>
+                
+                <!-- Campos para Detalhes (ocultos por padrão) -->
+                <div id="detalhes-fields" class="hidden">
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <input type="text" class="form-input" id="objetivo-status" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Progresso Atual</label>
+                        <input type="text" class="form-input" id="objetivo-progresso-atual" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Criado por</label>
+                        <input type="text" class="form-input" id="objetivo-criado-por" readonly>
+                    </div>
+                </div>
+                <div class="modal-actions" id="objetivo-modal-actions">
+                    <button type="button" class="btn btn-amber" id="objetivo-submit-btn" data-action="submitObjetivo" style="width: 100%;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg>
+                        Criar Objetivo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pesquisa Modal -->
+    <div id="pesquisa-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <h3 id="pesquisa-title">
+                    <i data-lucide="poll"></i>
+                    Nova Pesquisa Rápida
+                </h3>
+                <div class="form-group">
+                    <label class="form-label">Título da Pesquisa</label>
+                    <input type="text" class="form-input" id="pesquisa-titulo" placeholder="Digite o título da pesquisa">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descrição</label>
+                    <textarea class="form-textarea" id="pesquisa-descricao" placeholder="Descreva o objetivo da pesquisa..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Pergunta</label>
+                    <textarea class="form-textarea" id="pesquisa-pergunta" placeholder="Digite a pergunta da pesquisa..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Pergunta</label>
+                        <select class="form-select" id="pesquisa-tipo" onchange="toggleOpcoesField()">
+                            <option value="multipla_escolha">Múltipla Escolha</option>
+                            <option value="escala">Escala (1-5)</option>
+                            <option value="texto_livre">Texto Livre</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Departamentos Alvo</label>
+                        <input type="text" class="form-input" id="pesquisa-departamentos" placeholder="Ex: TI, RH, Vendas">
+                    </div>
+                </div>
+                <div class="form-group" id="opcoes-container" style="display: none;">
+                    <label class="form-label">Opções (uma por linha)</label>
+                    <textarea class="form-textarea" id="pesquisa-opcoes" placeholder="Digite cada opção em uma linha separada..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Data de Início</label>
+                        <input type="datetime-local" class="form-input" id="pesquisa-data-inicio">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data de Encerramento</label>
+                        <input type="datetime-local" class="form-input" id="pesquisa-data-encerramento">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Pesquisa Anônima</label>
+                        <select class="form-select" id="pesquisa-anonima">
+                            <option value="false">Não</option>
+                            <option value="true">Sim</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" data-action="closePesquisaModal">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-amber" data-action="submitPesquisa">
+                        <i data-lucide="save"></i>
+                        Criar Pesquisa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Responder Pesquisa Modal -->
+    <div id="responder-pesquisa-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <h3 id="responder-pesquisa-title">
+                    <i data-lucide="edit"></i>
+                    Responder Pesquisa
+                </h3>
+                <div id="responder-pesquisa-content">
+                    <div class="form-group">
+                        <label class="form-label">Pergunta</label>
+                        <p id="responder-pergunta" style="font-weight: 500; color: #374151; margin: 8px 0;"></p>
+                    </div>
+                    <div id="responder-opcoes-container" style="display: none;">
+                        <label class="form-label">Selecione uma opção:</label>
+                        <div id="responder-opcoes"></div>
+                    </div>
+                    <div id="responder-escala-container" style="display: none;">
+                        <label class="form-label">Selecione uma nota (1-5):</label>
+                        <div class="escala-options">
+                            <div class="escala-option" data-score="1">
+                                <span>1</span>
+                                <small>Muito Ruim</small>
+                            </div>
+                            <div class="escala-option" data-score="2">
+                                <span>2</span>
+                                <small>Ruim</small>
+                            </div>
+                            <div class="escala-option" data-score="3">
+                                <span>3</span>
+                                <small>Regular</small>
+                            </div>
+                            <div class="escala-option" data-score="4">
+                                <span>4</span>
+                                <small>Bom</small>
+                            </div>
+                            <div class="escala-option" data-score="5">
+                                <span>5</span>
+                                <small>Excelente</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="responder-texto-container" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Sua resposta:</label>
+                            <textarea class="form-textarea" id="responder-resposta-texto" placeholder="Digite sua resposta..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" data-action="closeResponderPesquisaModal">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-amber" data-action="submitRespostaPesquisa">
+                        <i data-lucide="send"></i>
+                        Enviar Resposta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Edição de Questionários -->
+    <div id="editar-questionarios-modal" class="modal-overlay hidden">
+        <div class="modal modal-large">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h3 style="margin: 0;">
+                        <i data-lucide="edit"></i>
+                        Editar Templates de Avaliações
+                    </h3>
+                    <button type="button" data-action="fecharModalEditarQuestionarios" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="x" style="font-size: 22px;"></i>
+                    </button>
+                </div>
+                
+                <!-- Seletor de Template -->
+                <div class="form-group">
+                    <label class="form-label">Selecionar Template para Editar:</label>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn-template-selector active" data-template="45" data-action="selecionarTemplateEdicao" data-param="45">
+                            <i data-lucide="calendar-days"></i>
+                            Template 45 Dias
+                        </button>
+                        <button class="btn-template-selector" data-template="90" data-action="selecionarTemplateEdicao" data-param="90">
+                            <i data-lucide="calendar"></i>
+                            Template 90 Dias
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Lista de Perguntas -->
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <label class="form-label" style="margin: 0;">Perguntas do Questionário:</label>
+                        <button class="btn btn-secondary btn-sm" data-action="adicionarNovaPergunta">
+                            <i data-lucide="plus"></i>
+                            Nova Pergunta
+                        </button>
+                    </div>
+                    
+                    <div id="lista-perguntas-edicao" class="lista-perguntas-edicao">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Carregando perguntas...
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" data-action="fecharModalEditarQuestionarios">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-amber" data-action="salvarQuestionario">
+                        <i data-lucide="save"></i>
+                        Salvar Alterações
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Responder Avaliação -->
+    <div id="responder-avaliacao-modal" class="modal-overlay hidden">
+        <div class="modal modal-large">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h3 style="margin: 0;" id="titulo-avaliacao">
+                        <i data-lucide="clipboard-check"></i>
+                        Responder Avaliação
+                    </h3>
+                    <button type="button" data-action="fecharModalResponderAvaliacao" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="x" style="font-size: 22px;"></i>
+                    </button>
+                </div>
+                
+                <!-- Informações da Avaliação -->
+                <div id="info-avaliacao" class="card" style="background: #f9fafb; margin-bottom: 24px;">
+                    <!-- Será preenchido dinamicamente -->
+                </div>
+                
+                <!-- Abas: Responder / Visualizar Respostas -->
+                <div class="avaliacoes-tabs" style="margin-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
+                    <div style="display: flex; gap: 24px;">
+                        <button class="avaliacao-tab active" data-avaliacao-tab="responder" data-action="trocarAbaAvaliacao" data-param="responder" id="tab-responder">
+                            <i data-lucide="edit"></i>
+                            Responder
+                        </button>
+                        <button class="avaliacao-tab" data-avaliacao-tab="visualizar" data-action="trocarAbaAvaliacao" data-param="visualizar" id="tab-visualizar" style="display: none;">
+                            <i data-lucide="eye"></i>
+                            Visualizar Respostas
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Conteúdo: Responder -->
+                <div id="aba-responder-avaliacao" class="aba-avaliacao-content">
+                    <div id="formulario-avaliacao">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Carregando questionário...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Conteúdo: Visualizar Respostas -->
+                <div id="aba-visualizar-respostas" class="aba-avaliacao-content hidden">
+                    <div id="respostas-avaliacao">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Carregando respostas...
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions" id="acoes-avaliacao">
+                    <button type="button" class="btn btn-secondary" data-action="fecharModalResponderAvaliacao">
+                        Fechar
+                    </button>
+                    <button type="button" class="btn btn-amber" id="btn-enviar-avaliacao" data-action="enviarRespostasAvaliacao">
+                        <i data-lucide="send"></i>
+                        Enviar Respostas
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Reabrir Avaliação -->
+    <div id="reabrir-avaliacao-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;">
+                        <i data-lucide="redo"></i>
+                        Reabrir Avaliação Expirada
+                    </h3>
+                    <button type="button" data-action="fecharModalReabrirAvaliacao" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="x" style="font-size: 22px;"></i>
+                    </button>
+                </div>
+                
+                <p style="color: #6b7280; margin-bottom: 20px;">
+                    Defina uma nova data limite para que os participantes possam responder esta avaliação.
+                </p>
+                
+                <div class="form-group">
+                    <label class="form-label">Nova Data Limite de Resposta</label>
+                    <input type="date" class="form-input" id="nova-data-limite-avaliacao" required>
+                </div>
+                
+                <input type="hidden" id="avaliacao-id-reabrir">
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" data-action="fecharModalReabrirAvaliacao">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-amber" data-action="reabrirAvaliacao">
+                        <i data-lucide="redo"></i>
+                        Reabrir Avaliação
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Edição de Pergunta Individual -->
+    <div id="editar-pergunta-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;" id="titulo-modal-pergunta">
+                        <i data-lucide="help-circle"></i>
+                        Editar Pergunta
+                    </h3>
+                    <button type="button" data-action="fecharModalEditarPergunta" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="x" style="font-size: 22px;"></i>
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Tipo de Pergunta</label>
+                    <select class="form-select" id="pergunta-tipo" onchange="atualizarCamposPergunta()">
+                        <option value="texto">Texto Livre</option>
+                        <option value="multipla_escolha">Múltipla Escolha</option>
+</replace>
+
+    <!-- Scripts principais -->
+    <!-- Críticos -->
+    <script src="../js/modules/shared/icons.js"></script>
+    <script src="../js/modules/shared/state.js"></script>
+    <script src="../js/modules/shared/api.js"></script>
+    <script src="../js/modules/core/auth.js"></script>
+    <script src="../js/modules/shared/notifications-manager.js"></script>
+    <script src="../js/modules/shared/email-popup.js"></script>
+    <script src="../js/modules/shared/event-handlers.js"></script>
+    <script src="../js/modules/shared/inline-handlers.js"></script>
+    <script src="../js/modules/tabs/dashboard.js"></script>
+    <script src="../js/modules/core/app.js"></script>
+    <script src="../js/modules/shared/lucide-init.js"></script>
+    
+    <!-- Diferidos -->
+    <script src="../js/modules/shared/modal.js" defer></script>
+    <script src="../js/modules/shared/users.js" defer></script>
+    <script src="../js/modules/shared/notifications.js" defer></script>
+    <script src="../js/modules/tabs/feedbacks.js" defer></script>
+    <script src="../js/modules/tabs/recognitions.js" defer></script>
+    <script src="../js/modules/tabs/team.js" defer></script>
+    <script src="../js/modules/tabs/analytics.js" defer></script>
+    <script src="../js/modules/tabs/humor.js" defer></script>
+    <script src="../js/modules/tabs/objetivos.js" defer></script>
+    <script src="../js/modules/tabs/pesquisas.js" defer></script>
+    <script src="../js/modules/tabs/avaliacoes.js" defer></script>
+    <script src="../js/modules/tabs/historico.js" defer></script>
+    <script src="../js/modules/tabs/configuracoes.js" defer></script>
+    <script src="../js/modules/shared/feedback-chat.js" defer></script>
+    <script src="../js/modules/utils/cache-manager.js" defer></script>
+    <script src="../js/modules/utils/historico-config.js" defer></script>
+    <script src="../js/modules/historico/permissions.js" defer></script>
+    <script src="../js/modules/historico/filters.js" defer></script>
+    <script src="../js/modules/historico/renderer.js" defer></script>
+    <script src="../js/modules/historico/export.js" defer></script>
+    <script src="../js/historico-manager.js" defer></script>
+    <script src="../js/modules/avaliacoes/formatter.js" defer></script>
+    <script src="../js/modules/avaliacoes/renderer.js" defer></script>
+    <script src="../js/modules/avaliacoes/handlers.js" defer></script>
+    <script src="../js/modules/avaliacoes/loader.js" defer></script>
+    <script src="../js/modules/shared/xlsx-loader.js" defer></script>
+</body>
+</html>
