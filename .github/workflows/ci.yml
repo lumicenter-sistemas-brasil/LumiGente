@@ -42,7 +42,7 @@ jobs:
 
       - name: Upload coverage report
         if: success() && hashFiles('LumiGente-main/backend/coverage/lcov.info') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-coverage
           path: |
@@ -68,7 +68,7 @@ jobs:
           tar --exclude='node_modules' -czf frontend-dist.tar.gz -C LumiGente-main/frontend .
 
       - name: Upload frontend bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-dist
           path: frontend-dist.tar.gz
@@ -112,7 +112,7 @@ jobs:
           tar --exclude='node_modules' -czf backend-dist.tar.gz -C LumiGente-main/backend .
 
       - name: Upload backend bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-dist
           path: backend-dist.tar.gz
