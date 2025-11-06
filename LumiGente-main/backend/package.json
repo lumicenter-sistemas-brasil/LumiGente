@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "lint": "npx --yes prettier@3.3.3 --check \"**/*.{js,json,md}\"",
     "test": "jest",
     "test:csrf": "jest tests/csrf.test.js",
     "test:watch": "jest --watch",

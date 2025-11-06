@@ -43,6 +43,19 @@ npm run dev             # ou usar o Live Server/serve para HTTP local
 - `npm run test` – testes automatizados (quando existentes).
 - `npm run build` – build de produção (frontend) quando aplicável.
 
+## CI/CD
+
+O repositório possui pipelines configurados em `.github/workflows/ci.yml` que executam automaticamente:
+
+- Lint e testes do backend (Jest) com geração de cobertura.
+- Verificação de formatação/qualidade do frontend via Prettier.
+- Auditoria de vulnerabilidades com `npm audit` (nível alto).
+- Empacotamento de artefatos backend/frontend (disponibilizados como artefatos do workflow).
+
+Dependabot executa semanalmente (arquivo `.github/dependabot.yml`) para manter dependências npm e GitHub Actions atualizadas.
+
+> Para novos ambientes de deploy, crie workflows adicionais reutilizando os artefatos gerados pela pipeline de CI.
+
 ## Convenções
 
 - Commits seguem o padrão **Conventional Commits**.

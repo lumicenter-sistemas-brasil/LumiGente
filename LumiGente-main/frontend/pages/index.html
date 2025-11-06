@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0d556d">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/x-icon" href="../assets/favicon/iconLumiGente.ico">
     <title>Painel de Feedback - LumiGente</title>
@@ -1002,7 +1003,7 @@
                         <div id="todas-avaliacoes-conteudo">
                             <div class="card">
                                 <div style="text-align: center; padding: 40px 20px;">
-                                    <i data-lucide="tasks" style="font-size: 64px; color: #e5e7eb; margin-bottom: 16px;"></i>
+                                    <i data-lucide="list-checks" style="font-size: 64px; color: #e5e7eb; margin-bottom: 16px;"></i>
                                     <h4 style="color: #6b7280; margin-bottom: 8px;">Visão Administrativa</h4>
                                     <p style="color: #9ca3af;">Lista completa de todas as avaliações da empresa.</p>
                                 </div>
@@ -1092,7 +1093,7 @@
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                                         Informe sua senha atual e escolha uma nova senha. Um token será enviado para seu email para confirmar a alteração.
                                     </p>
-                                    <div class="password-inputs">
+                                    <form class="password-inputs" id="password-reset-form" onsubmit="return false;">
                                         <div class="form-group">
                                             <label class="form-label">Senha Atual</label>
                                             <input type="password" class="form-input" id="current-password-input" placeholder="Digite sua senha atual">
@@ -1126,7 +1127,7 @@
                                                 Cancelar
                                             </button>
                                         </div>
-                                    </div>
+                                    </form>
                                 </div>
 
                                 <!-- Passo 2: Confirmar com token -->
@@ -1233,7 +1234,7 @@
                         <div class="card-header">
                             <div class="header-content">
                                 <h3>
-                                    <i data-lucide="comments" style="color: #3b82f6;"></i>
+                                <i data-lucide="message-square" style="color: #3b82f6;"></i>
                                     Conteúdo de Feedbacks
                                 </h3>
                                 <div class="header-actions">
@@ -1433,7 +1434,7 @@
                         <div class="card-header">
                             <div class="header-content">
                                 <h3>
-                                    <i data-lucide="poll" style="color: #0ea5e9;"></i>
+                                    <i data-lucide="bar-chart-3" style="color: #0ea5e9;"></i>
                                     Pesquisas Rápidas
                                 </h3>
                                 <div class="header-actions">
@@ -1675,7 +1676,7 @@
         <div class="modal">
             <div class="modal-content">
                 <h3 id="pesquisa-title">
-                    <i data-lucide="poll"></i>
+                    <i data-lucide="bar-chart-3"></i>
                     Nova Pesquisa Rápida
                 </h3>
                 <div class="form-group">
