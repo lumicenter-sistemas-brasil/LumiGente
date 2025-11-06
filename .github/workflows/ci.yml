@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+jobs:
+  backend_tests:
+    name: Backend · Lint & Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: LumiGente-main/backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: LumiGente-main/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint (if configured)
+        run: npm run lint --if-present
+
+      - name: Execute unit tests with coverage
+        env:
+          CI: "true"
+        run: npm test -- --runInBand --passWithNoTests --coverage
+
+      - name: Upload coverage report
+        if: success() && hashFiles('LumiGente-main/backend/coverage/lcov.info') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: |
+            LumiGente-main/backend/coverage/
+
+  frontend_quality:
+    name: Frontend · Quality & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js toolchain
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Prettier check (HTML, CSS, JS)
+        run: npx --yes prettier@3.3.3 --check "LumiGente-main/frontend/**/*.{js,css,html}"
+
+      - name: Package static assets
+        run: |
+          tar --exclude='node_modules' -czf frontend-dist.tar.gz -C LumiGente-main/frontend .
+
+      - name: Upload frontend bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend-dist.tar.gz
+
+  security_audit:
+    name: Security · npm audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: LumiGente-main/backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: LumiGente-main/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run npm audit (high severity or above)
+        run: npm audit --omit=dev --audit-level=high
+
+  package_artifacts:
+    name: Build Artifacts
+    runs-on: ubuntu-latest
+    needs:
+      - backend_tests
+      - frontend_quality
+      - security_audit
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create backend bundle (without node_modules)
+        run: |
+          tar --exclude='node_modules' -czf backend-dist.tar.gz -C LumiGente-main/backend .
+
+      - name: Upload backend bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist
+          path: backend-dist.tar.gz
+
