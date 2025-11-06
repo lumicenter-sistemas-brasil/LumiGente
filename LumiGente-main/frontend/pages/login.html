@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="../assets/favicon/iconLumiGente.ico">
+    <title>LumiGente - Login</title>
+
+    <link rel="stylesheet" href="../styles/login.css">
+</head>
+<body>
+    <div class="wave-background">
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <div class="wave"></div>
+    </div>
+    <div class="login-container">
+        <div class="logo">
+            <img src="../assets/images/logo.png" alt="LumiGente Logo">
+            <p>Portal do Colaborador Oficial da Lumicenter Lighting</p>
+        </div>
+
+        <!-- Formulário de Login -->
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="loginCpf">CPF</label>
+                <input type="text" id="loginCpf" name="cpf" placeholder="000.000.000-00" maxlength="14" required>
+            </div>
+
+            <div class="form-group">
+                <label for="loginPassword">Senha</label>
+                <div class="input-wrapper">
+                    <input type="password" id="loginPassword" name="password" placeholder="Digite sua senha" required>
+                    <button type="button" class="password-toggle" data-target="loginPassword">
+                        <svg id="loginPasswordIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Esqueci minha senha - Alinhado horizontalmente -->
+            <div style="display: flex; 
+                        align-items: center; 
+                        justify-content: start; 
+                        gap: 8px; 
+                        margin-bottom: 20px; 
+                        margin-top: -8px;
+                        flex-wrap: nowrap;">
+                <p style="color: #6b7280; 
+                          font-size: 13px; 
+                          margin: 0; 
+                          white-space: nowrap;">Esqueceu sua senha?</p>
+                <button type="button" id="toggleForgotPassword" 
+                        style="background: transparent; 
+                               border: none; 
+                               color: #0d556d; 
+                               font-size: 13px; 
+                               font-weight: 600; 
+                               cursor: pointer; 
+                               padding: 6px 12px; 
+                               display: flex; 
+                               align-items: center; 
+                               gap: 4px; 
+                               transition: all 0.2s;
+                               border-radius: 6px;
+                               white-space: nowrap;
+                               flex-shrink: 0;"
+                        onmouseover="this.style.background='#e6f4f7'; this.style.color='#0a3f4d';"
+                        onmouseout="this.style.background='transparent'; this.style.color='#0d556d';">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/>
+                    </svg>
+                    Recuperar senha
+                </button>
+            </div>
+
+            <button type="submit" class="btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                Entrar
+            </button>
+        </form>
+
+        <!-- Formulário de Esqueci Minha Senha -->
+        <div id="forgotPasswordForm" style="display: none;">
+            <!-- Etapa 1: Informar CPF -->
+            <div id="forgot-step-1">
+                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px; text-align: center;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/>
+                    </svg>
+                    Informe seu CPF para receber um token de recuperação em seu email cadastrado
+                </p>
+                <div class="form-group">
+                    <label for="forgotCpf">CPF</label>
+                    <input type="text" id="forgotCpf" placeholder="000.000.000-00" maxlength="14" required>
+                </div>
+                <button type="button" class="btn-primary" id="sendForgotTokenBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    Enviar Token
+                </button>
+                
+                <!-- Informação de suporte -->
+                <div style="background: #eff6ff; border: 1px solid #dbeafe; border-radius: 8px; padding: 16px; margin-top: 20px;">
+                    <p style="color: #1e40af; font-size: 13px; font-weight: 600; margin: 0 0 8px 0;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        Sem acesso aos emails cadastrados?
+                    </p>
+                    <p style="color: #1e3a8a; font-size: 12px; margin: 0 0 8px 0;">
+                        Entre em contato com a TI:
+                    </p>
+                    <p style="margin: 0;">
+                        <a href="mailto:ti.sistemas@lumicenter.com" style="color: #2563eb; font-weight: 600; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                            ti.sistemas@lumicenter.com
+                        </a>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Etapa 2: Informar Token e Nova Senha -->
+            <div id="forgot-step-2" style="display: none;">
+                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px; text-align: center;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/>
+                    </svg>
+                    Token enviado! Verifique seu email e insira o código abaixo
+                </p>
+                <div class="form-group">
+                    <label for="forgotToken">Token (6 dígitos)</label>
+                    <input type="text" id="forgotToken" placeholder="000000" maxlength="6" required style="text-align: center; font-size: 20px; letter-spacing: 4px; font-family: 'Courier New', monospace;">
+                </div>
+                <div class="form-group">
+                    <label for="forgotNewPassword">Nova Senha</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="forgotNewPassword" placeholder="Mínimo 6 caracteres" required>
+                        <button type="button" class="password-toggle" data-target="forgotNewPassword">
+                            <svg id="forgotNewPasswordIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="forgotConfirmPassword">Confirmar Nova Senha</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="forgotConfirmPassword" placeholder="Digite a senha novamente" required>
+                        <button type="button" class="password-toggle" data-target="forgotConfirmPassword">
+                            <svg id="forgotConfirmPasswordIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="button" class="btn-primary" id="verifyForgotTokenBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Redefinir Senha
+                </button>
+                <button type="button" class="btn-secondary" id="cancelForgotPasswordBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Cancelar
+                </button>
+            </div>
+        </div>
+
+        <!-- Formulário de Cadastro -->
+        <form id="registerForm" style="display: none;">
+            <div class="form-group">
+                <label for="registerCpf">CPF</label>
+                <input type="text" id="registerCpf" name="cpf" placeholder="000.000.000-00" maxlength="14" required>
+            </div>
+
+            <div class="form-group">
+                <label for="registerPassword">Nova Senha</label>
+                <div class="input-wrapper">
+                    <input type="password" id="registerPassword" name="password" placeholder="Mínimo 6 caracteres" required>
+                    <button type="button" class="password-toggle" data-target="registerPassword">
+                        <svg id="registerPasswordIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirmar Senha</label>
+                <div class="input-wrapper">
+                    <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Digite a senha novamente" required>
+                    <button type="button" class="password-toggle" data-target="confirmPassword">
+                        <svg id="confirmPasswordIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                Criar Conta
+            </button>
+        </form>
+
+        <!-- Informações do Usuário -->
+        <div class="user-info" id="userInfo">
+            <h4><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;"><circle cx="12" cy="12" r="10"/><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M6.168 18.849A4 4 0 0 1 10 16h4a4 4 0 0 1 3.834 2.855"/></svg> Informações do Funcionário</h4>
+            <p><strong>Nome:</strong> <span id="userName"></span></p>
+            <p><strong>Departamento:</strong> <span id="userDepartment"></span></p>
+            <p><strong>Matrícula:</strong> <span id="userMatricula"></span></p>
+            <p><strong>Status:</strong> <span id="userStatus"></span></p>
+        </div>
+
+        <!-- Toggle entre Login e Cadastro -->
+        <div class="form-toggle">
+            <p id="toggleText">Primeiro acesso?</p>
+            <button type="button" id="toggleForm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                Criar conta
+            </button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p id="loadingText">Processando...</p>
+        </div>
+
+        <div class="message error-message" id="errorMessage"></div>
+        <div class="message success-message" id="successMessage"></div>
+        <div class="message info-message" id="infoMessage"></div>
+
+        <div class="footer">
+            <p>© 2025 Lumicenter Lighting. Todos os direitos reservados.</p>
+        </div>
+    </div>
+
+    <!-- Scripts principais -->
+    <script src="../js/modules/auth/password-toggle.js"></script>
+    <script src="../js/modules/auth/login-handler.js"></script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+/* ===== RESPONSIVE - Media Queries ===== */
+
+@media (max-width: 768px) {
+    /* Layout */
+    .main-content {
+        margin-left: 0;
+    }
+
+    /* Header */
+    .header {
+        padding: 12px 9px;
+    }
+
+    .header h2 {
+        font-size: 20px;
+    }
+
+    .header p {
+        font-size: 13px;
+    }
+
+    .user-info {
+        padding: 6px 12px;
+    }
+
+    .user-info span {
+        font-size: 13px;
+    }
+
+    /* Dashboard */
+    .metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .metric-card {
+        padding: 16px;
+    }
+
+    .metric-info h3 {
+        font-size: 13px;
+    }
+
+    .metric-info .value {
+        font-size: 24px;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Cards */
+    .card {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .card h3 {
+        font-size: 16px;
+    }
+
+    /* Reconhecimentos */
+    .recognition-item {
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .recognition-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+    }
+
+    .recognition-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .recognition-badge {
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+
+    .recognition-message {
+        font-size: 13px;
+    }
+
+    /* Gamificação */
+    .gamification-stats {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .leaderboard-item {
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .leaderboard-position {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+    }
+
+    .leaderboard-user-name {
+        font-size: 14px;
+    }
+
+    .leaderboard-user-department {
+        font-size: 11px;
+    }
+
+    .leaderboard-score {
+        font-size: 14px;
+    }
+
+    .user-ranking-card {
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .user-ranking-position {
+        font-size: 16px;
+    }
+
+    .user-ranking-name {
+        font-size: 14px;
+    }
+
+    .user-ranking-points {
+        font-size: 13px;
+    }
+
+    /* Feedbacks */
+    .feedback-header {
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+    }
+
+    .search-filters {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .search-input {
+        width: 100%;
+    }
+
+    .action-btn {
+        min-width: 80px;
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+
+    .action-btn .counter {
+        font-size: 10px;
+        padding: 1px 4px;
+    }
+
+    .feedback-actions {
+        gap: 8px;
+    }
+
+    /* Forms */
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    /* Modals */
+    .modal {
+        margin: 8px;
+        max-height: 95vh;
+    }
+
+    .modal-large {
+        max-width: 95vw;
+    }
+}

@@ -1,0 +1,510 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #0a4555 0%, #0d556d 50%, #0a4555 100%);
+    background-attachment: fixed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    inset: -50%;
+    background: repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255, 255, 255, 0.03) 2px, rgba(255, 255, 255, 0.03) 4px);
+    opacity: 0.5;
+    z-index: 0;
+    pointer-events: none;
+}
+
+
+
+.login-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    padding: 48px;
+    width: 440px;
+    max-width: calc(100% - 40px);
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    z-index: 1;
+}
+
+.logo {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.logo img {
+    width: 150px;
+    height: auto;
+    margin: 0 auto 0px;
+    display: block;
+}
+
+.logo p {
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.form-group {
+    margin-bottom: 24px;
+    position: relative;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #374151;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.input-wrapper {
+    position: relative;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 16px 20px;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: #ffffff;
+    color: #1f2937;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #0d556d;
+    box-shadow: 0 0 0 4px rgba(13, 85, 109, 0.1);
+}
+
+.password-toggle {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+    transition: color 0.3s ease;
+}
+
+.password-toggle:hover {
+    color: #0d556d;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #0d556d 0%, #0a4555 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(13, 85, 109, 0.3);
+}
+
+.btn-secondary {
+    width: 100%;
+    padding: 16px;
+    background: #6b7280;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(107, 114, 128, 0.3);
+}
+
+.form-toggle {
+    margin-top: 32px;
+    text-align: center;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.form-toggle p {
+    color: #6b7280;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.form-toggle button {
+    background: none;
+    border: none;
+    color: #0d556d;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.form-toggle button:hover {
+    background: rgba(13, 85, 109, 0.1);
+}
+
+.message {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    font-weight: 500;
+    display: none;
+}
+
+.error-message {
+    color: #dc2626;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    text-align: center;
+}
+
+.success-message {
+    color: #059669;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    text-align: center;
+}
+
+.info-message {
+    color: #0d556d;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+}
+
+.loading {
+    display: none;
+    margin-top: 16px;
+    text-align: center;
+    color: #0d556d;
+}
+
+.spinner {
+    border: 3px solid #f3f4f6;
+    border-top: 3px solid #0d556d;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.user-info {
+    margin-top: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd;
+    border-radius: 16px;
+    display: none;
+}
+
+.user-info h4 {
+    color: #0d556d;
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.user-info p {
+    color: #374151;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.footer {
+    margin-top: 20px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 16px;
+    }
+
+    .login-container {
+        padding: 32px 24px;
+        width: 440px;
+        border-radius: 20px;
+    }
+
+    .logo {
+        margin-bottom: 32px;
+    }
+
+    .logo img {
+        width: 150px;
+    }
+
+    .logo p {
+        font-size: 13px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group input {
+        padding: 14px 16px;
+        font-size: 16px;
+    }
+
+    .btn-primary {
+        padding: 14px;
+        font-size: 15px;
+    }
+
+    .form-toggle {
+        margin-top: 24px;
+        padding-top: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 12px;
+    }
+
+    .login-container {
+        padding: 24px 20px;
+        width: 440px;
+        border-radius: 16px;
+    }
+
+    .logo {
+        margin-bottom: 24px;
+    }
+
+    .logo img {
+        width: 120px;
+    }
+
+    .logo p {
+        font-size: 12px;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-group label {
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    .form-group input {
+        padding: 12px 14px;
+        font-size: 15px;
+    }
+
+    .password-toggle {
+        right: 12px;
+        font-size: 16px;
+    }
+
+    .btn-primary {
+        padding: 12px;
+        font-size: 14px;
+    }
+
+    .form-toggle {
+        margin-top: 20px;
+        padding-top: 16px;
+    }
+
+    .form-toggle p {
+        font-size: 13px;
+    }
+
+    .form-toggle button {
+        font-size: 13px;
+        padding: 6px 12px;
+    }
+
+    .message {
+        padding: 12px;
+        font-size: 13px;
+    }
+
+    .user-info {
+        padding: 16px;
+    }
+
+    .user-info h4 {
+        font-size: 14px;
+    }
+
+    .user-info p {
+        font-size: 13px;
+    }
+}
+
+/* ===== TOAST NOTIFICATIONS ===== */
+.login-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 3000;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    padding: 16px 20px;
+    min-width: 320px;
+    max-width: 400px;
+    transform: translateX(450px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.login-toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.login-toast.success {
+    border-left: 4px solid #10b981;
+}
+
+.login-toast.error {
+    border-left: 4px solid #ef4444;
+}
+
+.login-toast.info {
+    border-left: 4px solid #3b82f6;
+}
+
+.login-toast-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.login-toast-icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.login-toast-icon.success {
+    color: #10b981;
+}
+
+.login-toast-icon.error {
+    color: #ef4444;
+}
+
+.login-toast-icon.info {
+    color: #3b82f6;
+}
+
+.login-toast-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: #1f2937;
+    flex: 1;
+}
+
+.login-toast-close {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+
+.login-toast-close:hover {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.login-toast-message {
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+/* Responsivo para toasts */
+@media (max-width: 480px) {
+    .login-toast {
+        right: 12px;
+        top: 12px;
+        min-width: calc(100vw - 24px);
+        max-width: calc(100vw - 24px);
+        padding: 14px 16px;
+    }
+    
+    .login-toast-title {
+        font-size: 14px;
+    }
+    
+    .login-toast-message {
+        font-size: 13px;
+    }
+}
+

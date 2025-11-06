@@ -1,0 +1,321 @@
+/* ===== RECOGNITIONS - Aba de Reconhecimentos ===== */
+
+/* Filtros de reconhecimentos */
+.recognition-filters {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+/* Lista de reconhecimentos */
+.recognitions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+/* Item de reconhecimento */
+.recognition-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+/* Cores por badge */
+.recognition-item[data-badge="Inovador"] {
+    border-color: #9333ea;
+}
+
+.recognition-item[data-badge="Colaborativo"] {
+    border-color: #3b82f6;
+}
+
+.recognition-item[data-badge="Dedicado"] {
+    border-color: #10b981;
+}
+
+.recognition-item[data-badge="Criativo"] {
+    border-color: #ec4899;
+}
+
+.recognition-item[data-badge="outro"] {
+    border-color: #f59e0b;
+}
+
+/* Ícone de reconhecimento */
+.recognition-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: white;
+    flex-shrink: 0;
+}
+
+.recognition-icon.badge-Inovador {
+    background: #9333ea;
+}
+
+.recognition-icon.badge-Colaborativo {
+    background: #3b82f6;
+}
+
+.recognition-icon.badge-Dedicado {
+    background: #10b981;
+}
+
+.recognition-icon.badge-Criativo {
+    background: #ec4899;
+}
+
+.recognition-icon.badge-outro {
+    background: #f59e0b;
+}
+
+/* Conteúdo do reconhecimento */
+.recognition-content {
+    flex: 1;
+    width: 100%;
+    max-width: calc(100% - 3rem);
+    min-width: 0;
+    overflow: hidden;
+}
+
+.recognition-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+}
+
+.recognition-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.recognition-badge.badge-Inovador {
+    background: #f3e8ff;
+    color: #7c3aed;
+}
+
+.recognition-badge.badge-Colaborativo {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.recognition-badge.badge-Dedicado {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.recognition-badge.badge-Criativo {
+    background: #fce7f3;
+    color: #9d174d;
+}
+
+.recognition-badge.badge-outro {
+    background: #fed7aa;
+    color: #c2410c;
+}
+
+.recognition-message {
+    color: #374151;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    width: 100%;
+    max-width: 100%;
+}
+
+.recognition-message.expanded {
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+}
+
+.recognition-toggle {
+    color: #0d556d;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+    display: inline-block;
+}
+
+.recognition-toggle:hover {
+    text-decoration: underline;
+}
+
+.recognition-points {
+    color: #d97706;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Badge personalizado input */
+#custom-badge-container {
+    margin-top: 12px;
+}
+
+#custom-badge-input {
+    width: 100%;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    #recognition-content .card-header,
+    #recognition-content > div > div:first-child {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+    }
+    
+    #recognition-content h3 {
+        font-size: 16px;
+        white-space: nowrap;
+        margin: 0 !important;
+    }
+    
+    #recognition-content .btn-amber {
+        white-space: nowrap;
+        padding: 0.625rem 0.875rem;
+        font-size: 0.8125rem;
+    }
+    
+    .recognitions-list {
+        gap: 0.75rem;
+    }
+    
+    .recognition-item {
+        padding: 0.875rem;
+        gap: 0.75rem;
+        border-radius: 0.625rem;
+    }
+    
+    .recognition-icon {
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+    }
+    
+    .recognition-content {
+        max-width: calc(100% - 36px);
+    }
+    
+    .recognition-header {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-start;
+    }
+    
+    .recognition-header strong {
+        font-size: 0.875rem;
+        word-break: break-word;
+        max-width: 100%;
+    }
+    
+    .recognition-badge {
+        font-size: 0.6875rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .recognition-message {
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    
+    .recognition-points {
+        font-size: 0.8125rem;
+    }
+}
+
+@media (max-width: 480px) {
+    #recognition-content .card-header,
+    #recognition-content > div > div:first-child {
+        flex-direction: column !important;
+        flex-wrap: wrap !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+    }
+    
+    #recognition-content h3 {
+        font-size: 16px;
+        white-space: normal;
+    }
+    
+    #recognition-content .btn-amber {
+        width: 100%;
+        justify-content: center;
+        padding: 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .recognitions-list {
+        gap: 0.625rem;
+    }
+    
+    .recognition-item {
+        padding: 0.75rem;
+        gap: 0.625rem;
+    }
+    
+    .recognition-icon {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .recognition-icon svg {
+        width: 14px;
+        height: 14px;
+    }
+    
+    .recognition-content {
+        max-width: calc(100% - 30px);
+    }
+    
+    .recognition-header strong {
+        font-size: 0.8125rem;
+    }
+    
+    .recognition-badge {
+        font-size: 0.625rem;
+        padding: 0.1875rem 0.4375rem;
+    }
+    
+    .recognition-message {
+        font-size: 0.8125rem;
+    }
+    
+    .recognition-points {
+        font-size: 0.75rem;
+    }
+    
+    .recognition-toggle {
+        font-size: 0.6875rem;
+    }
+}

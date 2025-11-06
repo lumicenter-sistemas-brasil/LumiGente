@@ -1,0 +1,241 @@
+/* ===== TEAM - Aba de Gestão de Equipe ===== */
+
+/* Métricas da equipe */
+.team-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.metric-card {
+    text-align: center;
+    padding: 15px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.metric-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #1e40af;
+    margin-bottom: 5px;
+}
+
+.metric-label {
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Status da equipe */
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.status-card {
+    text-align: center;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.status-card.online {
+    background: #dcfce7;
+    border-color: #22c55e;
+}
+
+.status-card.offline {
+    background: #fef2f2;
+    border-color: #ef4444;
+}
+
+.status-card.active {
+    background: #dbeafe;
+    border-color: #3b82f6;
+}
+
+.status-card.inactive {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.status-value {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.status-card.online .status-value {
+    color: #16a34a;
+}
+
+.status-card.offline .status-value {
+    color: #dc2626;
+}
+
+.status-card.active .status-value {
+    color: #2563eb;
+}
+
+.status-card.inactive .status-value {
+    color: #6b7280;
+}
+
+.status-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.status-subtitle {
+    font-size: 9px;
+    color: #6b7280;
+    margin-top: 2px;
+    font-weight: 400;
+}
+
+/* Membros da equipe */
+.team-member-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.team-member-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.member-info h4 {
+    margin: 0 0 10px 0;
+    color: #1f2937;
+}
+
+.member-info p {
+    margin: 5px 0;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.member-metrics {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.metric {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.metric i {
+    font-size: 16px;
+}
+
+/* Sugestões de departamento */
+.department-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    margin-top: 4px;
+}
+
+.department-suggestions.hidden {
+    display: none;
+}
+
+.department-suggestion-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.department-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.department-suggestion-item:hover {
+    background: rgba(13, 85, 109, 0.05);
+    color: #0d556d;
+}
+
+.department-suggestion-item i {
+    color: #0d556d;
+    font-size: 14px;
+}
+
+.department-suggestion-item.selected {
+    background: linear-gradient(135deg, #0d556d, #0a4555);
+    color: white;
+}
+
+.department-suggestion-item.selected i {
+    color: white;
+}
+
+.suggestion-text {
+    flex: 1;
+    font-size: 14px;
+}
+
+.suggestion-count {
+    font-size: 12px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.department-suggestion-item.selected .suggestion-count {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* Botão de visualizar feedbacks */
+.view-feedbacks-btn {
+    background: #0d556d;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 4px 8px;
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.view-feedbacks-btn:hover {
+    background: linear-gradient(135deg, #0a4555, #333);
+}
+
+.view-feedbacks-btn i {
+    font-size: 12px;
+}

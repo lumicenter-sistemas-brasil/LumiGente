@@ -1,0 +1,474 @@
+/* ===== PESQUISAS - Aba de Pesquisas Rápidas ===== */
+
+/* Overview de pesquisas */
+.pesquisas-overview {
+    margin-bottom: 24px;
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.overview-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.3s ease;
+}
+
+.overview-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.overview-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+    background: linear-gradient(135deg, #0d556d, #0a4555);
+}
+
+.overview-content h4 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.overview-count {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* Card de pesquisa */
+.survey-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+}
+
+.survey-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.survey-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.survey-header h4 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.survey-status {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.survey-status.status-ativa {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.survey-status.status-encerrada {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.survey-status.status-agendada {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.survey-content p {
+    color: #6b7280;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.survey-meta {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.survey-meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.survey-meta i {
+    color: #9ca3af;
+}
+
+.survey-progress {
+    margin-bottom: 16px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.progress-info span {
+    font-size: 14px;
+}
+
+.responded {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.pending {
+    color: #f59e0b;
+    font-weight: 600;
+}
+
+.not-responded {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.survey-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.survey-actions .btn {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+}
+
+.empty-state i {
+    font-size: 48px;
+    color: #d1d5db;
+    margin-bottom: 16px;
+}
+
+.empty-state h4 {
+    margin: 0 0 8px 0;
+    color: #374151;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Ações de pesquisas */
+.pesquisas-actions {
+    display: flex;
+    gap: 12px;
+}
+
+/* Escala de resposta */
+.escala-options {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: nowrap;
+    justify-content: center;
+    overflow-x: auto;
+    padding: 5px 0;
+}
+
+.escala-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 60px;
+    flex: 0 0 auto;
+}
+
+.escala-option:hover {
+    border-color: #f59e0b;
+    background: #fef3c7;
+}
+
+.escala-option.selected {
+    border-color: #f59e0b;
+    background: #fef3c7;
+}
+
+.escala-option span {
+    font-size: 18px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.escala-option small {
+    font-size: 10px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* Opção de múltipla escolha */
+.opcao-option {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 8px;
+}
+
+.opcao-option:hover {
+    border-color: #f59e0b;
+    background: #fef3c7;
+}
+
+.opcao-option.selected {
+    border-color: #f59e0b;
+    background: #fef3c7;
+}
+
+.opcao-option input[type="radio"] {
+    margin-right: 8px;
+}
+
+/* ===== RESPONSIVE - Media Queries para Pesquisas ===== */
+
+@media (max-width: 768px) {
+    /* Overview de pesquisas */
+    .overview-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .overview-card {
+        padding: 16px;
+        gap: 12px;
+    }
+
+    .overview-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+
+    .overview-content h4 {
+        font-size: 13px;
+    }
+
+    .overview-count {
+        font-size: 20px;
+    }
+
+    /* Card de pesquisa */
+    .survey-card {
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+
+    .survey-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .survey-header h4 {
+        font-size: 16px;
+    }
+
+    .survey-status {
+        align-self: flex-end;
+        font-size: 11px;
+        padding: 3px 8px;
+    }
+
+    .survey-content p {
+        font-size: 14px;
+        margin-bottom: 12px;
+    }
+
+    .survey-meta {
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .survey-meta span {
+        font-size: 13px;
+    }
+
+    .survey-progress {
+        margin-bottom: 12px;
+    }
+
+    .progress-info span {
+        font-size: 13px;
+    }
+
+    .survey-actions {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .survey-actions .btn {
+        padding: 10px 16px;
+        font-size: 14px;
+        justify-content: center;
+    }
+
+    /* Empty state */
+    .empty-state {
+        padding: 32px 16px;
+    }
+
+    .empty-state i {
+        font-size: 40px;
+        margin-bottom: 12px;
+    }
+
+    .empty-state h4 {
+        font-size: 16px;
+    }
+
+    .empty-state p {
+        font-size: 13px;
+    }
+
+    /* Ações de pesquisas */
+    .pesquisas-actions {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    /* Escala de resposta */
+    .escala-options {
+        gap: 8px;
+        padding: 8px 0;
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .escala-options::-webkit-scrollbar {
+        display: none;
+    }
+
+    .escala-option {
+        min-width: 50px;
+        padding: 10px 8px;
+    }
+
+    .escala-option span {
+        font-size: 16px;
+    }
+
+    .escala-option small {
+        font-size: 9px;
+        margin-top: 2px;
+    }
+
+    /* Opção de múltipla escolha */
+    .opcao-option {
+        padding: 10px;
+        margin-bottom: 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Para telas muito pequenas */
+    .overview-card {
+        padding: 12px;
+        gap: 8px;
+    }
+
+    .overview-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+    }
+
+    .overview-content h4 {
+        font-size: 12px;
+    }
+
+    .overview-count {
+        font-size: 18px;
+    }
+
+    .survey-card {
+        padding: 12px;
+    }
+
+    .survey-header h4 {
+        font-size: 15px;
+    }
+
+    .survey-content p {
+        font-size: 13px;
+    }
+
+    .survey-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .escala-options {
+        gap: 6px;
+    }
+
+    .escala-option {
+        min-width: 45px;
+        padding: 8px 6px;
+    }
+
+    .escala-option span {
+        font-size: 14px;
+    }
+
+    .escala-option small {
+        font-size: 8px;
+    }
+}

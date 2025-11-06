@@ -1,0 +1,197 @@
+.email-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.email-popup-overlay ~ .config-toast {
+    z-index: 10001;
+}
+
+.email-popup-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.email-popup {
+    background: white;
+    border-radius: 12px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+    overflow: hidden;
+}
+
+.email-popup-overlay.show .email-popup {
+    transform: scale(1);
+}
+
+.email-popup-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 24px 16px 24px;
+}
+
+.email-popup-header svg {
+    flex-shrink: 0;
+}
+
+.email-popup-header h3 {
+    margin: 0;
+    font-size: 1.375rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.email-popup-body {
+    padding: 0 24px 24px 24px;
+}
+
+.email-popup-body p {
+    color: #6b7280;
+    margin: 0 0 16px 0;
+    line-height: 1.5;
+    font-size: 0.9375rem;
+}
+
+.email-popup-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #f9fafb;
+    color: #1f2937;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.email-popup-input:focus {
+    outline: none;
+    border-color: #0d556d;
+    background: white;
+}
+
+#email-popup-token-input {
+    text-align: center;
+    font-size: 1.5rem;
+    letter-spacing: 0.5rem;
+    font-weight: 600;
+}
+
+.email-popup-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.email-popup-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.email-popup-checkbox label {
+    color: #6b7280;
+    font-size: 0.875rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.email-popup-actions {
+    display: flex;
+    gap: 12px;
+    padding: 16px 24px;
+    background: #0d556d;
+    justify-content: flex-end;
+}
+
+.email-popup-btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.email-popup-btn:disabled{
+    opacity: .7;
+    cursor: not-allowed;
+}
+
+.email-popup-btn.is-loading{
+    position: relative;
+}
+.email-popup-btn.is-loading::after{
+    content: '';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    margin-top: -8px;
+    border: 2px solid rgba(0,0,0,.15);
+    border-top-color: rgba(0,0,0,.45);
+    border-radius: 50%;
+    animation: email-popup-spin .8s linear infinite;
+}
+
+@keyframes email-popup-spin { to { transform: rotate(360deg); } }
+
+.email-popup-btn-primary {
+    background: white;
+    color: #0d556d;
+}
+
+.email-popup-btn-primary:hover {
+    background: #f3f4f6;
+}
+
+.email-popup-btn-secondary {
+    background: transparent;
+    color: white;
+}
+
+.email-popup-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 768px) {
+    .email-popup {
+        max-width: 95%;
+    }
+
+    .email-popup-header {
+        padding: 20px 20px 12px 20px;
+    }
+
+    .email-popup-body {
+        padding: 0 20px 20px 20px;
+    }
+
+    .email-popup-actions {
+        flex-direction: column-reverse;
+        padding: 16px 20px;
+    }
+
+    .email-popup-btn {
+        width: 100%;
+    }
+}

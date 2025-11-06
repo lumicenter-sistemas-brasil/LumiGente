@@ -1,0 +1,554 @@
+/* ===== DASHBOARD - Métricas, Reconhecimentos, Gamificação ===== */
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+}
+
+.metric-card {
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-gray-200);
+    padding: var(--spacing-xl);
+}
+
+.metric-card-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.metric-info h3 {
+    color: var(--color-gray-500);
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+}
+
+.metric-info h3 svg {
+    flex-shrink: 0;
+}
+
+.metric-info .value {
+    font-size: var(--font-size-3xl);
+    font-weight: bold;
+    color: var(--color-gray-800);
+    margin-bottom: var(--spacing-sm);
+    display: flex;
+    justify-content: start;
+}
+
+.metric-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+    color: var(--color-white);
+}
+
+.icon-blue { background-color: var(--color-primary); }
+.icon-amber { background-color: var(--color-secondary); }
+.icon-green { background-color: var(--color-success); }
+.icon-purple { background-color: #8b5cf6; }
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+/* Quick Actions Dropdown */
+.quick-actions-dropdown {
+    position: relative;
+}
+
+.quick-actions-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.quick-actions-menu {
+    position: absolute;
+    top: calc(100% + var(--spacing-sm));
+    left: 0;
+    right: 0;
+    background: var(--color-white);
+    border: 2px solid var(--color-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    z-index: 1001;
+    overflow: hidden;
+}
+
+.quick-actions-menu.hidden {
+    display: none;
+}
+
+.quick-action-item {
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: none;
+    background: var(--color-white);
+    color: var(--color-gray-700);
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    border-bottom: 1px solid var(--color-gray-100);
+}
+
+.quick-action-item:last-child {
+    border-bottom: none;
+}
+
+.quick-action-item:hover {
+    background: linear-gradient(135deg, rgba(13, 85, 109, 0.05), rgba(13, 85, 109, 0.1));
+    color: var(--color-primary);
+    transform: translateX(4px);
+}
+
+.quick-action-item svg {
+    flex-shrink: 0;
+    color: var(--color-primary);
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-xl);
+    margin-top: var(--spacing-xl);
+    align-items: start;
+}
+
+.recognitions-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.recognition-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    background: var(--color-white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-secondary);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    position: relative;
+    transition: all var(--transition-base);
+}
+
+.recognition-icon {
+    background: var(--color-secondary);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+    color: var(--color-white);
+    flex-shrink: 0;
+}
+
+.recognition-content {
+    flex: 1;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.recognition-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
+.recognition-badge {
+    background: var(--color-secondary-light);
+    color: #92400e;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+}
+
+.recognition-message {
+    color: var(--color-gray-700);
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--spacing-xs);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
+}
+
+.recognition-points {
+    color: var(--color-secondary-dark);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+/* Gamificação */
+.gamification-stats {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.user-ranking-info {
+    margin-bottom: 20px;
+}
+
+.user-ranking-card {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    border-radius: var(--radius-lg);
+    color: var(--color-white);
+}
+
+.user-ranking-position {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-lg);
+    font-weight: bold;
+}
+
+.user-ranking-position svg {
+    color: var(--color-secondary);
+    flex-shrink: 0;
+}
+
+.user-ranking-details {
+    flex: 1;
+}
+
+.user-ranking-name {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+}
+
+.user-ranking-points {
+    font-size: var(--font-size-sm);
+    opacity: 0.9;
+}
+
+.user-ranking-card.no-points {
+    background: linear-gradient(135deg, var(--color-gray-100), var(--color-gray-200));
+    border: 2px solid var(--color-gray-300);
+}
+
+.user-ranking-card.no-points .user-ranking-position svg {
+    color: var(--color-gray-500);
+}
+
+.user-ranking-card.no-points .user-ranking-name,
+.user-ranking-card.no-points .user-ranking-points {
+    color: var(--color-gray-700);
+}
+
+.user-ranking-message p {
+    margin: 0 0 var(--spacing-sm) 0;
+    color: var(--color-gray-700);
+    font-weight: 500;
+}
+
+.points-info {
+    font-size: var(--font-size-sm) !important;
+    color: var(--color-gray-500) !important;
+    font-weight: 400 !important;
+    margin-bottom: var(--spacing-md) !important;
+}
+
+.points-actions {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.points-actions li {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-gray-600);
+}
+
+.points-actions li svg {
+    color: var(--color-primary);
+    flex-shrink: 0;
+}
+
+.leaderboard-preview {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--color-gray-50);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.leaderboard-position {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: var(--font-size-sm);
+    color: var(--color-white);
+}
+
+.leaderboard-position.top-1 { background: var(--color-secondary); }
+.leaderboard-position.top-2 { background: var(--color-gray-500); }
+.leaderboard-position.top-3 { background: var(--color-error); }
+.leaderboard-position.other { background: var(--color-info); }
+
+.leaderboard-user {
+    flex: 1;
+}
+
+.leaderboard-user-name {
+    font-weight: 500;
+    color: var(--color-gray-800);
+}
+
+.leaderboard-user-department {
+    font-size: var(--font-size-xs);
+    color: var(--color-gray-500);
+}
+
+.leaderboard-score {
+    font-weight: 600;
+    color: var(--color-success);
+}
+
+/* ===== RESPONSIVIDADE - DASHBOARD ===== */
+
+@media (max-width: 1024px) {
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-lg);
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-xl);
+    }
+}
+
+@media (max-width: 768px) {
+    .metrics-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .metric-card {
+        padding: var(--spacing-lg);
+    }
+    
+    .metric-info .value {
+        font-size: 24px;
+    }
+    
+    .metric-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .dashboard-grid {
+        gap: var(--spacing-lg);
+        margin-top: var(--spacing-lg);
+    }
+    
+    .recognition-item {
+        padding: var(--spacing-md);
+        gap: var(--spacing-md);
+    }
+    
+    .recognition-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+    
+    .recognition-message {
+        font-size: 13px;
+    }
+    
+    .recognition-badge {
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+    
+    .user-ranking-card {
+        padding: var(--spacing-md);
+        gap: var(--spacing-md);
+        flex-wrap: wrap;
+    }
+    
+    .user-ranking-position {
+        font-size: 16px;
+    }
+    
+    .user-ranking-name {
+        font-size: 14px;
+    }
+    
+    .user-ranking-points {
+        font-size: 13px;
+    }
+    
+    .leaderboard-item {
+        padding: var(--spacing-md);
+        gap: var(--spacing-md);
+    }
+    
+    .leaderboard-position {
+        width: 26px;
+        height: 26px;
+        font-size: 12px;
+    }
+    
+    .leaderboard-user-name {
+        font-size: 14px;
+    }
+    
+    .leaderboard-user-department {
+        font-size: 11px;
+    }
+    
+    .leaderboard-score {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .metric-card {
+        padding: var(--spacing-md);
+    }
+    
+    .metric-card-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-md);
+    }
+    
+    .metric-info h3 {
+        font-size: 13px;
+    }
+    
+    .metric-info .value {
+        font-size: 20px;
+    }
+    
+    .metric-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+    }
+    
+    .recognition-item {
+        padding: var(--spacing-md);
+        gap: var(--spacing-md);
+    }
+    
+    .recognition-icon {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+    }
+    
+    .recognition-message {
+        font-size: 12px;
+    }
+    
+    .recognition-points {
+        font-size: 12px;
+    }
+    
+    .user-ranking-card {
+        padding: var(--spacing-md);
+        gap: var(--spacing-md);
+    }
+    
+    .user-ranking-position {
+        font-size: 14px;
+    }
+    
+    .user-ranking-position i {
+        font-size: 16px;
+    }
+    
+    .user-ranking-name {
+        font-size: 13px;
+    }
+    
+    .user-ranking-points {
+        font-size: 12px;
+    }
+    
+    .gamification-stats {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        align-items: stretch;
+    }
+    
+    .leaderboard-item {
+        padding: var(--spacing-sm);
+        gap: var(--spacing-sm);
+    }
+    
+    .leaderboard-position {
+        width: 24px;
+        height: 24px;
+        font-size: 11px;
+    }
+    
+    .leaderboard-user-name {
+        font-size: 13px;
+    }
+    
+    .leaderboard-user-department {
+        font-size: 10px;
+    }
+    
+    .leaderboard-score {
+        font-size: 13px;
+    }
+    
+    .points-actions li {
+        font-size: 12px;
+    }
+}
