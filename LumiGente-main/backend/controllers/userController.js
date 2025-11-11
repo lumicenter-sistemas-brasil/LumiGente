@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { getDatabasePool } = require('../config/db');
 const HierarchyManager = require('../services/hierarchyManager');
-const { getAllPermissions } = require('../utils/permissionsHelper');
+const { getAllPermissions, checkHRTDPermissions, isManager, canCreateSurveys, canAccessHistory } = require('../utils/permissionsHelper');
 
 /**
  * Invalida todas as sessões de um usuário.
@@ -237,7 +237,7 @@ exports.debugHierarchy = async (req, res) => {
         else if (hierarchyLevel >= 2) role = 'Coordenador';
         
         // Verificar se é RH ou T&D
-        const { isHR, isTD } = require('../utils/permissionsHelper').checkHRTDPermissions(user);
+        const { isHR, isTD } = checkHRTDPermissions(user);
         
         const response = {
             success: true,
@@ -1648,7 +1648,10 @@ exports.debugUserPermissions = async (req, res) => {
         const role = user.role || 'Funcionário';
         
         // Verificar se é RH ou T&D
-        const { isHR, isTD } = require('../utils/permissionsHelper').checkHRTDPermissions(user);
+        const { isHR, isTD } = checkHRTDPermissions(user);
+        
+        const manager = isManager(user);
+        const historicoAccess = canAccessHistory(user, { isHR, isTD, isHRTD: isHR || isTD });
         
         const permissions = await getUserTabPermissions(user);
         
@@ -1666,19 +1669,19 @@ exports.debugUserPermissions = async (req, res) => {
                 isHR: isHR,
                 isTD: isTD,
                 isAdministrator: role === 'Administrador',
-                isManager: hierarchyLevel >= 3,
+                isManager: manager,
                 isSupervisor: hierarchyLevel >= 2,
                 isEmployee: hierarchyLevel < 2
             },
             permissions: permissions,
             expectedAccess: {
-                shouldHaveTeamAccess: isHR || isTD || hierarchyLevel >= 3,
-                shouldHaveAnalyticsAccess: isHR || isTD || hierarchyLevel >= 3,
-                shouldHaveHistoricoAccess: isHR || isTD || hierarchyLevel >= 3,
-                shouldHaveAvaliacoesAccess: isHR || isTD || hierarchyLevel >= 3,
+                shouldHaveTeamAccess: manager,
+                shouldHaveAnalyticsAccess: manager || isTD,
+                shouldHaveHistoricoAccess: historicoAccess,
+                shouldHaveAvaliacoesAccess: true,
                 shouldHavePesquisasAccess: true, // Todos podem responder
-                canCreatePesquisas: isHR || isTD,
-                canCreateAvaliacoes: isHR || isTD || hierarchyLevel >= 3
+                canCreatePesquisas: canCreateSurveys(user),
+                canCreateAvaliacoes: isHR || isTD || manager
             }
         };
         

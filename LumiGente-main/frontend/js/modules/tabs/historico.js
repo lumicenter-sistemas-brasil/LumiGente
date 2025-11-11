@@ -9,8 +9,11 @@ const Historico = {
         }
         
         // Verificar permissões
-        await this.checkPermissions();
-        
+        const hasPermission = await this.checkPermissions();
+        if (!hasPermission) {
+            return;
+        }
+
         // Carregar dados se tiver permissão
         if (this.manager) {
             this.manager.aplicarFiltros();
@@ -32,20 +35,6 @@ const Historico = {
         const hasPermission = setoresAutorizados.some(setor => departamento.includes(setor));
         
         // Mostrar/ocultar conteúdo baseado na permissão
-        const historicoContent = document.getElementById('historico-content');
-        if (historicoContent) {
-            if (!hasPermission) {
-                historicoContent.innerHTML = `
-                    <div class="card" style="text-align: center; padding: 60px 20px;">
-                        <i class="fas fa-lock" style="font-size: 64px; color: #e5e7eb; margin-bottom: 24px;"></i>
-                        <h3 style="color: #6b7280; margin-bottom: 12px;">Acesso Restrito</h3>
-                        <p style="color: #9ca3af;">Você não tem permissão para acessar o histórico de feedbacks.</p>
-                        <p style="color: #9ca3af; font-size: 14px; margin-top: 8px;">Esta funcionalidade está disponível apenas para RH e T&D.</p>
-                    </div>
-                `;
-            }
-        }
-        
         return hasPermission;
     },
 
@@ -79,4 +68,16 @@ function exportHistoricoData(tipoSecao) {
 
 function irParaPagina(tipoSecao, pagina) {
     Historico.goToPage(tipoSecao, pagina);
+}
+
+function clearHistoricoFilters() {
+    if (!Historico.manager && window.historicoManager) {
+        Historico.manager = window.historicoManager;
+    }
+    if (!Historico.manager && typeof HistoricoManager !== 'undefined') {
+        Historico.manager = new HistoricoManager();
+    }
+    if (Historico.manager) {
+        Historico.manager.resetFiltros();
+    }
 }

@@ -69,7 +69,7 @@ function setupScheduledJobs() {
     // Executa uma vez na inicialização e depois a cada minuto.
     console.log('🔄 [PESQUISAS] Executando primeira verificação de status...');
     updatePesquisaStatus();
-    setInterval(updatePesquisaStatus, 60 * 1000); // Roda a cada 60 segundos
+    schedule.scheduleJob('* * * * *', updatePesquisaStatus); // Executa a cada minuto cheio
     console.log('   -> Tarefa de status de pesquisas agendada para rodar a cada minuto.');
 
     // --- Job de Atualização de Status de Objetivos (diariamente) ---

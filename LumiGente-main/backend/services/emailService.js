@@ -19,6 +19,15 @@ try {
     console.error('⚠️ Erro ao criar transporter de email:', error);
 }
 
+function escapeHtml(value = '') {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 /**
  * Envia email de recuperação de senha (Esqueci minha senha - tela de login)
  */
@@ -772,4 +781,236 @@ exports.sendObjetivoNotificationEmail = async (email, userName, creatorName, obj
         console.error('❌ Erro ao enviar email de objetivo:', error.message);
         throw error;
     }
+};
+
+exports.sendObjetivoApprovalRequestEmail = async (email, gestorName, solicitanteName, objetivoTitulo) => {
+    if (!transporter) {
+        throw new Error('Serviço de email não configurado');
+    }
+
+    const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
+    const safeGestor = escapeHtml(gestorName);
+    const safeSolicitante = escapeHtml(solicitanteName);
+    const safeObjetivo = escapeHtml(objetivoTitulo);
+
+    const mailOptions = {
+        from: `"LumiGente" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Solicitação de Aprovação de Objetivo - LumiGente',
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="padding:40px 30px 0;text-align:center;">
+                            <img src="cid:logo" alt="LumiGente" style="max-width:180px;height:auto;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <div style="text-align:center;margin-bottom:20px;">
+                                <div style="display:inline-block;background:#f59e0b;color:#fff;padding:8px 16px;border-radius:20px;font-weight:600;font-size:14px;">Aprovação de Objetivo</div>
+                            </div>
+                            <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">
+                                Olá, <strong>${safeGestor}</strong>!
+                            </p>
+                            <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                                <strong>${safeSolicitante}</strong> registrou 100% no objetivo <strong>${safeObjetivo}</strong> e aguarda a sua aprovação de conclusão.
+                            </p>
+                            <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;margin:24px 0;border-radius:4px;color:#92400e;font-size:14px;line-height:1.6;">
+                                Acesse o LumiGente para revisar os detalhes do objetivo e concluir a aprovação.
+                            </div>
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="${appUrl}/pages/index.html" style="display:inline-block;background:#f59e0b;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Abrir objetivo</a>
+                            </div>
+                            <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:20px 0 0 0;text-align:center;">
+                                Esta é uma solicitação automática. Caso já tenha aprovado ou rejeitado, desconsidere este aviso.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f9fafb;padding:30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="color:#6b7280;font-size:13px;margin:0 0 10px 0;">© ${new Date().getFullYear()} LumiGente - Sistema de Gestão de Pessoas</p>
+                            <p style="color:#9ca3af;font-size:12px;margin:0;">Este é um email automático, por favor não responda.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `,
+        attachments: [{
+            filename: 'logo.png',
+            path: __dirname + '/../assets/logo.png',
+            cid: 'logo'
+        }]
+    };
+
+    await transporter.sendMail(mailOptions);
+};
+
+exports.sendObjetivoConclusionApprovedEmail = async (email, userName, gestorName, objetivoTitulo) => {
+    if (!transporter) {
+        throw new Error('Serviço de email não configurado');
+    }
+
+    const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
+    const safeUser = escapeHtml(userName);
+    const safeGestor = escapeHtml(gestorName);
+    const safeObjetivo = escapeHtml(objetivoTitulo);
+
+    const mailOptions = {
+        from: `"LumiGente" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Objetivo Concluído - LumiGente',
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="padding:40px 30px 0;text-align:center;">
+                            <img src="cid:logo" alt="LumiGente" style="max-width:180px;height:auto;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <div style="text-align:center;margin-bottom:20px;">
+                                <div style="display:inline-block;background:#10b981;color:#fff;padding:8px 16px;border-radius:20px;font-weight:600;font-size:14px;">Objetivo Concluído</div>
+                            </div>
+                            <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">
+                                Olá, <strong>${safeUser}</strong>!
+                            </p>
+                            <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                                <strong>${safeGestor}</strong> aprovou a conclusão do objetivo <strong>${safeObjetivo}</strong>.
+                            </p>
+                            <div style="background:#ecfdf5;border-left:4px solid #10b981;padding:16px;margin:24px 0;border-radius:4px;color:#047857;font-size:14px;line-height:1.6;">
+                                Parabéns pelo resultado! Continue acompanhando os próximos passos dentro da plataforma.
+                            </div>
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="${appUrl}/pages/index.html" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Abrir objetivo</a>
+                            </div>
+                            <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:20px 0 0 0;text-align:center;">
+                                Acesse o LumiGente para visualizar os detalhes e celebrar com a sua equipe.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f9fafb;padding:30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="color:#6b7280;font-size:13px;margin:0 0 10px 0;">© ${new Date().getFullYear()} LumiGente - Sistema de Gestão de Pessoas</p>
+                            <p style="color:#9ca3af;font-size:12px;margin:0;">Este é um email automático, por favor não responda.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `,
+        attachments: [{
+            filename: 'logo.png',
+            path: __dirname + '/../assets/logo.png',
+            cid: 'logo'
+        }]
+    };
+
+    await transporter.sendMail(mailOptions);
+};
+
+exports.sendObjetivoConclusionRejectedEmail = async (email, userName, gestorName, objetivoTitulo, motivo, progressoAnterior) => {
+    if (!transporter) {
+        throw new Error('Serviço de email não configurado');
+    }
+
+    const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
+    const safeUser = escapeHtml(userName);
+    const safeGestor = escapeHtml(gestorName);
+    const safeObjetivo = escapeHtml(objetivoTitulo);
+    const safeMotivo = escapeHtml(motivo);
+    const safeProgresso = escapeHtml(`${progressoAnterior}%`);
+
+    const mailOptions = {
+        from: `"LumiGente" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Conclusão de Objetivo Rejeitada - LumiGente',
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="padding:40px 30px 0;text-align:center;">
+                            <img src="cid:logo" alt="LumiGente" style="max-width:180px;height:auto;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <div style="text-align:center;margin-bottom:20px;">
+                                <div style="display:inline-block;background:#ef4444;color:#fff;padding:8px 16px;border-radius:20px;font-weight:600;font-size:14px;">Revisão Necessária</div>
+                            </div>
+                            <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">
+                                Olá, <strong>${safeUser}</strong>.
+                            </p>
+                            <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                                <strong>${safeGestor}</strong> rejeitou a conclusão do objetivo <strong>${safeObjetivo}</strong>.
+                            </p>
+                            <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:16px;margin:24px 0;border-radius:4px;color:#b91c1c;font-size:14px;line-height:1.6;">
+                                <p style="margin:0 0 8px 0;"><strong>Motivo informado:</strong></p>
+                                <p style="margin:0;">${safeMotivo}</p>
+                                <p style="margin:12px 0 0 0;"><strong>Progresso restaurado:</strong> ${safeProgresso}</p>
+                            </div>
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="${appUrl}/pages/index.html" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Rever objetivo</a>
+                            </div>
+                            <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:20px 0 0 0;text-align:center;">
+                                Ajuste o objetivo conforme necessário e registre um novo check-in quando estiver pronto.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f9fafb;padding:30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="color:#6b7280;font-size:13px;margin:0 0 10px 0;">© ${new Date().getFullYear()} LumiGente - Sistema de Gestão de Pessoas</p>
+                            <p style="color:#9ca3af;font-size:12px;margin:0;">Este é um email automático, por favor não responda.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `,
+        attachments: [{
+            filename: 'logo.png',
+            path: __dirname + '/../assets/logo.png',
+            cid: 'logo'
+        }]
+    };
+
+    await transporter.sendMail(mailOptions);
 };

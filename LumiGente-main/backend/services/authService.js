@@ -162,6 +162,8 @@ exports.loginUser = async (cpf, password) => {
         nomeCompleto: user.NomeCompleto,
         nome: user.NomeCompleto.split(' ')[0],
         departamento: user.Departamento,
+        descricaoDepartamento: user.DescricaoDepartamento || user.descricaoDepartamento || null,
+        DescricaoDepartamento: user.DescricaoDepartamento || user.descricaoDepartamento || null,
         filial: user.Filial,
         cpf: cpfFormatado,
         matricula: user.Matricula,
@@ -208,7 +210,7 @@ exports.registerUser = async ({ cpf, password, nomeCompleto }) => {
         .input('nome', sql.VarChar, nomeParaUsar.split(' ')[0])
         .query(`
             UPDATE Users SET PasswordHash = @passwordHash, FirstLogin = 0, NomeCompleto = @nomeCompleto, 
-            nome = @nome, IsActive = 1, UpdatedAt = GETDATE()
+            nome = @nome, IsActive = 1, updated_at = GETDATE()
             WHERE Id = @userId
         `);
 

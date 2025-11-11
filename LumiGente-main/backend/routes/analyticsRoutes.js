@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analyticsController');
+const historicoController = require('../controllers/historicoController');
 const { requireAuth, requireManagerAccess, requireFeatureAccess } = require('../middleware/authMiddleware');
 
 // Aplica o middleware de autenticação para todas as rotas de analytics e gestão
@@ -26,9 +27,7 @@ router.get('/gamification-leaderboard', analyticsController.getGamificationLeade
 router.get('/dashboard', requireFeatureAccess('analytics'), analyticsController.getCompleteDashboard);
 router.get('/department-analytics', requireFeatureAccess('analytics'), analyticsController.getDepartmentAnalytics);
 router.get('/trends', requireFeatureAccess('analytics'), analyticsController.getTrendAnalytics);
-
-// --- Rotas de Exportação ---
-router.get('/export', requireFeatureAccess('analytics'), analyticsController.exportAnalytics);
+router.get('/available-departments', requireFeatureAccess('analytics'), analyticsController.getAvailableDepartments);
 
 // --- Rotas de Gestão de Equipe (prefixo /api/manager) ---
 router.get('/team-management', requireFeatureAccess('team'), analyticsController.getTeamManagementData);
@@ -46,5 +45,10 @@ router.get('/temporal', requireFeatureAccess('analytics'), analyticsController.g
 
 // --- Rotas de Histórico ---
 router.get('/dados', requireFeatureAccess('historico'), analyticsController.getHistoricoDados);
+router.get('/rh/objetivos', requireFeatureAccess('historico'), historicoController.getAllObjectives);
+router.get('/rh/feedbacks', requireFeatureAccess('historico'), historicoController.getAllFeedbacks);
+router.get('/rh/feedbacks/:id/mensagens', requireFeatureAccess('historico'), historicoController.getFeedbackMessages);
+router.get('/rh/reconhecimentos', requireFeatureAccess('historico'), historicoController.getAllRecognitions);
+router.get('/rh/humor', requireFeatureAccess('historico'), historicoController.getHumorEntries);
 
 module.exports = router;

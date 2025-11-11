@@ -1,4 +1,217 @@
+.historico-actions-group {
+    align-items: flex-end;
+}
+
+.historico-actions-group .btn-clear-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #0d556d;
+    color: #ffffff;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.historico-actions-group .btn-clear-filters:hover {
+    background: #0a4555;
+    box-shadow: 0 10px 18px -12px rgba(13, 85, 109, 0.6);
+}
+
+.table-muted {
+    display: block;
+    margin-top: 4px;
+    color: #9ca3af;
+    font-size: 12px;
+}
+
+.link-button {
+    background: none;
+    border: none;
+    color: #0d556d;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.link-button:hover {
+    color: #0a4555;
+    text-decoration: underline;
+}
+
+.link-button i {
+    width: 16px;
+    height: 16px;
+}
 /* ===== HISTÓRICO - Aba de Histórico ===== */
+
+/* Tabs & Estrutura */
+.historico-tabs {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.historico-tabs-wrapper {
+    display: flex;
+    gap: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 12px;
+}
+
+.historico-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: none;
+    background: #f3f4f6;
+    color: #374151;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.historico-tab.active {
+    background: linear-gradient(135deg, #0d556d, #0a4555);
+    color: #ffffff;
+    box-shadow: 0 10px 18px -12px rgba(13, 85, 109, 0.6);
+}
+
+.historico-tab svg {
+    width: 16px;
+    height: 16px;
+}
+
+.historico-tab-panel.hidden {
+    display: none;
+}
+
+.historico-tab-panel {
+    animation: fadeInHistorico 0.25s ease;
+}
+
+.historico-downloads-header {
+    margin-bottom: 20px;
+}
+
+.historico-downloads-header h3 {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+    color: #0d556d;
+}
+
+.historico-downloads-header p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.historico-downloads-grid {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.historico-download-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 18px 26px -24px rgba(15, 23, 42, 0.35);
+    height: 100%;
+}
+
+.download-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(13, 85, 109, 0.08);
+    color: #0d556d;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.download-card-body h4 {
+    margin: 0 0 6px 0;
+    font-size: 18px;
+    color: #111827;
+}
+
+.download-card-body p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.download-meta {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.historico-download-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 999px;
+    font-weight: 600;
+    background: #0d556d;
+    color: white;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.historico-download-btn:hover {
+    background: #0a4555;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px -12px rgba(13, 85, 109, 0.7);
+}
+
+.historico-empty-state {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 24px;
+    gap: 12px;
+    color: #6b7280;
+}
+
+.historico-empty-state i {
+    font-size: 48px;
+    color: #d1d5db;
+}
+
+.historico-empty-state h3 {
+    font-size: 20px;
+    color: #0f172a;
+    margin: 0;
+}
+
+.historico-empty-state p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
 
 /* Filtros de histórico */
 .historico-filters {
@@ -43,6 +256,162 @@
     box-shadow: 0 0 0 3px rgba(13, 85, 109, 0.1);
 }
 
+.historico-actions-group {
+    align-items: flex-end;
+}
+
+.historico-actions-group .btn-clear-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #0d556d;
+    color: #ffffff;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.historico-actions-group .btn-clear-filters:hover {
+    background: #0a4555;
+    box-shadow: 0 10px 18px -12px rgba(13, 85, 109, 0.6);
+}
+
+/* Visão RH */
+.historico-overview-section {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 18px 25px -25px rgba(15, 23, 42, 0.35);
+}
+
+.overview-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.overview-section-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 20px;
+    color: #0f172a;
+}
+
+.overview-section-header p {
+    margin: 6px 0 0 0;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.overview-section-header .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.overview-filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.overview-filter-row .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.overview-filter-row label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 13px;
+}
+
+.historico-section-loading {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #6b7280;
+    padding: 24px;
+}
+
+.historico-section-loading .spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(13, 85, 109, 0.2);
+    border-top-color: #0d556d;
+    border-radius: 50%;
+    animation: spinHistorico 0.9s linear infinite;
+}
+
+@keyframes spinHistorico {
+    to { transform: rotate(360deg); }
+}
+
+.historico-feedback-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+    color: #4b5563;
+    font-size: 14px;
+}
+
+.historico-feedback-messages {
+    max-height: 420px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.historico-feedback-message {
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+}
+
+.historico-feedback-message .message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.historico-feedback-message .message-body {
+    color: #1f2937;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.historico-modal-content {
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.historico-overview-section table tbody td {
+    vertical-align: top;
+}
+
+.historico-overview-section table tbody td .table-muted {
+    display: block;
+    color: #9ca3af;
+    font-size: 12px;
+}
+
 /* Seções de histórico */
 .historico-section {
     margin-bottom: 24px;
@@ -80,6 +449,10 @@
 
 .historico-section.collapsed .historico-table-container {
     display: none;
+}
+
+.department-filter-group {
+    position: relative;
 }
 
 /* Ações de histórico */
@@ -367,10 +740,20 @@
         transform: translateX(100%);
         opacity: 0;
     }
-    to {
-        transform: translateX(0);
-        opacity: 1;
+}
+
+@keyframes fadeInHistorico {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
     }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+    to {
+        opacity: 1;
 }
 
 /* Header das seções */

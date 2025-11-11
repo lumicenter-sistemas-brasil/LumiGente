@@ -2,7 +2,11 @@
 const Pesquisas = {
     state: {
         currentPesquisa: null,
-        selectedResposta: null
+        selectedResposta: null,
+        permissions: {
+            can_create: false,
+            is_hr_td: false
+        }
     },
 
     icon(name, size = 18, color = 'currentColor') {
@@ -23,6 +27,37 @@ const Pesquisas = {
     async load() {
         await this.loadList();
         await this.checkPermissions();
+        this.setupMessageListener();
+        this.setupVerRespostasModalListeners();
+    },
+
+    setupVerRespostasModalListeners() {
+        // Fechar modal ao clicar fora
+        const modal = document.getElementById('ver-respostas-pesquisa-modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeVerRespostasModal();
+                }
+            });
+        }
+
+        // Fechar modal ao pressionar ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+                this.closeVerRespostasModal();
+            }
+        });
+    },
+
+    setupMessageListener() {
+        // Escutar mensagens de janelas filhas (ex: responder-pesquisa.html)
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'SURVEY_RESPONSE_SUBMITTED') {
+                // Atualizar a lista de pesquisas quando uma resposta for enviada
+                this.loadList();
+            }
+        });
     },
 
     async loadList() {
@@ -32,8 +67,15 @@ const Pesquisas = {
 
             container.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando pesquisas...</div>';
 
-            const pesquisas = await API.get('/api/pesquisas');
-            this.updateList(pesquisas);
+            const response = await API.get('/api/pesquisas');
+            if (response && response.user_info) {
+                this.state.permissions = {
+                    can_create: Boolean(response.user_info.can_create),
+                    is_hr_td: Boolean(response.user_info.is_hr_td)
+                };
+                this.updateActionsVisibility();
+            }
+            this.updateList(response);
         } catch (error) {
             console.error('Erro ao carregar pesquisas:', error);
         }
@@ -43,16 +85,70 @@ const Pesquisas = {
         const container = document.getElementById('user-surveys-list');
         if (!container) return;
 
-        const pesquisas = data.surveys || data;
+        const pesquisas = data && Array.isArray(data.surveys) ? data.surveys : Array.isArray(data) ? data : [];
         if (!pesquisas || pesquisas.length === 0) {
             container.innerHTML = '<div class="loading">Nenhuma pesquisa disponível.</div>';
             return;
         }
 
         container.innerHTML = pesquisas.map(pesquisa => {
-            const status = pesquisa.ja_respondeu ? 'Respondida' : (pesquisa.pode_responder ? 'Pendente' : 'Encerrada');
-            const statusColor = pesquisa.ja_respondeu ? '#10b981' : (pesquisa.pode_responder ? '#f59e0b' : '#6b7280');
-            const statusIcon = pesquisa.ja_respondeu ? 'check-circle' : (pesquisa.pode_responder ? 'clock' : 'lock');
+            const statusCalculado = (pesquisa.status_calculado || pesquisa.status || '').toLowerCase();
+            let statusLabel = 'Indefinido';
+            let statusColor = '#6b7280';
+            let statusIcon = 'lock';
+
+            switch (statusCalculado) {
+                case 'ativa':
+                    statusLabel = 'Ativa';
+                    statusColor = '#10b981';
+                    statusIcon = 'check-circle';
+                    break;
+                case 'agendada':
+                    statusLabel = 'Agendada';
+                    statusColor = '#3b82f6';
+                    statusIcon = 'clock';
+                    break;
+                case 'encerrada':
+                    statusLabel = 'Encerrada';
+                    statusColor = '#6b7280';
+                    statusIcon = 'lock';
+                    break;
+                default:
+                    statusLabel = pesquisa.status_calculado || pesquisa.status || 'Indefinido';
+                    statusColor = '#6b7280';
+                    statusIcon = 'lock';
+                    break;
+            }
+
+            const jaRespondeu = Boolean(pesquisa.ja_respondeu);
+            const podeResponder = statusCalculado === 'ativa' && Boolean(pesquisa.pode_responder);
+
+            let actionHtml = '';
+            if (jaRespondeu) {
+                actionHtml = `
+                    <button class="btn btn-secondary btn-sm" onclick="Pesquisas.viewResponse(${pesquisa.Id})">
+                        ${this.icon('eye', 16)} Ver Resposta
+                    </button>
+                `;
+            } else if (podeResponder) {
+                actionHtml = `
+                    <button class="btn btn-amber btn-sm" onclick="Pesquisas.open(${pesquisa.Id})">
+                        ${this.icon('edit', 16)} Responder Pesquisa
+                    </button>
+                `;
+            } else if (statusCalculado === 'agendada') {
+                actionHtml = `
+                    <button class="btn btn-secondary btn-sm" disabled>
+                        ${this.icon('clock', 16)} Aguardando início
+                    </button>
+                `;
+            } else {
+                actionHtml = `
+                    <button class="btn btn-secondary btn-sm" disabled>
+                        ${this.icon('lock', 16)} Pesquisa Encerrada
+                    </button>
+                `;
+            }
 
             return `
                 <div class="pesquisa-item" style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
@@ -62,7 +158,7 @@ const Pesquisas = {
                             <p style="margin: 0; color: #6b7280; font-size: 14px;">${pesquisa.descricao || 'Sem descrição'}</p>
                         </div>
                         <span class="badge" style="background-color: ${statusColor}; color: white; display: inline-flex; align-items: center; gap: 6px;">
-                            ${this.icon(statusIcon, 16, 'white')} ${status}
+                            ${this.icon(statusIcon, 16, 'white')} ${statusLabel}
                         </span>
                     </div>
                     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 14px; color: #6b7280;">
@@ -70,19 +166,7 @@ const Pesquisas = {
                         <span>até</span>
                         <span style="display: inline-flex; align-items: center; gap: 6px;">${this.icon('calendar-check', 16)} ${this.formatDate(pesquisa.data_encerramento)}</span>
                     </div>
-                    ${pesquisa.pode_responder ? `
-                        <button class="btn btn-amber btn-sm" onclick="Pesquisas.open(${pesquisa.Id})">
-                            ${this.icon('edit', 16)} Responder Pesquisa
-                        </button>
-                    ` : pesquisa.ja_respondeu ? `
-                        <button class="btn btn-secondary btn-sm" onclick="Pesquisas.viewResponse(${pesquisa.Id})">
-                            ${this.icon('eye', 16)} Ver Resposta
-                        </button>
-                    ` : `
-                        <button class="btn btn-secondary btn-sm" disabled>
-                            ${this.icon('lock', 16)} Pesquisa Encerrada
-                        </button>
-                    `}
+                    ${actionHtml}
                 </div>
             `;
         }).join('');
@@ -93,8 +177,28 @@ const Pesquisas = {
     formatDate(dateString) {
         if (!dateString) return '';
         try {
-            const [ano, mes, dia] = dateString.split('T')[0].split('-');
-            return `${dia}/${mes}/${ano}`;
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) {
+                // Tentar parse manual se Date falhar
+                const [dataPart, horaPart] = dateString.split('T');
+                if (!dataPart) return 'Data inválida';
+                
+                const [ano, mes, dia] = dataPart.split('-');
+                if (horaPart) {
+                    const [hora, minuto] = horaPart.split(':');
+                    return `${dia}/${mes}/${ano} ${hora}:${minuto || '00'}`;
+                }
+                return `${dia}/${mes}/${ano}`;
+            }
+            
+            // Formatar com data e hora
+            const dia = String(date.getDate()).padStart(2, '0');
+            const mes = String(date.getMonth() + 1).padStart(2, '0');
+            const ano = date.getFullYear();
+            const hora = String(date.getHours()).padStart(2, '0');
+            const minuto = String(date.getMinutes()).padStart(2, '0');
+            
+            return `${dia}/${mes}/${ano} ${hora}:${minuto}`;
         } catch {
             return 'Data inválida';
         }
@@ -102,155 +206,256 @@ const Pesquisas = {
 
     async open(pesquisaId) {
         try {
-            const pesquisa = await API.get(`/api/pesquisas/${pesquisaId}`);
-            this.state.currentPesquisa = pesquisa;
-
-            // Verificar se há perguntas
-            if (!pesquisa.perguntas || pesquisa.perguntas.length === 0) {
-                alert('Esta pesquisa não possui perguntas.');
-                return;
-            }
-
-            // Usar apenas a primeira pergunta por enquanto (simplificação)
-            const primeiraPergunta = pesquisa.perguntas[0];
-
-            document.getElementById('responder-pesquisa-title').innerHTML = `${this.icon('edit', 18)} ${pesquisa.titulo}`;
-            document.getElementById('responder-pergunta').textContent = primeiraPergunta.pergunta;
-
-            const opcoesContainer = document.getElementById('responder-opcoes-container');
-            const escalaContainer = document.getElementById('responder-escala-container');
-            const textoContainer = document.getElementById('responder-texto-container');
-
-            opcoesContainer.style.display = 'none';
-            escalaContainer.style.display = 'none';
-            textoContainer.style.display = 'none';
-
-            if (primeiraPergunta.tipo === 'multipla_escolha' && primeiraPergunta.opcoes) {
-                opcoesContainer.style.display = 'block';
-                document.getElementById('responder-opcoes').innerHTML = primeiraPergunta.opcoes.map((opcao, index) => `
-                    <div class="opcao-resposta" onclick="Pesquisas.selectOption(${index})" data-opcao="${index}">
-                        <input type="radio" name="pesquisa-opcao" value="${opcao.opcao}" id="opcao-${index}">
-                        <label for="opcao-${index}">${opcao.opcao}</label>
-                    </div>
-                `).join('');
-            } else if (primeiraPergunta.tipo === 'escala') {
-                escalaContainer.style.display = 'block';
-                document.querySelectorAll('.escala-option').forEach(opt => {
-                    opt.classList.remove('selected');
-                    opt.onclick = () => {
-                        document.querySelectorAll('.escala-option').forEach(o => o.classList.remove('selected'));
-                        opt.classList.add('selected');
-                        this.state.selectedResposta = opt.dataset.score;
-                    };
-                });
-            } else {
-                textoContainer.style.display = 'block';
-            }
-
-            Modal.open('responder-pesquisa-modal');
+            // Abrir a página responder-pesquisa.html em nova janela/aba
+            window.open(`responder-pesquisa.html?id=${pesquisaId}`, '_blank', 'width=900,height=800');
         } catch (error) {
             console.error('Erro ao abrir pesquisa:', error);
-            alert('Erro ao carregar pesquisa');
+            alert('Erro ao abrir pesquisa');
         }
     },
 
-    selectOption(index) {
-        document.getElementById(`opcao-${index}`).checked = true;
-        this.state.selectedResposta = document.getElementById(`opcao-${index}`).value;
-    },
-
-    async submit() {
-        if (!this.state.currentPesquisa) return;
-
-        // Verificar se há perguntas
-        if (!this.state.currentPesquisa.perguntas || this.state.currentPesquisa.perguntas.length === 0) {
-            alert('Esta pesquisa não possui perguntas.');
-            return;
-        }
-
-        const primeiraPergunta = this.state.currentPesquisa.perguntas[0];
-        let resposta = null;
-
-        if (primeiraPergunta.tipo === 'multipla_escolha' || primeiraPergunta.tipo === 'escala') {
-            resposta = this.state.selectedResposta;
-        } else {
-            resposta = document.getElementById('responder-resposta-texto').value;
-        }
-
-        if (!resposta) {
-            alert('Por favor, forneça uma resposta');
-            return;
-        }
-
-        try {
-            // Preparar dados no formato esperado pelo backend
-            const respostaData = [{
-                question_id: primeiraPergunta.Id,
-                resposta_texto: primeiraPergunta.tipo === 'texto' ? resposta : null,
-                resposta_numerica: primeiraPergunta.tipo === 'escala' ? parseInt(resposta) : null,
-                option_id: primeiraPergunta.tipo === 'multipla_escolha' ? this.getSelectedOptionId(resposta, primeiraPergunta.opcoes) : null
-            }];
-
-            await API.post(`/api/pesquisas/${this.state.currentPesquisa.Id}/responder`, { respostas: respostaData });
-            this.closeModal();
-            await this.loadList();
-            Notifications.success('Resposta enviada com sucesso!');
-        } catch (error) {
-            console.error('Erro ao enviar resposta:', error);
-            alert('Erro ao enviar resposta');
-        }
-    },
-
-    getSelectedOptionId(selectedValue, opcoes) {
-        if (!opcoes) return null;
-        const opcao = opcoes.find(opt => opt.opcao === selectedValue);
-        return opcao ? opcao.Id : null;
-    },
-
-    closeModal() {
-        Modal.close('responder-pesquisa-modal');
-        this.state.currentPesquisa = null;
-        this.state.selectedResposta = null;
-    },
 
     async viewResponse(pesquisaId) {
         try {
+            const modal = document.getElementById('ver-respostas-pesquisa-modal');
+            const content = document.getElementById('ver-respostas-content');
+            
+            // Mostrar modal com loading
+            Modal.open('ver-respostas-pesquisa-modal');
+            content.innerHTML = `
+                <div class="loading" style="text-align: center; padding: 40px;">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 16px; color: #6b7280;">Carregando respostas...</p>
+                </div>
+            `;
+
             const data = await API.get(`/api/pesquisas/${pesquisaId}/my-response`);
-            let message = `Pesquisa: ${data.survey.titulo}\n\n`;
-            data.responses.forEach(response => {
-                message += `Pergunta: ${response.pergunta_texto}\n`;
-                if (response.resposta_texto) {
-                    message += `Resposta: ${response.resposta_texto}\n`;
-                } else if (response.resposta_numerica) {
-                    message += `Resposta: ${response.resposta_numerica}\n`;
-                }
-                message += '\n';
+            
+            // Renderizar respostas no modal
+            const responseDate = new Date(data.response_date).toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
             });
-            message += `Respondido em: ${new Date(data.response_date).toLocaleString('pt-BR')}`;
-            alert(message);
+
+            let html = `
+                <div style="background: #f8fafc; border-left: 4px solid #0d556d; padding: 16px; margin-bottom: 24px; border-radius: 0 8px 8px 0;">
+                    <h4 style="margin: 0 0 8px 0; color: #1f2937; font-size: 18px;">${data.survey.titulo}</h4>
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                        <i class="fas fa-clock" style="margin-right: 6px;"></i>
+                        Respondido em: ${responseDate}
+                    </p>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+            `;
+
+            data.responses.forEach((response, index) => {
+                let respostaHtml = '';
+                
+                // Verificar se há opções disponíveis para exibir
+                const temOpcoes = response.opcoes && response.opcoes.length > 0;
+                
+                if (temOpcoes) {
+                    // Renderizar todas as opções disponíveis, destacando a selecionada
+                    if (response.pergunta_tipo === 'escala') {
+                        // Escala numérica - mostrar todos os números
+                        const respostaSelecionada = response.resposta_numerica;
+                        respostaHtml = `
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+                                ${response.opcoes.map(opcao => {
+                                    const isSelected = respostaSelecionada === opcao.valor;
+                                    return `
+                                        <div style="
+                                            background: ${isSelected ? 'linear-gradient(135deg, #0d556d 0%, #0a4555 100%)' : '#f3f4f6'};
+                                            color: ${isSelected ? 'white' : '#6b7280'};
+                                            border: 2px solid ${isSelected ? '#0d556d' : '#e5e7eb'};
+                                            padding: 12px 20px;
+                                            border-radius: 8px;
+                                            font-size: ${isSelected ? '18px' : '16px'};
+                                            font-weight: ${isSelected ? '700' : '500'};
+                                            min-width: 48px;
+                                            text-align: center;
+                                            transition: all 0.2s;
+                                        ">
+                                            ${opcao.texto}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                            ${respostaSelecionada !== null && respostaSelecionada !== undefined ? `
+                                <div style="margin-top: 12px; padding: 12px; background: #f0f9ff; border-left: 4px solid #0d556d; border-radius: 4px;">
+                                    <p style="margin: 0; color: #0d556d; font-size: 14px; font-weight: 600;">
+                                        <i class="fas fa-check-circle" style="margin-right: 6px;"></i>
+                                        Sua resposta: ${respostaSelecionada}
+                                    </p>
+                                </div>
+                            ` : ''}
+                        `;
+                    } else if (response.pergunta_tipo === 'multipla_escolha') {
+                        // Múltipla escolha - mostrar todas as opções
+                        const respostaSelecionadaId = response.option_id;
+                        respostaHtml = `
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
+                                ${response.opcoes.map(opcao => {
+                                    const isSelected = respostaSelecionadaId === opcao.id;
+                                    return `
+                                        <div style="
+                                            background: ${isSelected ? '#f0f9ff' : '#ffffff'};
+                                            border: 2px solid ${isSelected ? '#0d556d' : '#e5e7eb'};
+                                            padding: 12px 16px;
+                                            border-radius: 8px;
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 12px;
+                                            transition: all 0.2s;
+                                        ">
+                                            <div style="
+                                                width: 20px;
+                                                height: 20px;
+                                                border-radius: 50%;
+                                                border: 2px solid ${isSelected ? '#0d556d' : '#d1d5db'};
+                                                background: ${isSelected ? '#0d556d' : 'transparent'};
+                                                display: flex;
+                                                align-items: center;
+                                                justify-content: center;
+                                                flex-shrink: 0;
+                                            ">
+                                                ${isSelected ? '<i class="fas fa-check" style="color: white; font-size: 10px;"></i>' : ''}
+                                            </div>
+                                            <span style="
+                                                color: ${isSelected ? '#0d556d' : '#374151'};
+                                                font-weight: ${isSelected ? '600' : '400'};
+                                                flex: 1;
+                                            ">${opcao.texto}</span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `;
+                    } else if (response.pergunta_tipo === 'sim_nao') {
+                        // Sim/Não - mostrar ambas as opções
+                        const respostaSelecionada = response.resposta_texto ? response.resposta_texto.toLowerCase() : null;
+                        respostaHtml = `
+                            <div style="display: flex; gap: 12px; margin-bottom: 8px;">
+                                ${response.opcoes.map(opcao => {
+                                    const isSelected = respostaSelecionada === opcao.valor;
+                                    const isSim = opcao.valor === 'sim';
+                                    return `
+                                        <div style="
+                                            flex: 1;
+                                            background: ${isSelected ? (isSim ? '#f0fdf4' : '#fef2f2') : '#ffffff'};
+                                            border: 2px solid ${isSelected ? (isSim ? '#10b981' : '#ef4444') : '#e5e7eb'};
+                                            padding: 16px;
+                                            border-radius: 8px;
+                                            text-align: center;
+                                            transition: all 0.2s;
+                                        ">
+                                            <span style="
+                                                color: ${isSelected ? (isSim ? '#10b981' : '#ef4444') : '#6b7280'};
+                                                font-weight: ${isSelected ? '700' : '500'};
+                                                font-size: 16px;
+                                            ">${opcao.texto}</span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `;
+                    }
+                } else if (response.resposta_texto) {
+                    // Resposta de texto livre (sem opções)
+                    respostaHtml = `
+                        <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                            <p style="margin: 0; color: #374151; white-space: pre-wrap; word-break: break-word;">${response.resposta_texto}</p>
+                        </div>
+                    `;
+                } else {
+                    // Sem resposta
+                    respostaHtml = `
+                        <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; color: #6b7280;">
+                            <p style="margin: 0;">Sem resposta</p>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div style="background: #fafbfc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px;">
+                        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+                            <div style="background: #0d556d; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0;">
+                                ${index + 1}
+                            </div>
+                            <div style="flex: 1;">
+                                <h5 style="margin: 0 0 12px 0; color: #1f2937; font-size: 16px; font-weight: 600; line-height: 1.4;">
+                                    ${response.pergunta_texto}
+                                </h5>
+                                ${respostaHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            content.innerHTML = html;
+
         } catch (error) {
             console.error('Erro ao carregar resposta:', error);
-            alert('Erro ao carregar sua resposta');
+            const content = document.getElementById('ver-respostas-content');
+            content.innerHTML = `
+                <div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 20px; border-radius: 8px; text-align: center;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 12px; display: block;"></i>
+                    <p style="margin: 0;">Erro ao carregar suas respostas. Tente novamente.</p>
+                </div>
+            `;
         }
+    },
+
+    closeVerRespostasModal() {
+        Modal.close('ver-respostas-pesquisa-modal');
+    },
+
+    updateActionsVisibility() {
+        const actionsContainer = document.getElementById('pesquisas-actions-container');
+        const createBtn = document.getElementById('create-survey-btn');
+        const manageBtn = document.getElementById('manage-survey-btn');
+
+        const canCreate = !!(this.state.permissions && this.state.permissions.can_create);
+
+        if (actionsContainer) {
+            actionsContainer.style.display = canCreate ? 'flex' : 'none';
+        }
+
+        [createBtn, manageBtn].forEach(btn => {
+            if (!btn) return;
+            if (canCreate) {
+                btn.removeAttribute('aria-disabled');
+                btn.disabled = false;
+            } else {
+                btn.setAttribute('aria-disabled', 'true');
+                btn.disabled = true;
+            }
+        });
     },
 
     async checkPermissions() {
         try {
-            const user = State.getUser();
-            const isHRTD = user && user.departamento && (
-                user.departamento.toUpperCase().includes('RH') ||
-                user.departamento.toUpperCase().includes('TREINAM&DESENVOLV') ||
-                user.departamento.toUpperCase().includes('DEPARTAMENTO ADM/RH/SESMT')
-            );
-
-            const actionsContainer = document.getElementById('pesquisas-actions-container');
-            if (actionsContainer) {
-                if (isHRTD) {
-                    actionsContainer.style.display = 'flex';
-                } else {
-                    actionsContainer.style.display = 'none';
-                }
+            if (!this.state.permissions || typeof this.state.permissions.can_create !== 'boolean') {
+                const user = State.getUser();
+                const departmentDesc = (user && (user.descricaoDepartamento || user.DescricaoDepartamento || user.departamento || '')) || '';
+                const normalized = departmentDesc.toUpperCase().trim();
+                const allowedDepartments = [
+                    'DEPARTAMENTO RH',
+                    'SUPERVISAO RH',
+                    'DEPARTAMENTO TREINAM&DESENVOLV'
+                ];
+                const canCreate = allowedDepartments.includes(normalized);
+                this.state.permissions = {
+                    can_create: canCreate,
+                    is_hr_td: this.state.permissions ? this.state.permissions.is_hr_td : false
+                };
             }
+            this.updateActionsVisibility();
         } catch (error) {
             console.error('Erro ao verificar permissões:', error);
         }
@@ -317,9 +522,8 @@ const Pesquisas = {
 // Global functions for onclick
 function loadPesquisas() { Pesquisas.loadList(); }
 function abrirPesquisa(id) { Pesquisas.open(id); }
-function submitRespostaPesquisa() { Pesquisas.submit(); }
-function closeResponderPesquisaModal() { Pesquisas.closeModal(); }
 function verRespostaPesquisa(id) { Pesquisas.viewResponse(id); }
+function closeVerRespostasModal() { Pesquisas.closeVerRespostasModal(); }
 function checkPesquisaPermissions() { Pesquisas.checkPermissions(); }
 function toggleSurveyFilters() { Pesquisas.toggleFilters(); }
 function clearSurveyFilters() { Pesquisas.clearFilters(); }

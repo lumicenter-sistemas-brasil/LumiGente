@@ -1,15 +1,27 @@
 // Avaliações - Renderer Module
 const AvaliacoesRenderer = {
+    renderIcon(nome, tamanho = 20, estilosExtras = '') {
+        const baseStyles = `width: ${tamanho}px; height: ${tamanho}px;`;
+        return `<i data-lucide="${nome}" style="${baseStyles}${estilosExtras}"></i>`;
+    },
+
+    refreshIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons({ attrs: { 'stroke-width': 2 } });
+        }
+    },
+
     renderizarQuestionario(perguntas, tipo) {
         const container = document.getElementById('formulario-avaliacao');
         
         if (perguntas.length === 0) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #6b7280;">
-                    <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    ${this.renderIcon('inbox', 48, 'margin-bottom: 16px;')}
                     <h4>Nenhuma pergunta cadastrada</h4>
                 </div>
             `;
+            this.refreshIcons();
             return;
         }
         
@@ -27,6 +39,7 @@ const AvaliacoesRenderer = {
         `).join('');
         
         container.innerHTML = html;
+        this.refreshIcons();
     },
 
     renderizarCampoPergunta(pergunta, tipoQuestionario) {
@@ -90,11 +103,11 @@ const AvaliacoesRenderer = {
                 return `
                     <div class="simnao-resposta">
                         <div class="simnao-opcao" onclick="selecionarSimNao(this, ${perguntaId}, 'Sim')">
-                            <i class="fas fa-check-circle" style="font-size: 20px; margin-right: 8px;"></i>
+                            ${this.renderIcon('check-circle', 20, 'margin-right: 8px;')}
                             Sim
                         </div>
                         <div class="simnao-opcao nao" onclick="selecionarSimNao(this, ${perguntaId}, 'Não')">
-                            <i class="fas fa-times-circle" style="font-size: 20px; margin-right: 8px;"></i>
+                            ${this.renderIcon('x-circle', 20, 'margin-right: 8px;')}
                             Não
                         </div>
                     </div>
@@ -117,13 +130,14 @@ const AvaliacoesRenderer = {
         if (eParticipante && !jaRespondeu) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #f59e0b; background: #fffbeb; border-radius: 8px; border: 2px dashed #fbbf24;">
-                    <i class="fas fa-lock" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    ${this.renderIcon('lock', 48, 'margin-bottom: 16px;')}
                     <h4>Responda a avaliação primeiro</h4>
                     <p style="color: #92400e; margin-bottom: 0;">
                         Você precisa responder a avaliação antes de visualizar as respostas.
                     </p>
                 </div>
             `;
+            this.refreshIcons();
             return;
         }
         
@@ -131,11 +145,12 @@ const AvaliacoesRenderer = {
             (!respostasOutraParte || respostasOutraParte.length === 0)) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #6b7280;">
-                    <i class="fas fa-info-circle" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    ${this.renderIcon('info', 48, 'margin-bottom: 16px;')}
                     <h4>Nenhuma resposta registrada ainda</h4>
                     <p>Aguardando respostas dos participantes</p>
                 </div>
             `;
+            this.refreshIcons();
             return;
         }
         
@@ -145,6 +160,8 @@ const AvaliacoesRenderer = {
             const minhaResp = minhasRespostas?.find(r => r.PerguntaId === pergunta.Id);
             const outraResp = respostasOutraParte?.find(r => r.PerguntaId === pergunta.Id);
             const mostrarOutraResposta = outraResp && (!eParticipante || jaRespondeu);
+            const minhaIcone = eParticipante ? 'user' : (minhaResp?.TipoRespondente === 'Colaborador' ? 'user' : 'user-cog');
+            const outraIcone = outraResp?.TipoRespondente === 'Gestor' ? 'user-cog' : 'user';
             
             html += `
                 <div class="pergunta-avaliacao">
@@ -156,7 +173,7 @@ const AvaliacoesRenderer = {
                     ${minhaResp ? `
                         <div style="margin-bottom: ${mostrarOutraResposta ? '16px' : '0'};">
                             <p style="margin: 0 0 8px 0; color: #0d556d; font-weight: 600; font-size: 14px;">
-                                <i class="fas fa-${eParticipante ? 'user' : (minhaResp.TipoRespondente === 'Colaborador' ? 'user' : 'user-tie')}"></i> 
+                                ${this.renderIcon(minhaIcone, 18, 'margin-right: 6px;')}
                                 ${eParticipante ? 'Sua Resposta' : `Resposta do ${minhaResp.TipoRespondente}`}:
                             </p>
                             <div style="padding: 12px; background: #dbeafe; border-left: 4px solid #0d556d; border-radius: 4px;">
@@ -168,7 +185,7 @@ const AvaliacoesRenderer = {
                     ${mostrarOutraResposta ? `
                         <div>
                             <p style="margin: 0 0 8px 0; color: #8b5cf6; font-weight: 600; font-size: 14px;">
-                                <i class="fas fa-${outraResp.TipoRespondente === 'Gestor' ? 'user-tie' : 'user'}"></i> 
+                                ${this.renderIcon(outraIcone, 18, 'margin-right: 6px;')}
                                 Resposta do ${outraResp.TipoRespondente}:
                             </p>
                             <div style="padding: 12px; background: #f3e8ff; border-left: 4px solid #8b5cf6; border-radius: 4px;">
@@ -178,7 +195,8 @@ const AvaliacoesRenderer = {
                     ` : eParticipante && jaRespondeu ? `
                         <div style="padding: 12px; background: #f9fafb; border-left: 4px solid #e5e7eb; border-radius: 4px; text-align: center;">
                             <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                                <i class="fas fa-clock"></i> Aguardando resposta do ${minhaResp?.TipoRespondente === 'Colaborador' ? 'Gestor' : 'Colaborador'}
+                                ${this.renderIcon('clock', 18, 'margin-right: 6px;')}
+                                Aguardando resposta do ${minhaResp?.TipoRespondente === 'Colaborador' ? 'Gestor' : 'Colaborador'}
                             </p>
                         </div>
                     ` : ''}
@@ -187,5 +205,6 @@ const AvaliacoesRenderer = {
         });
         
         container.innerHTML = html;
+        this.refreshIcons();
     }
 };

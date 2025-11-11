@@ -65,8 +65,41 @@ class SurveyResponseForm {
             .map((pergunta, index) => QuestionRenderer.renderForResponse(pergunta, index))
             .join('');
 
+        // Adicionar event listeners para elementos interativos
+        this.setupInteractiveElements();
+
         document.getElementById('loading').style.display = 'none';
         document.getElementById('survey-content').style.display = 'block';
+    }
+
+    setupInteractiveElements() {
+        // Event listeners para opções de múltipla escolha e sim/não
+        document.querySelectorAll('.option-label').forEach(label => {
+            label.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'INPUT') {
+                    const radio = label.querySelector('input[type="radio"]');
+                    if (radio) {
+                        radio.checked = true;
+                        radio.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            });
+        });
+
+        // Event listeners para escala numérica
+        document.querySelectorAll('.scale-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                const radio = option.querySelector('input[type="radio"]');
+                if (radio && !radio.checked) {
+                    // Desmarcar outros radios do mesmo grupo
+                    const name = radio.name;
+                    document.querySelectorAll(`input[name="${name}"]`).forEach(r => r.checked = false);
+                    // Marcar o selecionado
+                    radio.checked = true;
+                    radio.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        });
     }
 
     async submitResponse() {

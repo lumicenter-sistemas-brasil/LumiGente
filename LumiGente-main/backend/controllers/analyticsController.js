@@ -76,11 +76,14 @@ exports.getCompleteDashboard = async (req, res) => {
 exports.getUserRankings = async (req, res) => {
     try {
         const { period = 30, department, topUsers = 50 } = req.query;
+        const currentUser = req.session.user;
+        const scope = await analyticsManager.getAnalyticsScope(currentUser);
         
         const rankings = await analyticsManager.getUserRankings(
             parseInt(period),
             department && department !== 'Todos' ? department : null,
-            parseInt(topUsers)
+            parseInt(topUsers),
+            scope
         );
 
         res.json(rankings);
@@ -96,11 +99,14 @@ exports.getUserRankings = async (req, res) => {
 exports.getGamificationLeaderboard = async (req, res) => {
     try {
         const { period = 30, department, topUsers = 100 } = req.query;
+        const currentUser = req.session.user;
+        const scope = await analyticsManager.getAnalyticsScope(currentUser);
         
         const leaderboard = await analyticsManager.getGamificationLeaderboard(
             parseInt(period),
             department && department !== 'Todos' ? department : null,
-            parseInt(topUsers)
+            parseInt(topUsers),
+            scope
         );
 
         res.json(leaderboard);
@@ -115,12 +121,13 @@ exports.getGamificationLeaderboard = async (req, res) => {
  */
 exports.getDepartmentAnalytics = async (req, res) => {
     try {
-        const { period = 30 } = req.query;
+        const { period = 30, department } = req.query;
         const currentUser = req.session.user;
 
         const deptAnalytics = await analyticsManager.getDepartmentAnalytics(
             currentUser,
-            parseInt(period)
+            parseInt(period),
+            department && department !== 'Todos' ? department : null
         );
 
         res.json(deptAnalytics);
@@ -152,37 +159,22 @@ exports.getTrendAnalytics = async (req, res) => {
 };
 
 /**
- * GET /api/analytics/export - Exporta dados de analytics em formato CSV ou Excel.
+ * GET /api/analytics/available-departments - Retorna departamentos acessíveis ao usuário.
  */
-exports.exportAnalytics = async (req, res) => {
+exports.getAvailableDepartments = async (req, res) => {
     try {
-        const { period = 30, department, format = 'excel' } = req.query;
         const currentUser = req.session.user;
-
-        const dataBuffer = await analyticsManager.exportAnalyticsData(
-            currentUser,
-            parseInt(period),
-            department && department !== 'Todos' ? department : null,
-            format
-        );
-
-        const filename = `relatorio_analytics_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
-        
-        if (format === 'excel') {
-            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        } else {
-            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        if (!currentUser) {
+            return res.status(401).json({ error: 'Usuário não autenticado' });
         }
-        
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.send(dataBuffer);
 
+        const { departments, canViewAll } = await analyticsManager.getAvailableDepartments(currentUser);
+        res.json({ departments, canViewAll });
     } catch (error) {
-        console.error('Erro ao exportar relatório de analytics:', error);
-        res.status(500).json({ error: 'Erro ao exportar relatório' });
+        console.error('Erro ao buscar departamentos disponíveis:', error);
+        res.status(500).json({ error: 'Erro ao buscar departamentos disponíveis' });
     }
 };
-
 
 /**
  * GET /api/manager/team-management - Retorna uma lista detalhada dos membros da equipe para gestão.
@@ -272,10 +264,18 @@ exports.getTeamMetrics = async (req, res) => {
         const pool = await getDatabasePool();
 
         // Usar HierarchyManager para obter os IDs dos usuários acessíveis
-        const accessibleUsers = await hierarchyManager.getAccessibleUsers(currentUser);
-        const allUserIds = [...new Set([currentUser.userId, ...accessibleUsers.map(user => user.userId)])];
+        const accessibleUsers = await hierarchyManager.getAccessibleUsers(currentUser, {
+            directReportsOnly: true
+        });
 
-        if (allUserIds.length === 0) {
+        const teamMemberIds = [...new Set(
+            accessibleUsers
+                .filter(user => user.TipoRelacao !== 'PROPRIO_USUARIO')
+                .map(user => user.userId)
+                .filter(Boolean)
+        )];
+
+        if (teamMemberIds.length === 0) {
             return res.json({
                 totalMembers: 0,
                 activeMembers: 0,
@@ -287,7 +287,7 @@ exports.getTeamMetrics = async (req, res) => {
         }
 
         // Buscar métricas da equipe
-        const placeholders = allUserIds.map((_, index) => `@userId${index}`).join(',');
+        const placeholders = teamMemberIds.map((_, index) => `@userId${index}`).join(',');
         
         const metricsQuery = `
             SELECT 
@@ -311,7 +311,7 @@ exports.getTeamMetrics = async (req, res) => {
         `;
 
         const request = pool.request();
-        allUserIds.forEach((userId, index) => {
+        teamMemberIds.forEach((userId, index) => {
             request.input(`userId${index}`, sql.Int, userId);
         });
 
@@ -340,14 +340,27 @@ exports.getTeamStatus = async (req, res) => {
         const pool = await getDatabasePool();
 
         // Usar HierarchyManager para obter os IDs dos usuários acessíveis
-        const accessibleUsers = await hierarchyManager.getAccessibleUsers(currentUser);
-        const allUserIds = [...new Set([currentUser.userId, ...accessibleUsers.map(user => user.userId)])];
+        const accessibleUsers = await hierarchyManager.getAccessibleUsers(currentUser, {
+            directReportsOnly: true
+        });
 
-        if (allUserIds.length === 0) {
-            return res.json([]);
+        const teamMemberIds = [...new Set(
+            accessibleUsers
+                .filter(user => user.TipoRelacao !== 'PROPRIO_USUARIO')
+                .map(user => user.userId)
+                .filter(Boolean)
+        )];
+
+        if (teamMemberIds.length === 0) {
+            return res.json({
+                online: 0,
+                offline: 0,
+                active: 0,
+                inactive: 0
+            });
         }
 
-        const placeholders = allUserIds.map((_, index) => `@userId${index}`).join(',');
+        const placeholders = teamMemberIds.map((_, index) => `@userId${index}`).join(',');
         
         const statusQuery = `
             SELECT 
@@ -378,7 +391,7 @@ exports.getTeamStatus = async (req, res) => {
         `;
 
         const request = pool.request();
-        allUserIds.forEach((userId, index) => {
+        teamMemberIds.forEach((userId, index) => {
             request.input(`userId${index}`, sql.Int, userId);
         });
 
@@ -585,28 +598,12 @@ exports.getDepartmentsList = async (req, res) => {
 exports.getHistoricoDados = async (req, res) => {
     try {
         const { periodo = 'todos', tipo = 'todos', departamento = 'todos' } = req.query;
-        const currentUser = req.session.user;
-        
-        // Simular dados históricos por enquanto
-        const dados = {
-            periodo: periodo,
-            tipo: tipo,
-            departamento: departamento,
-            dados: {
-                feedbacks: [],
-                reconhecimentos: [],
-                humor: [],
-                objetivos: []
-            },
-            estatisticas: {
-                totalFeedbacks: 0,
-                totalReconhecimentos: 0,
-                mediaHumor: 0,
-                totalObjetivos: 0
-            }
-        };
-        
-        res.json(dados);
+
+        res.json({
+            success: true,
+            filtrosAplicados: { periodo, tipo, departamento },
+            dados: {}
+        });
     } catch (error) {
         console.error('Erro ao buscar dados históricos:', error);
         res.status(500).json({ error: 'Erro ao buscar dados históricos' });

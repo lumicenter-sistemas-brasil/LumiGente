@@ -8,38 +8,47 @@
  * @param {Object} user - Objeto do usuário
  * @returns {Object} - { isHR: boolean, isTD: boolean, isHRTD: boolean }
  */
+function normalizeDepartment(value) {
+    return value ? String(value).toUpperCase().trim() : '';
+}
+
+function departmentMatches(departmentPool, predicate) {
+    return departmentPool.some(dep => predicate(dep));
+}
+
 function checkHRTDPermissions(user) {
-    if (!user || !user.departamento) {
+    if (!user) {
         return { isHR: false, isTD: false, isHRTD: false };
     }
-    
-    const departamento = user.departamento.toUpperCase().trim();
-    
-    // Verificar se é RH baseado no código do departamento (122134101 = DEPARTAMENTO ADM/RH/SESMT)
-    const isHRByCode = departamento === '122134101'; // Código específico do EDILSO
-    
-    // Verificações mais abrangentes para RH
-    const isHR = isHRByCode || 
-                 departamento.includes('RH') || 
-                 departamento.includes('RECURSOS HUMANOS') ||
-                 departamento.includes('DEPARTAMENTO RH') ||
-                 departamento.includes('ADM/RH') ||
-                 departamento.includes('COORDENACAO ADM/RH') ||
-                 departamento.includes('DEPARTAMENTO ADM/RH') ||
-                 departamento.includes('COORDENACAO ADM/RH/SESMT') ||
-                 departamento.includes('DEPARTAMENTO ADM/RH/SESMT') ||
-                 departamento.includes('RH/SESMT');
-                 
-    // Verificações mais abrangentes para T&D
-    const isTD = departamento.includes('DEPARTAMENTO TREINAM&DESENVOLV') ||
-                 departamento.includes('TREINAMENTO') ||
-                 departamento.includes('DESENVOLVIMENTO') ||
-                 departamento.includes('T&D') ||
-                 departamento.includes('TREINAM&DESENVOLV') ||
-                 departamento.includes('TREINAM') ||
-                 departamento.includes('DESENVOLV') ||
-                 departamento.includes('TREINAMENTO E DESENVOLVIMENTO');
-    
+
+    const departmentCode = normalizeDepartment(user.departamento);
+    const departmentDesc = normalizeDepartment(user.descricaoDepartamento || user.DescricaoDepartamento);
+    const departmentPool = [departmentCode, departmentDesc].filter(Boolean);
+
+    // Códigos específicos para departamentos RH e T&D
+    const HR_DEPARTMENT_CODES = ['122134101', '121511100'];
+    const TD_DEPARTMENT_CODES = ['121411100'];
+
+    const isHR = departmentMatches(departmentPool, dep => {
+        if (!dep) return false;
+        return HR_DEPARTMENT_CODES.includes(dep) ||
+            dep.includes('DEPARTAMENTO RH') ||
+            dep.includes('SUPERVISAO RH') ||
+            dep.includes('ADM/RH') ||
+            dep.includes('RH/SESMT') ||
+            dep.includes('RECURSOS HUMANOS');
+    });
+
+    const isTD = departmentMatches(departmentPool, dep => {
+        if (!dep) return false;
+        return TD_DEPARTMENT_CODES.includes(dep) ||
+            dep.includes('DEPARTAMENTO TREINAM&DESENVOLV') ||
+            dep.includes('TREINAMENTO') ||
+            dep.includes('TREINAM&DESENVOLV') ||
+            dep.includes('TREINAMENTO E DESENVOLVIMENTO') ||
+            dep.includes('T&D');
+    });
+
     return { isHR, isTD, isHRTD: isHR || isTD };
 }
 
@@ -66,18 +75,10 @@ function hasFullAccess(user, hrTdCheck = null) {
  * @param {Object} hrTdCheck - Resultado pré-calculado de checkHRTDPermissions
  * @returns {boolean}
  */
-function isManager(user, hrTdCheck = null) {
+function isManager(user) {
     if (!user) return false;
-    
-    // Administradores são gestores
     if (user.role === 'Administrador') return true;
-    
-    // RH/T&D são considerados gestores APENAS se tiverem hierarchyLevel >= 3
-    const { isHRTD } = hrTdCheck || checkHRTDPermissions(user);
-    if (isHRTD && user.hierarchyLevel >= 3) return true;
-    
-    // Verificar nível hierárquico
-    return user.hierarchyLevel >= 2;
+    return Number(user.hierarchyLevel || 0) >= 2;
 }
 
 /**
@@ -86,8 +87,17 @@ function isManager(user, hrTdCheck = null) {
  * @param {Object} hrTdCheck - Resultado pré-calculado de checkHRTDPermissions
  * @returns {boolean}
  */
-function canCreateSurveys(user, hrTdCheck = null) {
-    return hasFullAccess(user, hrTdCheck);
+function canCreateSurveys(user) {
+    if (!user) return false;
+    if (user.role === 'Administrador') return true;
+
+    const departmentDesc = normalizeDepartment(user.descricaoDepartamento || user.DescricaoDepartamento);
+    const allowedDepartments = [
+        'DEPARTAMENTO RH',
+        'SUPERVISAO RH',
+        'DEPARTAMENTO TREINAM&DESENVOLV'
+    ];
+    return allowedDepartments.includes(departmentDesc);
 }
 
 /**
@@ -95,8 +105,9 @@ function canCreateSurveys(user, hrTdCheck = null) {
  * @param {Object} user - Objeto do usuário
  * @returns {boolean}
  */
-function canCreateEvaluations(user) {
-    return user.hierarchyLevel >= 2; // Gestores (nível 2+)
+function canCreateEvaluations(user, hrTdCheck = null) {
+    const { isHRTD } = hrTdCheck || checkHRTDPermissions(user);
+    return isHRTD || isManager(user); // RH/T&D ou gestores (nível 2+)
 }
 
 /**
@@ -104,8 +115,9 @@ function canCreateEvaluations(user) {
  * @param {Object} user - Objeto do usuário
  * @returns {boolean}
  */
-function canViewCompanyMood(user) {
-    return user.hierarchyLevel >= 2; // Gestores (nível 2+)
+function canViewCompanyMood(user, hrTdCheck = null) {
+    const { isHRTD } = hrTdCheck || checkHRTDPermissions(user);
+    return isHRTD || isManager(user); // RH/T&D ou gestores (nível 2+)
 }
 
 /**
@@ -115,7 +127,10 @@ function canViewCompanyMood(user) {
  * @returns {boolean}
  */
 function canAccessHistory(user, hrTdCheck = null) {
-    return hasFullAccess(user, hrTdCheck);
+    if (!user) return false;
+    const { isHR, isTD } = hrTdCheck || checkHRTDPermissions(user);
+    const manager = isManager(user);
+    return isTD || (manager && (isHR || isTD));
 }
 
 /**
@@ -148,15 +163,22 @@ function getAllPermissions(user) {
     const hrTdCheck = checkHRTDPermissions(user);
     const { isHR, isTD, isHRTD } = hrTdCheck;
     const fullAccess = hasFullAccess(user, hrTdCheck);
-    const manager = isManager(user, hrTdCheck);
-    
+    const manager = isManager(user);
+    const canCreateEval = canCreateEvaluations(user, hrTdCheck);
+    const canViewMood = canViewCompanyMood(user, hrTdCheck);
+    const canAccessTeam = manager;
+    const canAccessReports = manager || isTD;
+    const canAccessHistorico = isTD || (manager && (isHR || isTD));
+ 
     // Determinar tipo de gestor
     let managerType = 'Funcionário';
     if (user.role === 'Administrador') managerType = 'Administrador';
+    else if (manager && isHR) managerType = 'Gestor RH';
+    else if (manager && isTD) managerType = 'Gestor T&D';
+    else if (manager) managerType = 'Gestor';
     else if (isHR) managerType = 'RH';
     else if (isTD) managerType = 'T&D';
-    else if (manager) managerType = 'Gestor';
-    
+ 
     return {
         dashboard: true, // Todos têm acesso ao dashboard
         feedbacks: true, // Todos podem dar feedbacks
@@ -164,17 +186,17 @@ function getAllPermissions(user) {
         humor: true, // Todos podem responder humor
         objetivos: true, // Todos podem ter objetivos
         pesquisas: true, // Todos podem responder pesquisas
-        avaliacoes: user.hierarchyLevel >= 2, // Gestores (nível 2+) podem ver avaliações
-        team: user.hierarchyLevel >= 2, // Gestores (nível 2+) podem ver equipe
-        analytics: fullAccess, // Apenas RH/T&D podem ver analytics
-        historico: fullAccess, // Apenas RH/T&D podem ver histórico
+        avaliacoes: true, // Todos devem ter acesso à aba
+        team: canAccessTeam,
+        analytics: canAccessReports,
+        historico: canAccessHistorico,
         
-        isManager: user.hierarchyLevel >= 2, // Gestores (nível 2+)
+        isManager: manager,
         isFullAccess: fullAccess,
         managerType,
-        canCreatePesquisas: canCreateSurveys(user, hrTdCheck),
-        canCreateAvaliacoes: canCreateEvaluations(user),
-        canViewEmpresaHumor: canViewCompanyMood(user)
+        canCreatePesquisas: canCreateSurveys(user),
+        canCreateAvaliacoes: fullAccess || canCreateEval,
+        canViewEmpresaHumor: fullAccess || canViewMood
     };
 }
 

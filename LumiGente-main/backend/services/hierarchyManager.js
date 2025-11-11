@@ -60,7 +60,6 @@ class HierarchyManager {
             if (hierarquiaResult.recordset.length > 0) {
                 const hierarquia = hierarquiaResult.recordset[0];
                 path = hierarquia.HIERARQUIA_COMPLETA;
-                departamento = hierarquia.DEPTO_ATUAL;
             } else {
                 const hierarquiaTrabalhoResult = await pool.request()
                     .input('deptoAtual', sql.VarChar, funcionario.DEPARTAMENTO)
@@ -73,13 +72,15 @@ class HierarchyManager {
                 
                 if (hierarquiaTrabalhoResult.recordset.length > 0) {
                     path = hierarquiaTrabalhoResult.recordset[0].HIERARQUIA_COMPLETA;
-                    departamento = hierarquiaTrabalhoResult.recordset[0].DEPTO_ATUAL;
                 }
             }
 
+            path = await this.sanitizeHierarchyPath(path, funcionario.DEPARTAMENTO, pool);
+            const departamentoFinal = funcionario.DEPARTAMENTO || departamento || 'Não definido';
+
             return {
                 path,
-                departamento,
+                departamento: departamentoFinal,
                 get level() { return getHierarchyLevel(this.path); }
             };
         } catch (error) {
@@ -181,8 +182,9 @@ class HierarchyManager {
             // IMPORTANTE: Verificar se é RH/T&D considerando também a FILIAL
             // Para evitar que gestores de Manaus sejam identificados como RH/T&D de SJP
             const isHRTDWithFilial = await this.checkHRTDWithFilial(currentUser, pool);
+            const directOnly = Boolean(options.directReportsOnly);
             
-            if (isHRTDWithFilial) {
+            if (isHRTDWithFilial && !directOnly) {
                 let query = `SELECT Id as userId, NomeCompleto as nomeCompleto, Departamento as departamento, HierarchyPath as hierarchyPath, Matricula, 'RH_TD_ACCESS' as TipoRelacao FROM Users WHERE IsActive = 1`;
                 if (options.department && options.department !== 'Todos') {
                     query += ` AND Departamento = @department`;
@@ -237,36 +239,69 @@ class HierarchyManager {
                 const request = pool.request()
                     .input('userMatricula', sql.VarChar, currentUser.matricula)
                     .input('userFilial', sql.VarChar, currentUser.Filial || currentUser.filial || '');
+
                 let query = `
                     WITH UsuariosAcessiveis AS (
-                        SELECT DISTINCT u.Id as userId, u.NomeCompleto as nomeCompleto, u.Departamento as departamento, u.HierarchyPath as hierarchyPath, u.Matricula, 'SUBORDINADO' as TipoRelacao
-                        FROM Users u INNER JOIN TAB_HIST_SRA s ON u.Matricula = s.MATRICULA AND u.CPF = s.CPF
-                        INNER JOIN HIERARQUIA_CC h ON (h.RESPONSAVEL_ATUAL = @userMatricula OR h.NIVEL_1_MATRICULA_RESP = @userMatricula OR h.NIVEL_2_MATRICULA_RESP = @userMatricula OR h.NIVEL_3_MATRICULA_RESP = @userMatricula OR h.NIVEL_4_MATRICULA_RESP = @userMatricula)
-                        WHERE u.IsActive = 1 AND s.STATUS_GERAL = 'ATIVO' 
-                        AND (TRIM(s.DEPARTAMENTO) = TRIM(h.DEPTO_ATUAL) OR s.MATRICULA = h.RESPONSAVEL_ATUAL)
-                        AND (h.FILIAL = @userFilial OR (@userFilial = '' AND h.FILIAL IS NULL))
-                        
+                        SELECT DISTINCT
+                            u.Id AS userId,
+                            u.NomeCompleto AS nomeCompleto,
+                            u.Departamento AS departamento,
+                            u.DescricaoDepartamento AS descricaoDepartamento,
+                            u.HierarchyPath AS hierarchyPath,
+                            u.Matricula,
+                            'SUBORDINADO' AS TipoRelacao
+                        FROM Users u
+                        INNER JOIN TAB_HIST_SRA s ON u.Matricula = s.MATRICULA AND u.CPF = s.CPF
+                        INNER JOIN HIERARQUIA_CC h ON (
+                            h.RESPONSAVEL_ATUAL = @userMatricula
+                            OR h.NIVEL_1_MATRICULA_RESP = @userMatricula
+                            OR h.NIVEL_2_MATRICULA_RESP = @userMatricula
+                            OR h.NIVEL_3_MATRICULA_RESP = @userMatricula
+                            OR h.NIVEL_4_MATRICULA_RESP = @userMatricula
+                        )
+                        WHERE u.IsActive = 1
+                          AND s.STATUS_GERAL = 'ATIVO'
+                          AND (TRIM(s.DEPARTAMENTO) = TRIM(h.DEPTO_ATUAL) OR s.MATRICULA = h.RESPONSAVEL_ATUAL)
+                          AND (h.FILIAL = @userFilial OR (@userFilial = '' AND h.FILIAL IS NULL))
+
                         UNION
-                        
-                        SELECT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, 'PROPRIO_USUARIO'
-                        FROM Users u WHERE u.Matricula = @userMatricula AND u.IsActive = 1
+
+                        SELECT
+                            u.Id,
+                            u.NomeCompleto,
+                            u.Departamento,
+                            u.DescricaoDepartamento,
+                            u.HierarchyPath,
+                            u.Matricula,
+                            'PROPRIO_USUARIO'
+                        FROM Users u
+                        WHERE u.Matricula = @userMatricula AND u.IsActive = 1
                     )
-                    SELECT DISTINCT userId, nomeCompleto, departamento, hierarchyPath, Matricula, TipoRelacao FROM UsuariosAcessiveis
+                    SELECT DISTINCT userId, nomeCompleto, departamento, descricaoDepartamento, hierarchyPath, Matricula, TipoRelacao
+                    FROM UsuariosAcessiveis
                 `;
+
                 if (options.department && options.department !== 'Todos') {
-                    query += ` WHERE departamento = @department OR TipoRelacao = 'PROPRIO_USUARIO'`;
+                    query += ` WHERE TRIM(ISNULL(descricaoDepartamento, departamento)) = @department OR TipoRelacao = 'PROPRIO_USUARIO'`;
                     request.input('department', sql.NVarChar, options.department);
                 }
+
                 query += ` ORDER BY nomeCompleto`;
 
                 const result = await request.query(query);
-                
+                 
                 if (!result.recordset || !Array.isArray(result.recordset)) {
                     console.log('⚠️ Resultado inválido da query de gestor, retornando array vazio');
                     return [];
                 }
-                
-                return result.recordset.map(record => ({ 
+
+                const managerInfo = await this.getManagerHierarchyData(currentUser, pool);
+
+                const filteredRecords = directOnly
+                    ? result.recordset.filter(record => this.isDirectSubordinateRecord(record, managerInfo))
+                    : result.recordset;
+
+                return filteredRecords.map(record => ({ 
                     ...record, 
                     hierarchyLevel: getHierarchyLevel(record.hierarchyPath, record.userId, record.departamento) 
                 }));
@@ -345,6 +380,91 @@ class HierarchyManager {
         }
     }
 
+    async sanitizeHierarchyPath(path, funcionarioDepartamento, pool) {
+        try {
+            if (!path) {
+                return '';
+            }
+
+            const parts = path
+                .split('>')
+                .map(part => part.trim())
+                .filter(part => part.length > 0);
+
+            if (parts.length === 0) {
+                return '';
+            }
+
+            if (parts.length === 1) {
+                return parts[0];
+            }
+
+            const first = parts[0];
+            const last = parts[parts.length - 1];
+            const middle = parts.slice(1, parts.length - 1);
+
+            let activeSet = new Set();
+            if (middle.length > 0) {
+                const uniqueMiddle = [...new Set(middle)];
+                const request = pool.request();
+                const placeholders = [];
+
+                uniqueMiddle.forEach((code, index) => {
+                    const param = `dep${index}`;
+                    request.input(param, sql.VarChar, code);
+                    placeholders.push(`@${param}`);
+                });
+
+                if (placeholders.length > 0) {
+                    const query = `
+                        SELECT DISTINCT TRIM(DEPARTAMENTO) AS codigo
+                        FROM TAB_HIST_SRA
+                        WHERE STATUS_GERAL = 'ATIVO'
+                          AND TRIM(DEPARTAMENTO) IN (${placeholders.join(', ')})
+                    `;
+                    const result = await request.query(query);
+                    activeSet = new Set(
+                        result.recordset
+                            .map(row => (row.codigo || '').trim())
+                            .filter(Boolean)
+                    );
+                }
+            }
+
+            const sanitizedMiddle = middle.filter(code => activeSet.has(code));
+
+            let sanitizedParts = [first, ...sanitizedMiddle];
+            if (last && last !== first) {
+                sanitizedParts.push(last);
+            }
+
+            const departamentoCodigo = (funcionarioDepartamento || '').trim();
+            if (departamentoCodigo) {
+                const hasDepartamento = sanitizedParts.some(code => code === departamentoCodigo);
+                if (!hasDepartamento) {
+                    if (sanitizedParts.length > 1) {
+                        sanitizedParts.splice(sanitizedParts.length - 1, 0, departamentoCodigo);
+                    } else {
+                        sanitizedParts.push(departamentoCodigo);
+                    }
+                }
+            }
+
+            const seen = new Set();
+            sanitizedParts = sanitizedParts.filter(code => {
+                if (!code) return false;
+                if (seen.has(code)) return false;
+                seen.add(code);
+                return true;
+            });
+
+            return sanitizedParts.join(' > ');
+        } catch (error) {
+            console.error('⚠️ Erro ao sanitizar HierarchyPath:', error);
+            return path;
+        }
+    }
+
     /**
      * Busca todos os utilizadores ativos para a funcionalidade de dar feedback (sem restrições).
      */
@@ -400,6 +520,88 @@ class HierarchyManager {
             console.error('Erro ao buscar estatísticas da hierarquia:', error);
             throw error;
         }
+    }
+
+    async getManagerHierarchyData(currentUser, pool) {
+        try {
+            const result = await pool.request()
+                .input('managerId', sql.Int, currentUser.userId)
+                .query(`SELECT Departamento, HierarchyPath FROM Users WHERE Id = @managerId`);
+
+            if (result.recordset.length > 0) {
+                const record = result.recordset[0];
+                return {
+                    departamento: (record.Departamento || '').trim(),
+                    hierarchyPath: record.HierarchyPath || ''
+                };
+            }
+
+            return {
+                departamento: (currentUser.departamento || currentUser.Departamento || '').trim(),
+                hierarchyPath: currentUser.hierarchyPath || currentUser.HierarchyPath || ''
+            };
+        } catch (error) {
+            console.error('⚠️ Erro ao obter dados de hierarquia do gestor:', error);
+            return {
+                departamento: (currentUser.departamento || currentUser.Departamento || '').trim(),
+                hierarchyPath: currentUser.hierarchyPath || currentUser.HierarchyPath || ''
+            };
+        }
+    }
+
+    isDirectSubordinateRecord(record, managerInfo) {
+        try {
+            if (!record) return false;
+
+            if (record.TipoRelacao === 'PROPRIO_USUARIO') {
+                return true;
+            }
+
+            const managerDepartment = (managerInfo?.departamento || '').trim();
+            if (!managerDepartment) {
+                return false;
+            }
+
+            const subordinateDepartment = (record.departamento || '').trim();
+            if (!subordinateDepartment) {
+                return false;
+            }
+
+            const parentDepartment = this.getParentDepartmentFromPath(record.hierarchyPath, subordinateDepartment);
+
+            return parentDepartment === managerDepartment;
+        } catch (error) {
+            console.error('⚠️ Erro ao verificar subordinado direto:', error);
+            return false;
+        }
+    }
+
+    getParentDepartmentFromPath(path, departamentoAtual) {
+        if (!path) {
+            return null;
+        }
+
+        const parts = path
+            .split('>')
+            .map(segment => segment.trim())
+            .filter(segment => segment.length > 0);
+
+        if (parts.length === 0) {
+            return null;
+        }
+
+        const departamentoAlvo = (departamentoAtual || '').trim();
+        let index = departamentoAlvo ? parts.lastIndexOf(departamentoAlvo) : -1;
+
+        if (index === -1) {
+            index = parts.length - 1;
+        }
+
+        if (index <= 0) {
+            return null;
+        }
+
+        return parts[index - 1];
     }
 }
 

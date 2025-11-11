@@ -1,7 +1,9 @@
 const sql = require('mssql');
 const { getDatabasePool } = require('../config/db');
+const HierarchyManager = require('../services/hierarchyManager');
 const { hasFullAccess } = require('../utils/permissionsHelper');
 const emailService = require('../services/emailService');
+const { createNotification, ensureNotificationsTableExists } = require('./notificationController');
 
 // =================================================================
 // FUNÇÕES DE LÓGICA DE NEGÓCIO (Helpers)
@@ -94,6 +96,36 @@ async function addPointsToUser(pool, userId, action, points) {
     } catch (err) {
         console.error(`Erro ao adicionar pontos para '${action}':`, err);
         return { success: false, points: 0, message: 'Erro ao adicionar pontos.' };
+    }
+}
+
+async function getUserBasicInfo(pool, userId) {
+    if (!userId) return null;
+    try {
+        const result = await pool.request()
+            .input('userId', sql.Int, userId)
+            .query(`SELECT Id, NomeCompleto, Email FROM Users WHERE Id = @userId`);
+        return result.recordset[0] || null;
+    } catch (error) {
+        console.error('⚠️ Erro ao buscar dados básicos do usuário:', error.message);
+        return null;
+    }
+}
+
+async function getObjetivoResponsaveis(pool, objetivoId) {
+    try {
+        const result = await pool.request()
+            .input('objetivoId', sql.Int, objetivoId)
+            .query(`
+                SELECT DISTINCT orr.responsavel_id AS Id, u.NomeCompleto, u.Email
+                FROM ObjetivoResponsaveis orr
+                JOIN Users u ON u.Id = orr.responsavel_id
+                WHERE orr.objetivo_id = @objetivoId
+            `);
+        return result.recordset || [];
+    } catch (error) {
+        console.error('⚠️ Erro ao buscar responsáveis do objetivo:', error.message);
+        return [];
     }
 }
 
@@ -269,19 +301,24 @@ exports.getObjetivos = async (req, res) => {
                 const responsaveisResult = await pool.request()
                     .input('objetivoId', sql.Int, objetivo.Id)
                     .query(`
-                        SELECT u.Id, u.NomeCompleto, orr.responsavel_id
+                        SELECT u.Id, u.NomeCompleto, u.DescricaoDepartamento, u.Departamento, orr.responsavel_id
                         FROM Users u JOIN ObjetivoResponsaveis orr ON u.Id = orr.responsavel_id
                         WHERE orr.objetivo_id = @objetivoId
+                        ORDER BY orr.Id
                     `);
                 objetivo.shared_responsaveis = responsaveisResult.recordset.map(r => ({
                     Id: r.Id,
                     NomeCompleto: r.NomeCompleto,
-                    nome_responsavel: r.NomeCompleto
+                    nome_responsavel: r.NomeCompleto,
+                    DescricaoDepartamento: r.DescricaoDepartamento,
+                    Departamento: r.Departamento
                 }));
                 
                 // Adicionar responsavel_nome para compatibilidade com o frontend
                 if (responsaveisResult.recordset.length > 0) {
                     objetivo.responsavel_nome = responsaveisResult.recordset[0].NomeCompleto;
+                    objetivo.responsavel_descricao_departamento = responsaveisResult.recordset[0].DescricaoDepartamento || responsaveisResult.recordset[0].Departamento || null;
+                    objetivo.responsavel_id = responsaveisResult.recordset[0].responsavel_id;
                 }
             } catch (error) {
                 console.log('⚠️ Erro ao buscar responsáveis do objetivo', objetivo.Id, ':', error.message);
@@ -334,8 +371,24 @@ exports.getObjetivoById = async (req, res) => {
         // Buscar responsáveis compartilhados
         const responsaveisResult = await pool.request()
             .input('objetivoId', sql.Int, objetivo.Id)
-            .query(`SELECT u.Id, u.NomeCompleto FROM Users u JOIN ObjetivoResponsaveis orr ON u.Id = orr.responsavel_id WHERE orr.objetivo_id = @objetivoId`);
-        objetivo.shared_responsaveis = responsaveisResult.recordset;
+            .query(`
+                SELECT u.Id, u.NomeCompleto, u.DescricaoDepartamento, u.Departamento
+                FROM Users u
+                JOIN ObjetivoResponsaveis orr ON u.Id = orr.responsavel_id
+                WHERE orr.objetivo_id = @objetivoId
+                ORDER BY orr.Id
+            `);
+        objetivo.shared_responsaveis = responsaveisResult.recordset.map(resp => ({
+            Id: resp.Id,
+            NomeCompleto: resp.NomeCompleto,
+            DescricaoDepartamento: resp.DescricaoDepartamento,
+            Departamento: resp.Departamento
+        }));
+        if (responsaveisResult.recordset.length > 0) {
+            objetivo.responsavel_nome = responsaveisResult.recordset[0].NomeCompleto;
+            objetivo.responsavel_descricao_departamento = responsaveisResult.recordset[0].DescricaoDepartamento || responsaveisResult.recordset[0].Departamento || null;
+            objetivo.responsavel_id = responsaveisResult.recordset[0].Id;
+        }
 
         res.json(objetivo);
     } catch (error) {
@@ -350,16 +403,17 @@ exports.getObjetivoById = async (req, res) => {
 exports.updateObjetivo = async (req, res) => {
     try {
         const { id } = req.params;
-        const { titulo, descricao, data_inicio, data_fim } = req.body;
+        const { titulo, descricao, data_inicio, data_fim, responsaveis_ids } = req.body;
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
+        await ensureObjetivosTablesExist(pool);
 
         const objetivoCheck = await pool.request().input('id', sql.Int, id).query(`SELECT criado_por, status FROM Objetivos WHERE Id = @id`);
         if (objetivoCheck.recordset.length === 0) {
             return res.status(404).json({ error: 'Objetivo não encontrado' });
         }
-        if (objetivoCheck.recordset[0].criado_por !== userId) {
-            return res.status(403).json({ error: 'Apenas o criador pode editar o objetivo.' });
+        if (objetivoCheck.recordset[0].criado_por !== userId && !hasFullAccess(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas o criador ou usuários com acesso total podem editar o objetivo.' });
         }
 
         // Recalcular status baseado nas novas datas
@@ -395,6 +449,31 @@ exports.updateObjetivo = async (req, res) => {
                 data_fim = @data_fim, status = @status, updated_at = GETDATE()
                 WHERE Id = @id
             `);
+
+        if (Array.isArray(responsaveis_ids)) {
+            const normalizedIds = Array.from(
+                new Set(
+                    responsaveis_ids
+                        .map(idValue => Number(idValue))
+                        .filter(num => Number.isInteger(num) && num > 0)
+                )
+            );
+
+            if (normalizedIds.length === 0) {
+                return res.status(400).json({ error: 'Informe ao menos um responsável válido.' });
+            }
+
+            await pool.request()
+                .input('objetivoId', sql.Int, id)
+                .query(`DELETE FROM ObjetivoResponsaveis WHERE objetivo_id = @objetivoId`);
+
+            for (const responsavelId of normalizedIds) {
+                await pool.request()
+                    .input('objetivoId', sql.Int, id)
+                    .input('responsavelId', sql.Int, responsavelId)
+                    .query(`INSERT INTO ObjetivoResponsaveis (objetivo_id, responsavel_id) VALUES (@objetivoId, @responsavelId)`);
+            }
+        }
 
         res.json({ success: true, message: 'Objetivo atualizado com sucesso', status: novoStatus });
     } catch (error) {
@@ -451,13 +530,14 @@ exports.createCheckin = async (req, res) => {
         // Verificar quem criou o objetivo
         const objetivoResult = await pool.request()
             .input('objetivoId', sql.Int, objetivoId)
-            .query(`SELECT criado_por FROM Objetivos WHERE Id = @objetivoId`);
+            .query(`SELECT criado_por, titulo FROM Objetivos WHERE Id = @objetivoId`);
         
         if (objetivoResult.recordset.length === 0) {
             return res.status(404).json({ error: 'Objetivo não encontrado' });
         }
         
         const criadoPor = objetivoResult.recordset[0].criado_por;
+        const objetivoTitulo = objetivoResult.recordset[0].titulo || 'Objetivo';
         
         // Registrar check-in
         await pool.request()
@@ -487,6 +567,17 @@ exports.createCheckin = async (req, res) => {
                     .query(`UPDATE Objetivos SET status = 'Aguardando Aprovação', progresso = @progresso, updated_at = GETDATE() WHERE Id = @objetivoId`);
                 statusUpdateMessage = 'Objetivo aguardando aprovação do gestor';
                 needsApproval = true;
+
+                const pendingMessage = '[SISTEMA] Check-in de 100% enviado para aprovação do gestor.';
+                await pool.request()
+                    .input('objetivoId', sql.Int, objetivoId)
+                    .input('userId', sql.Int, userId)
+                    .input('progresso', sql.Decimal(5, 2), progresso)
+                    .input('observacoes', sql.NText, pendingMessage)
+                    .query(`
+                        INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes)
+                        VALUES (@objetivoId, @userId, @progresso, @observacoes)
+                    `);
             }
         } else {
             // Atualizar progresso normalmente
@@ -497,6 +588,58 @@ exports.createCheckin = async (req, res) => {
         }
 
         const pointsResult = await addPointsToUser(pool, userId, 'checkin_objetivo', 5);
+
+        // Notificações e emails relacionados ao check-in
+        try {
+            await ensureNotificationsTableExists();
+
+            const [actorInfo, creatorInfo, responsaveisInfo] = await Promise.all([
+                getUserBasicInfo(pool, userId),
+                getUserBasicInfo(pool, criadoPor),
+                getObjetivoResponsaveis(pool, objetivoId)
+            ]);
+
+            const actorName = (actorInfo && actorInfo.NomeCompleto) || req.session.user?.nomeCompleto || req.session.user?.NomeCompleto || req.session.user?.nome || 'Um responsável';
+
+            const recipientsMap = new Map();
+            (responsaveisInfo || []).forEach(resp => {
+                if (resp && resp.Id) {
+                    recipientsMap.set(resp.Id, resp);
+                }
+            });
+            if (creatorInfo && creatorInfo.Id) {
+                recipientsMap.set(creatorInfo.Id, creatorInfo);
+            }
+            recipientsMap.delete(userId);
+
+            const isCompletionAttempt = needsApproval;
+            const checkinMessage = isCompletionAttempt
+                ? `${actorName} registrou 100% no objetivo "${objetivoTitulo}" e solicitou aprovação de conclusão.`
+                : `${actorName} registrou um check-in de ${progresso}% no objetivo "${objetivoTitulo}".`;
+
+            const notificationPromises = [];
+            for (const [targetId] of recipientsMap.entries()) {
+                notificationPromises.push(
+                    createNotification(targetId, 'objetivo_checkin', checkinMessage, objetivoId)
+                );
+            }
+            if (notificationPromises.length > 0) {
+                await Promise.all(notificationPromises);
+            }
+
+            if (needsApproval && creatorInfo && creatorInfo.Id !== userId && creatorInfo.Email) {
+                (async () => {
+                    await emailService.sendObjetivoApprovalRequestEmail(
+                        creatorInfo.Email,
+                        creatorInfo.NomeCompleto || 'Gestor',
+                        actorName,
+                        objetivoTitulo
+                    );
+                })().catch(err => console.error('⚠️ Erro ao enviar email de solicitação de aprovação:', err.message));
+            }
+        } catch (notifyError) {
+            console.error('⚠️ Erro ao processar notificações de objetivo:', notifyError.message || notifyError);
+        }
 
         res.json({ 
             success: true, 
@@ -536,6 +679,8 @@ exports.getCheckins = async (req, res) => {
     }
 };
 
+const hierarchyManager = new HierarchyManager();
+
 /**
  * GET /api/objetivos/filtros - Retorna filtros disponíveis (status, responsáveis).
  */
@@ -543,81 +688,68 @@ exports.getFiltros = async (req, res) => {
     try {
         const user = req.session.user;
         const pool = await getDatabasePool();
-        console.log('🔍 Buscando filtros para usuário:', user.userId);
-        console.log('🔍 Dados do usuário:', {
-            userId: user.userId,
-            matricula: user.Matricula,
-            departamento: user.Departamento,
-            hierarchyLevel: user.hierarchyLevel
-        });
-        
-        // Debug adicional da sessão
-        console.log('🔍 Sessão completa do usuário:', JSON.stringify(user, null, 2));
-        console.log('🔍 Tipo do departamento:', typeof user.Departamento);
-        console.log('🔍 Valor do departamento:', `"${user.Departamento}"`);
-        console.log('🔍 Departamento é undefined?', user.Departamento === undefined);
-        console.log('🔍 Departamento é null?', user.Departamento === null);
-        console.log('🔍 Departamento é string vazia?', user.Departamento === '');
-        
+
         const statusResult = await pool.request().query(`SELECT DISTINCT status FROM Objetivos WHERE status IS NOT NULL`);
         
-        // Buscar apenas usuários do mesmo departamento (equipe direta)
-        let responsaveisQuery = `
-            SELECT DISTINCT u.Id, u.NomeCompleto, u.Matricula, u.HierarchyPath, u.Departamento, u.DescricaoDepartamento
-            FROM Users u 
-            WHERE u.IsActive = 1 AND u.Departamento = @userDepartamento
-            ORDER BY u.NomeCompleto
-        `;
-        
-        console.log('🔍 Query para buscar responsáveis:', responsaveisQuery);
-        console.log('🔍 Departamento do usuário:', user.Departamento);
-        
-        // Verificar se o departamento está definido corretamente (tentar ambos os casos)
-        const userDepartamento = user.departamento || user.Departamento || '';
-        
-        console.log('🔍 Verificação do departamento:');
-        console.log('  - user.Departamento:', `"${user.Departamento}"`);
-        console.log('  - user.departamento:', `"${user.departamento}"`);
-        console.log('  - userDepartamento final:', `"${userDepartamento}"`);
-        console.log('  - userDepartamento é string vazia?', userDepartamento === '');
-        console.log('  - userDepartamento é undefined?', userDepartamento === undefined);
-        console.log('  - userDepartamento é null?', userDepartamento === null);
-        
-        if (!userDepartamento) {
-            console.log('⚠️ Departamento não definido na sessão, retornando apenas o usuário atual');
-            const fallbackResult = await pool.request()
-                .input('userId', sql.Int, user.userId)
-                .query(`
-                    SELECT DISTINCT u.Id, u.NomeCompleto, u.Matricula, u.HierarchyPath, u.Departamento, u.DescricaoDepartamento
-                    FROM Users u 
-                    WHERE u.IsActive = 1 AND u.Id = @userId
-                    ORDER BY u.NomeCompleto
-                `);
-            
-            console.log('📋 Fallback retornando:', fallbackResult.recordset.length, 'usuários');
-            return res.json({
-                status: statusResult.recordset.map(r => r.status),
-                responsaveis: fallbackResult.recordset
-            });
-        }
-        
-        console.log('🔍 Usando departamento:', userDepartamento);
-        
-        const responsaveisResult = await pool.request()
-            .input('userDepartamento', sql.NVarChar, userDepartamento)
-            .query(responsaveisQuery);
-        
-        console.log('📋 Responsáveis encontrados:', responsaveisResult.recordset.length);
-        console.log('👥 Detalhes dos responsáveis:', responsaveisResult.recordset.map(r => ({
-            Id: r.Id,
-            NomeCompleto: r.NomeCompleto,
-            Departamento: r.Departamento
-        })));
-        
-        res.json({
+        const responsePayload = {
             status: statusResult.recordset.map(r => r.status),
-            responsaveis: responsaveisResult.recordset
-        });
+            responsaveis: []
+        };
+
+        if (!user) {
+            return res.json(responsePayload);
+        }
+
+        const userIsGestor = Number(user.hierarchyLevel || 0) >= 3;
+
+        if (userIsGestor) {
+            const accessibleUsers = await hierarchyManager.getAccessibleUsers(user, { directReportsOnly: true });
+            const directReports = accessibleUsers
+                .filter(report => Number(report.userId) !== Number(user.userId))
+                .map(report => ({
+                    Id: report.userId,
+                    NomeCompleto: report.nomeCompleto || report.NomeCompleto || report.nome || report.Nome || 'Colaborador',
+                    Matricula: report.Matricula || report.matricula || null,
+                    HierarchyPath: report.hierarchyPath || report.HierarchyPath || null,
+                    Departamento: report.departamento || report.Departamento || '',
+                    DescricaoDepartamento: report.descricaoDepartamento || report.DescricaoDepartamento || ''
+                }));
+
+            // inclui o próprio gestor para permitir atribuição a si mesmo
+            const selfEntry = {
+                Id: user.userId,
+                NomeCompleto: user.nomeCompleto || user.NomeCompleto || user.UserName || 'Você',
+                Matricula: user.Matricula || null,
+                HierarchyPath: user.hierarchyPath || user.HierarchyPath || null,
+                Departamento: user.departamento || user.Departamento || '',
+                DescricaoDepartamento: user.descricaoDepartamento || user.DescricaoDepartamento || ''
+            };
+
+            const allResponsaveis = [selfEntry, ...directReports];
+
+            // remover duplicados por Id
+            const uniqueMap = new Map();
+            allResponsaveis.forEach(resp => {
+                if (!uniqueMap.has(resp.Id)) {
+                    uniqueMap.set(resp.Id, resp);
+                }
+            });
+
+            responsePayload.responsaveis = Array.from(uniqueMap.values()).sort((a, b) =>
+                (a.NomeCompleto || '').localeCompare(b.NomeCompleto || '', 'pt-BR')
+            );
+        } else {
+            responsePayload.responsaveis = [{
+                Id: user.userId,
+                NomeCompleto: user.nomeCompleto || user.NomeCompleto || user.UserName || 'Você',
+                Matricula: user.Matricula || null,
+                HierarchyPath: user.hierarchyPath || user.HierarchyPath || null,
+                Departamento: user.departamento || user.Departamento || '',
+                DescricaoDepartamento: user.descricaoDepartamento || user.DescricaoDepartamento || ''
+            }];
+        }
+
+        res.json(responsePayload);
     } catch (error) {
         console.error('❌ Erro ao buscar filtros:', error);
         res.status(500).json({ error: 'Erro ao buscar filtros' });
@@ -951,11 +1083,87 @@ exports.approveObjetivo = async (req, res) => {
         const { id } = req.params;
         const pool = await getDatabasePool();
         
+        const userId = req.session.user.userId;
+
+        const objetivoInfoResult = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`SELECT titulo, criado_por FROM Objetivos WHERE Id = @id`);
+
+        if (objetivoInfoResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'Objetivo não encontrado' });
+        }
+
+        const objetivoTitulo = objetivoInfoResult.recordset[0].titulo || 'Objetivo';
+        const criadorId = objetivoInfoResult.recordset[0].criado_por;
+
         await pool.request()
             .input('id', sql.Int, id)
-            .query(`UPDATE Objetivos SET status = 'Aprovado', updated_at = GETDATE() WHERE Id = @id`);
+            .query(`UPDATE Objetivos SET status = 'Concluído', progresso = 100, updated_at = GETDATE() WHERE Id = @id`);
+
+        await pool.request()
+            .input('objetivoId', sql.Int, id)
+            .input('userId', sql.Int, userId)
+            .input('progresso', sql.Decimal(5, 2), 100)
+            .input('observacoes', sql.NText, '[SISTEMA] Conclusão aprovada pelo gestor.')
+            .query(`
+                INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes)
+                VALUES (@objetivoId, @userId, @progresso, @observacoes)
+            `);
+
+        try {
+            await ensureNotificationsTableExists();
+
+            const [approverInfo, creatorInfo, responsaveisInfo] = await Promise.all([
+                getUserBasicInfo(pool, userId),
+                getUserBasicInfo(pool, criadorId),
+                getObjetivoResponsaveis(pool, id)
+            ]);
+
+            const approverName = (approverInfo && approverInfo.NomeCompleto) || req.session.user?.nomeCompleto || req.session.user?.NomeCompleto || req.session.user?.nome || 'Gestor';
+
+            const recipientsMap = new Map();
+            (responsaveisInfo || []).forEach(resp => {
+                if (resp && resp.Id) {
+                    recipientsMap.set(resp.Id, resp);
+                }
+            });
+            if (creatorInfo && creatorInfo.Id) {
+                recipientsMap.set(creatorInfo.Id, creatorInfo);
+            }
+            recipientsMap.delete(userId);
+
+            const approvalMessage = `${approverName} aprovou a conclusão do objetivo "${objetivoTitulo}".`;
+            const notificationPromises = [];
+            for (const [targetId] of recipientsMap.entries()) {
+                notificationPromises.push(
+                    createNotification(targetId, 'objetivo_aprovado', approvalMessage, Number(id))
+                );
+            }
+            if (notificationPromises.length > 0) {
+                await Promise.all(notificationPromises);
+            }
+
+            const emailPromises = (responsaveisInfo || [])
+                .filter(resp => resp && resp.Id !== criadorId && resp.Id !== userId && resp.Email)
+                .map(resp =>
+                    (async () => {
+                        await emailService.sendObjetivoConclusionApprovedEmail(
+                            resp.Email,
+                            resp.NomeCompleto,
+                            approverName,
+                            objetivoTitulo
+                        );
+                    })().catch(err => console.error('⚠️ Erro ao enviar email de aprovação de objetivo:', err.message))
+                );
+
+            if (emailPromises.length > 0) {
+                Promise.allSettled(emailPromises).catch(err => console.error('⚠️ Erro ao processar emails de aprovação:', err.message));
+            }
+        } catch (notifyError) {
+            console.error('⚠️ Erro ao processar notificações/emails de aprovação:', notifyError.message || notifyError);
+        }
         
-        res.json({ success: true, message: 'Objetivo aprovado com sucesso' });
+        res.json({ success: true, message: 'Objetivo aprovado e concluído com sucesso' });
     } catch (error) {
         console.error('Erro ao aprovar objetivo:', error);
         res.status(500).json({ error: 'Erro ao aprovar objetivo' });
@@ -969,7 +1177,25 @@ exports.rejectObjetivo = async (req, res) => {
     try {
         const { id } = req.params;
         const { motivo } = req.body;
+        const userId = req.session.user.userId;
+        const motivoLimpo = (motivo || '').trim();
+
+        if (!motivoLimpo) {
+            return res.status(400).json({ error: 'Informe o motivo da rejeição.' });
+        }
+
         const pool = await getDatabasePool();
+
+        const objetivoInfoResult = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`SELECT titulo, criado_por FROM Objetivos WHERE Id = @id`);
+
+        if (objetivoInfoResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'Objetivo não encontrado' });
+        }
+
+        const objetivoTitulo = objetivoInfoResult.recordset[0].titulo || 'Objetivo';
+        const criadorId = objetivoInfoResult.recordset[0].criado_por;
         
         // Buscar a última porcentagem <> 100 (mais recente)
         const ultimoCheckinResult = await pool.request()
@@ -992,11 +1218,78 @@ exports.rejectObjetivo = async (req, res) => {
             .input('id', sql.Int, id)
             .input('progresso', sql.Decimal(5, 2), progressoAnterior)
             .query(`UPDATE Objetivos SET status = 'Ativo', progresso = @progresso, updated_at = GETDATE() WHERE Id = @id`);
+
+        const rejectionMessage = `[SISTEMA] Conclusão rejeitada pelo gestor. Motivo: ${motivoLimpo}.`;
+        await pool.request()
+            .input('objetivoId', sql.Int, id)
+            .input('userId', sql.Int, userId)
+            .input('progresso', sql.Decimal(5, 2), progressoAnterior)
+            .input('observacoes', sql.NText, rejectionMessage)
+            .query(`
+                INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes)
+                VALUES (@objetivoId, @userId, @progresso, @observacoes)
+            `);
+
+        try {
+            await ensureNotificationsTableExists();
+
+            const [approverInfo, creatorInfo, responsaveisInfo] = await Promise.all([
+                getUserBasicInfo(pool, userId),
+                getUserBasicInfo(pool, criadorId),
+                getObjetivoResponsaveis(pool, id)
+            ]);
+
+            const approverName = (approverInfo && approverInfo.NomeCompleto) || req.session.user?.nomeCompleto || req.session.user?.NomeCompleto || req.session.user?.nome || 'Gestor';
+            const motivoLimitado = motivoLimpo.length > 250 ? `${motivoLimpo.slice(0, 247)}...` : motivoLimpo;
+
+            const recipientsMap = new Map();
+            (responsaveisInfo || []).forEach(resp => {
+                if (resp && resp.Id) {
+                    recipientsMap.set(resp.Id, resp);
+                }
+            });
+            if (creatorInfo && creatorInfo.Id) {
+                recipientsMap.set(creatorInfo.Id, creatorInfo);
+            }
+            recipientsMap.delete(userId);
+
+            const rejectionNotification = `${approverName} rejeitou a conclusão do objetivo "${objetivoTitulo}". Motivo: ${motivoLimitado}`;
+            const notificationPromises = [];
+            for (const [targetId] of recipientsMap.entries()) {
+                notificationPromises.push(
+                    createNotification(targetId, 'objetivo_rejeitado', rejectionNotification, Number(id))
+                );
+            }
+            if (notificationPromises.length > 0) {
+                await Promise.all(notificationPromises);
+            }
+
+            const emailPromises = (responsaveisInfo || [])
+                .filter(resp => resp && resp.Id !== criadorId && resp.Id !== userId && resp.Email)
+                .map(resp =>
+                    (async () => {
+                        await emailService.sendObjetivoConclusionRejectedEmail(
+                            resp.Email,
+                            resp.NomeCompleto,
+                            approverName,
+                            objetivoTitulo,
+                            motivoLimpo,
+                            progressoAnterior
+                        );
+                    })().catch(err => console.error('⚠️ Erro ao enviar email de rejeição de objetivo:', err.message))
+                );
+
+            if (emailPromises.length > 0) {
+                Promise.allSettled(emailPromises).catch(err => console.error('⚠️ Erro ao processar emails de rejeição:', err.message));
+            }
+        } catch (notifyError) {
+            console.error('⚠️ Erro ao processar notificações/emails de rejeição:', notifyError.message || notifyError);
+        }
         
         res.json({ 
             success: true, 
             message: `Objetivo rejeitado e revertido para ${progressoAnterior}%`, 
-            motivo,
+            motivo: motivoLimpo,
             progressoAnterior 
         });
     } catch (error) {

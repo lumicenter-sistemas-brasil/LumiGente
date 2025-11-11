@@ -5,9 +5,21 @@ const Avaliacoes = {
         respostasAvaliacao: {}
     },
 
+    renderIcon(nome, tamanho = 20, estilosExtras = '') {
+        const baseStyles = `width: ${tamanho}px; height: ${tamanho}px;`;
+        return `<i data-lucide="${nome}" style="${baseStyles}${estilosExtras}"></i>`;
+    },
+
+    refreshIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons({ attrs: { 'stroke-width': 2 } });
+        }
+    },
+
     async load() {
         await this.checkPermissions();
         await this.loadMinhas();
+        this.refreshIcons();
     },
 
     async loadMinhas() {
@@ -34,20 +46,22 @@ const Avaliacoes = {
         
         if (avaliacoes.length === 0) {
             container.innerHTML = `
-                <h3><i class="fas fa-clipboard-check" style="color: #10b981;"></i> Minhas Avaliações</h3>
+                <h3>${this.renderIcon('clipboard-check', 20, 'margin-right: 8px; color: #10b981;')}Minhas Avaliações</h3>
                 <div style="text-align: center; padding: 40px 20px;">
-                    <i class="fas fa-check-circle" style="font-size: 64px; color: #10b981; margin-bottom: 16px;"></i>
+                    ${this.renderIcon('check-circle', 64, 'color: #10b981; margin-bottom: 16px;')}
                     <h4 style="color: #6b7280;">Nenhuma avaliação pendente</h4>
                 </div>
             `;
+            this.refreshIcons();
             return;
         }
         
         container.innerHTML = `
-            <h3><i class="fas fa-clipboard-check" style="color: #10b981;"></i> Minhas Avaliações</h3>
+            <h3>${this.renderIcon('clipboard-check', 20, 'margin-right: 8px; color: #10b981;')}Minhas Avaliações</h3>
             <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">Total: ${avaliacoes.length} avaliação(ões)</p>
             ${this.renderList(avaliacoes, false)}
         `;
+        this.refreshIcons();
     },
 
     updateTodasList(avaliacoes) {
@@ -58,11 +72,12 @@ const Avaliacoes = {
             container.innerHTML = `
                 <div class="card">
                     <div style="text-align: center; padding: 40px 20px;">
-                        <i class="fas fa-inbox" style="font-size: 64px; color: #e5e7eb; margin-bottom: 16px;"></i>
+                        ${this.renderIcon('inbox', 64, 'color: #e5e7eb; margin-bottom: 16px;')}
                         <h4 style="color: #6b7280;">Nenhuma avaliação cadastrada</h4>
                     </div>
                 </div>
             `;
+            this.refreshIcons();
             return;
         }
         
@@ -72,6 +87,7 @@ const Avaliacoes = {
             </div>
             <div id="lista-avaliacoes-container">${this.renderList(avaliacoes, true)}</div>
         `;
+        this.refreshIcons();
     },
 
     renderList(avaliacoes, isAdmin = false) {
@@ -100,7 +116,7 @@ const Avaliacoes = {
                                 <span class="badge">${avaliacao.StatusAvaliacao}</span>
                             </div>
                             <button class="btn btn-amber btn-sm" onclick="Avaliacoes.open(${avaliacao.Id})">
-                                <i class="fas fa-${textoBotao === 'Ver Detalhes' ? 'eye' : 'clipboard-check'}"></i>
+                                ${this.renderIcon(textoBotao === 'Ver Detalhes' ? 'eye' : 'clipboard-check', 16, 'margin-right: 6px;')}
                                 ${textoBotao}
                             </button>
                         </div>
@@ -152,10 +168,10 @@ const Avaliacoes = {
         let quartoCampoLabel, quartoCampoConteudo;
         if (eParticipante) {
             quartoCampoLabel = 'Você responde como:';
-            quartoCampoConteudo = `<p style="margin: 0; color: #0d556d; font-weight: 600;"><i class="fas fa-${eColaborador ? 'user' : 'user-tie'}"></i> ${eColaborador ? 'Colaborador' : 'Gestor'}</p>`;
+            quartoCampoConteudo = `<p style="margin: 0; color: #0d556d; font-weight: 600;">${this.renderIcon(eColaborador ? 'user' : 'user-cog', 18, 'margin-right: 6px;')} ${eColaborador ? 'Colaborador' : 'Gestor'}</p>`;
         } else {
             quartoCampoLabel = 'Gestor Responsável:';
-            quartoCampoConteudo = `<p style="margin: 0; color: #8b5cf6; font-weight: 600;"><i class="fas fa-user-tie"></i> ${avaliacao.NomeGestor || 'Não atribuído'}</p>`;
+            quartoCampoConteudo = `<p style="margin: 0; color: #8b5cf6; font-weight: 600;">${this.renderIcon('user-cog', 18, 'margin-right: 6px;')}${avaliacao.NomeGestor || 'Não atribuído'}</p>`;
         }
         
         container.innerHTML = `
@@ -183,13 +199,14 @@ const Avaliacoes = {
         const container = document.getElementById('formulario-avaliacao');
         container.innerHTML = `
             <div style="text-align: center; padding: 40px 20px; background: #eff6ff; border-radius: 12px; border: 2px solid #93c5fd;">
-                <i class="fas fa-calendar-alt" style="font-size: 64px; color: #3b82f6; margin-bottom: 24px;"></i>
+                ${this.renderIcon('calendar', 64, 'color: #3b82f6; margin-bottom: 24px;')}
                 <h3 style="color: #1e40af; margin-bottom: 12px;">Avaliação Agendada</h3>
                 <p style="color: #1e3a8a; font-size: 16px;">Esta avaliação ainda não está disponível.</p>
                 <p style="color: #3b82f6; font-size: 14px;">Faltam aproximadamente <strong>${diasFaltantes} dia(s)</strong>.</p>
             </div>
         `;
         this.switchTab('responder');
+        this.refreshIcons();
     },
 
     showViewOnlyMode() {
@@ -209,12 +226,13 @@ const Avaliacoes = {
         const container = document.getElementById('formulario-avaliacao');
         container.innerHTML = `
             <div style="text-align: center; padding: 60px 20px; background: #fef2f2; border-radius: 12px; border: 2px solid #fca5a5;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: #dc2626; margin-bottom: 24px;"></i>
+                ${this.renderIcon('alert-triangle', 64, 'color: #dc2626; margin-bottom: 24px;')}
                 <h3 style="color: #991b1b; margin-bottom: 12px;">Avaliação Expirada</h3>
                 <p style="color: #7f1d1d; font-size: 16px;">O prazo expirou em <strong>${this.formatDate(avaliacao.DataLimiteResposta)}</strong>.</p>
             </div>
         `;
         this.switchTab('responder');
+        this.refreshIcons();
     },
 
     async loadQuestionario(avaliacao) {
@@ -226,11 +244,12 @@ const Avaliacoes = {
         const container = document.getElementById('formulario-avaliacao');
         container.innerHTML = `
             <div style="text-align: center; padding: 40px 20px;">
-                <i class="fas fa-clipboard-list" style="font-size: 48px; color: #3b82f6; margin-bottom: 16px;"></i>
+                ${this.renderIcon('clipboard-list', 48, 'color: #3b82f6; margin-bottom: 16px;')}
                 <p style="color: #6b7280;">Questionário será carregado aqui</p>
             </div>
         `;
         this.switchTab('responder');
+        this.refreshIcons();
     },
 
     switchTab(aba) {
@@ -240,6 +259,7 @@ const Avaliacoes = {
         
         document.getElementById('formulario-avaliacao').style.display = aba === 'responder' ? 'block' : 'none';
         document.getElementById('visualizacao-avaliacao').style.display = aba === 'visualizar' ? 'block' : 'none';
+        this.refreshIcons();
     },
 
     formatDate(dateString) {

@@ -6,6 +6,7 @@ const Auth = {
             if (response.ok) {
                 const user = await response.json();
                 State.setUser(user);
+                window.currentUser = user;
                 const userName = user.nomeCompleto || user.userName;
                 document.querySelector('.user-info span').textContent = userName;
                 document.getElementById('user-info-name').textContent = userName;
@@ -36,6 +37,7 @@ const Auth = {
             if (!data || !data.permissions) return;
             
             const permissions = data.permissions;
+            window.cachedTabPermissions = permissions;
             const permissionMap = {
                 'dashboard': 'dashboard',
                 'feedback': 'feedbacks',

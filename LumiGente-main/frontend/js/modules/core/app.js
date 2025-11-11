@@ -113,6 +113,8 @@ const App = {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') Modal.closeAll();
         });
+
+        setupQuickActions();
     },
 
     setupNavigation() {
@@ -121,7 +123,7 @@ const App = {
             'feedback': 'Feedbacks',
             'recognition': 'Reconhecimentos',
             'team': 'Gestão de Equipe',
-            'analytics': 'Relatórios e Análises',
+            'analytics': 'Relatórios',
             'humor': 'Humor do Dia',
             'objetivos': 'Objetivos',
             'pesquisas': 'Pesquisas',
@@ -229,6 +231,13 @@ document.addEventListener('keydown', (e) => {
             toggleSidebar();
         }
     }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.quick-actions-menu .quick-actions-item')) {
+        e.preventDefault();
+        e.target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+    if (e.key === 'Escape') {
+        closeQuickActionsDropdown();
+    }
 });
 
 // Fechar sidebar ao redimensionar para desktop
@@ -245,14 +254,66 @@ window.addEventListener('resize', () => {
 });
 
 // Quick Actions Dropdown
+let quickActionsCache = null;
+
+function getQuickActionsElements() {
+    if (!quickActionsCache) {
+        quickActionsCache = {
+            toggle: document.getElementById('quick-actions-toggle'),
+            menu: document.getElementById('quick-actions-menu'),
+            label: document.querySelector('.quick-actions-label'),
+            card: document.querySelector('.quick-actions-card')
+        };
+    }
+    return quickActionsCache;
+}
+
+function setupQuickActions() {
+    const { toggle, menu } = getQuickActionsElements();
+    if (!toggle || !menu) return;
+
+    if (!toggle.dataset.listenerAttached) {
+        toggle.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleQuickActionsDropdown();
+        });
+        toggle.dataset.listenerAttached = 'true';
+    }
+
+    if (!menu.dataset.listenerAttached) {
+        menu.addEventListener('click', (event) => event.stopPropagation());
+        menu.dataset.listenerAttached = 'true';
+    }
+}
+
 function toggleQuickActionsDropdown() {
-    const menu = document.getElementById('quick-actions-menu');
-    menu.classList.toggle('hidden');
+    const { toggle, menu, card } = getQuickActionsElements();
+    if (!toggle || !menu || !card) return;
+
+    const isOpen = card.classList.contains('quick-actions-open');
+    closeQuickActionsDropdown();
+
+    if (!isOpen) {
+        card.classList.add('quick-actions-open');
+        toggle.setAttribute('aria-expanded', 'true');
+    }
 }
 
 function closeQuickActionsDropdown() {
-    const menu = document.getElementById('quick-actions-menu');
-    menu.classList.add('hidden');
+    const { toggle, menu, card } = getQuickActionsElements();
+    if (!toggle || !menu || !card) return;
+
+    card.classList.remove('quick-actions-open');
+    menu.classList.remove('show');
+    toggle.setAttribute('aria-expanded', 'false');
+}
+
+function setQuickActionValue(label) {
+    const { label: labelElement } = getQuickActionsElements();
+    if (labelElement) {
+        labelElement.textContent = label || 'Selecione uma ação';
+    }
 }
 
 // Toggle user info dropdown in mobile
@@ -268,9 +329,11 @@ function toggleUserInfoDropdown() {
 
 // Close dropdown and sidebar when clicking outside
 document.addEventListener('click', (e) => {
-    const dropdown = document.querySelector('.quick-actions-dropdown');
-    if (dropdown && !dropdown.contains(e.target)) {
-        closeQuickActionsDropdown();
+    const { toggle, menu, card } = getQuickActionsElements();
+    if (card && card.classList.contains('quick-actions-open')) {
+        if (!card.contains(e.target)) {
+            closeQuickActionsDropdown();
+        }
     }
     
     // Close user-info dropdown when clicking outside
@@ -317,11 +380,18 @@ function toggleFilters(id) {
     
     const icon = btn.querySelector('svg:last-child');
     const text = btn.querySelector('span');
+    const card = btn.closest('.card');
     
     container.classList.toggle('collapsed');
     btn.classList.toggle('active');
     
-    if (container.classList.contains('collapsed')) {
+    const isCollapsed = container.classList.contains('collapsed');
+    
+    if (card) {
+        card.classList.toggle('filters-collapsed', isCollapsed);
+    }
+    
+    if (isCollapsed) {
         if (text) text.textContent = 'Mostrar Filtros';
         if (icon) icon.style.transform = 'rotate(0deg)';
     } else {

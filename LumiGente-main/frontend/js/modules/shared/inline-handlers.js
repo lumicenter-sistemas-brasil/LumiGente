@@ -12,9 +12,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const actions = {
             // Quick actions
             'toggleQuickActionsDropdown': () => typeof toggleQuickActionsDropdown === 'function' && toggleQuickActionsDropdown(),
-            'openFeedbackModal': () => { typeof openFeedbackModal === 'function' && openFeedbackModal(); typeof closeQuickActionsDropdown === 'function' && closeQuickActionsDropdown(); },
-            'openRecognitionModal': () => { typeof openRecognitionModal === 'function' && openRecognitionModal(); typeof closeQuickActionsDropdown === 'function' && closeQuickActionsDropdown(); },
-            'openNewObjetivoModal': () => { typeof openNewObjetivoModal === 'function' && openNewObjetivoModal(); typeof closeQuickActionsDropdown === 'function' && closeQuickActionsDropdown(); },
+            'openFeedbackModal': () => {
+                if (typeof setQuickActionValue === 'function') setQuickActionValue(target.getAttribute('data-label') || 'Enviar Feedback');
+                if (typeof openFeedbackModal === 'function') openFeedbackModal();
+                if (typeof closeQuickActionsDropdown === 'function') closeQuickActionsDropdown();
+            },
+            'openRecognitionModal': () => {
+                if (typeof setQuickActionValue === 'function') setQuickActionValue(target.getAttribute('data-label') || 'Reconhecer Colega');
+                if (typeof openRecognitionModal === 'function') openRecognitionModal();
+                if (typeof closeQuickActionsDropdown === 'function') closeQuickActionsDropdown();
+            },
+            'openNewObjetivoModal': () => {
+                if (typeof setQuickActionValue === 'function') setQuickActionValue(target.getAttribute('data-label') || 'Novo Objetivo');
+                if (typeof openNewObjetivoModal === 'function') openNewObjetivoModal();
+                if (typeof closeQuickActionsDropdown === 'function') closeQuickActionsDropdown();
+            },
             
             // Feedback
             'switchFeedbackTab': () => typeof switchFeedbackTab === 'function' && switchFeedbackTab(param),
@@ -50,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'submitPesquisa': () => typeof submitPesquisa === 'function' && submitPesquisa(),
             'closeResponderPesquisaModal': () => typeof closeResponderPesquisaModal === 'function' && closeResponderPesquisaModal(),
             'submitRespostaPesquisa': () => typeof submitRespostaPesquisa === 'function' && submitRespostaPesquisa(),
+            'closeVerRespostasModal': () => typeof closeVerRespostasModal === 'function' && closeVerRespostasModal(),
             
             // Avaliações
             'abrirModalEditarQuestionarios': () => typeof abrirModalEditarQuestionarios === 'function' && abrirModalEditarQuestionarios(),

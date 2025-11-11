@@ -198,7 +198,7 @@ const NotificationsManager = {
             'feedback': 'Feedbacks',
             'recognition': 'Reconhecimentos',
             'team': 'Gestão de Equipe',
-            'analytics': 'Relatórios e Análises',
+            'analytics': 'Relatórios',
             'humor': 'Humor do Dia',
             'objetivos': 'Objetivos',
             'pesquisas': 'Pesquisas',

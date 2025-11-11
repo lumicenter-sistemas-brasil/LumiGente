@@ -66,6 +66,7 @@ const SurveyUtils = {
         };
         
         const targetType = document.querySelector('input[name="target_type"]:checked')?.value;
+        data.target_type = targetType || 'todos';
         
         if (targetType === 'filiais' || targetType === 'ambos') {
             data.filiais_filtro = Array.from(document.querySelectorAll('input[name="filiais"]:checked'))

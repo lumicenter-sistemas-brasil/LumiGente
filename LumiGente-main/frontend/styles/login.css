@@ -222,6 +222,75 @@ body::before {
     border: 1px solid #bfdbfe;
 }
 
+.support-card {
+    margin-top: 20px;
+    padding: 18px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(13, 85, 109, 0.12) 0%, rgba(10, 69, 85, 0.18) 100%);
+    border: 1px solid rgba(13, 85, 109, 0.28);
+    box-shadow: 0 12px 32px rgba(13, 85, 109, 0.18);
+}
+
+.support-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0d556d;
+}
+
+.support-card-title svg {
+    color: inherit;
+}
+
+.support-card-title svg path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+
+.support-card-text {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: #1f2937;
+}
+
+.support-card-link {
+    margin: 0;
+}
+
+.support-card-email {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0a4555;
+    text-decoration: none;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.support-card-email svg {
+    color: inherit;
+}
+
+.support-card-email svg path,
+.support-card-email svg polyline {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.support-card-email:hover {
+    color: #073642;
+    text-decoration: underline;
+    transform: translateY(-1px);
+}
+
 .loading {
     display: none;
     margin-top: 16px;
