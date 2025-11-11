@@ -1,5 +1,10 @@
 // Avaliações - Formatter Module
 const AvaliacoesFormatter = {
+    renderIcon(nome, tamanho = 16, estilosExtras = '') {
+        const baseStyles = `width: ${tamanho}px; height: ${tamanho}px;`;
+        return `<i data-lucide="${nome}" style="${baseStyles}${estilosExtras}"></i>`;
+    },
+
     formatarResposta(resposta, pergunta) {
         if (!resposta) return '<p style="margin: 0; color: #6b7280;">Não respondida</p>';
         
@@ -15,7 +20,9 @@ const AvaliacoesFormatter = {
                             const selecionada = opcao.Id === resposta.OpcaoSelecionadaId || opcao.TextoOpcao === resposta.Resposta;
                             return `
                                 <div style="padding: 10px 12px; border-radius: 6px; background: ${selecionada ? '#fff' : '#f9fafb'}; border: 2px solid ${selecionada ? '#0d556d' : '#e5e7eb'}; display: flex; align-items: center; gap: 8px;">
-                                    ${selecionada ? '<i class="fas fa-check-circle" style="color: #10b981; font-size: 16px;"></i>' : '<i class="far fa-circle" style="color: #d1d5db; font-size: 16px;"></i>'}
+                                    ${selecionada 
+                                        ? this.renderIcon('check-circle', 16, 'color: #10b981;') 
+                                        : this.renderIcon('circle', 16, 'color: #d1d5db;')}
                                     <span style="color: ${selecionada ? '#111827' : '#6b7280'}; font-weight: ${selecionada ? '600' : '400'};">${opcao.TextoOpcao}</span>
                                 </div>
                             `;
@@ -56,11 +63,11 @@ const AvaliacoesFormatter = {
                 return `
                     <div style="display: flex; gap: 12px;">
                         <div style="flex: 1; padding: 12px; border-radius: 6px; text-align: center; background: ${valorSimNao === 'Sim' ? '#d1fae5' : '#f9fafb'}; border: 2px solid ${valorSimNao === 'Sim' ? '#10b981' : '#e5e7eb'}; color: ${valorSimNao === 'Sim' ? '#065f46' : '#6b7280'}; font-weight: 600;">
-                            <i class="fas fa-check-circle" style="font-size: 18px; margin-right: 6px;"></i>
+                            ${this.renderIcon('check-circle', 18, 'margin-right: 6px;')}
                             Sim
                         </div>
                         <div style="flex: 1; padding: 12px; border-radius: 6px; text-align: center; background: ${valorSimNao === 'Não' ? '#fee2e2' : '#f9fafb'}; border: 2px solid ${valorSimNao === 'Não' ? '#ef4444' : '#e5e7eb'}; color: ${valorSimNao === 'Não' ? '#991b1b' : '#6b7280'}; font-weight: 600;">
-                            <i class="fas fa-times-circle" style="font-size: 18px; margin-right: 6px;"></i>
+                            ${this.renderIcon('x-circle', 18, 'margin-right: 6px;')}
                             Não
                         </div>
                     </div>

@@ -5,9 +5,9 @@ const Objetivos = {
         selectedResponsaveis: [],
         modalMode: 'create',
         currentObjetivoId: null,
-        isSubmitting: false
+        isSubmitting: false,
+        rejectModal: null
     },
-
     setSubmitButtonLoading(isLoading, text) {
         const submitBtn = document.getElementById('objetivo-submit-btn');
         if (!submitBtn) return;
@@ -152,12 +152,15 @@ const Objetivos = {
 
             // Determina se o usuário atual é responsável pelo objetivo
             const primaryRespId = objetivo.responsavel_id || objetivo.responsavelId || objetivo.owner_id;
+            const createdBy = objetivo.criado_por || objetivo.criadoPor || objetivo.created_by || objetivo.createdBy;
             const sharedList = Array.isArray(objetivo.shared_responsaveis) ? objetivo.shared_responsaveis : [];
             const isInShared = sharedList.some(r => {
                 const rid = r.Id || r.user_id || r.responsavel_id;
                 return rid === currentUserId;
             });
             const isUserResponsavel = currentUserId && (primaryRespId === currentUserId || isInShared);
+            const isCriador = currentUserId && createdBy && Number(createdBy) === Number(currentUserId);
+            const canApproveCompletion = isCriador && objetivo.status === 'Aguardando Aprovação';
 
             return `
                 <div class="objetivo-item" data-objetivo-id="${objetivo.Id}" style="border-left-color: ${color};">
@@ -198,7 +201,15 @@ const Objetivos = {
                                 <i class="fas fa-flag-checkered"></i> Concluir
                             </button>
                         ` : ''}
-                        ${objetivo.status === 'Ativo' || objetivo.status === 'Agendado' ? `
+                        ${canApproveCompletion ? `
+                            <button class="btn btn-success btn-sm" onclick="Objetivos.approve(${objetivo.Id})">
+                                <i class="fas fa-check"></i> Aprovar Conclusão
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="Objetivos.openRejectionModal(${objetivo.Id})">
+                                <i class="fas fa-undo"></i> Rejeitar
+                            </button>
+                        ` : ''}
+                        ${(objetivo.status === 'Ativo' || objetivo.status === 'Agendado') && isCriador ? `
                             <button class="btn btn-amber btn-sm" onclick="Objetivos.edit(${objetivo.Id})">
                                 <i class="fas fa-edit"></i> Editar
                             </button>
@@ -300,7 +311,7 @@ const Objetivos = {
         this.state.isSubmitting = false;
         this.setSubmitButtonLoading(false);
         updateSelectedResponsaveisUI();
-        document.getElementById('objetivo-titulo').value = '';
+            document.getElementById('objetivo-titulo').value = '';
         document.getElementById('objetivo-descricao').value = '';
         document.getElementById('objetivo-data-inicio').value = '';
         document.getElementById('objetivo-data-fim').value = '';
@@ -315,6 +326,7 @@ const Objetivos = {
         document.getElementById('objetivo-modal-title').innerHTML = '<i class="fas fa-bullseye"></i> Novo Objetivo';
         document.getElementById('objetivo-submit-btn').innerHTML = '<i class="fas fa-bullseye"></i> Criar Objetivo';
         document.getElementById('objetivo-submit-btn').style.display = 'block';
+        this.closeRejectionModal();
     },
 
     async submit() {
@@ -405,10 +417,18 @@ const Objetivos = {
     },
 
     async submitCheckin() {
-        const progresso = parseInt(document.getElementById('checkin-progresso').value);
-        const observacoes = document.getElementById('checkin-observacoes').value;
+        const progresso = parseInt(document.getElementById('checkin-progresso').value, 10);
+        const observacoesInput = document.getElementById('checkin-observacoes');
+        let observacoes = observacoesInput ? observacoesInput.value || '' : '';
+        observacoes = observacoes.trim();
+        if (observacoes.length > 250) {
+            observacoes = observacoes.slice(0, 250);
+            if (observacoesInput) {
+                observacoesInput.value = observacoes;
+            }
+        }
         
-        if (!observacoes || observacoes.trim() === '') {
+        if (!observacoes) {
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
                 EmailPopup.showToast('Preencha a descrição do check-in', 'error');
             } else if (window.Notifications && typeof Notifications.error === 'function') {
@@ -438,10 +458,15 @@ const Objetivos = {
                 Notifications.points(result.pointsEarned, 'fazer check-in');
                 await Dashboard.loadGamification();
             }
+            const successMessage = result && result.needsApproval
+                ? 'Check-in registrado e aguardando aprovação do gestor.'
+                : 'Check-in registrado com sucesso!';
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
-                EmailPopup.showToast('Check-in registrado com sucesso!', 'success');
+                EmailPopup.showToast(successMessage, 'success');
             } else if (window.Notifications && typeof Notifications.success === 'function') {
-                Notifications.success('Check-in registrado com sucesso!');
+                Notifications.success(successMessage);
+            } else {
+                alert(successMessage);
             }
         } catch (error) {
             console.error('Erro ao registrar check-in:', error);
@@ -481,8 +506,28 @@ const Objetivos = {
             return;
         }
 
+        const user = State.getUser();
+        const isGestor = user && user.hierarchyLevel >= 3;
+
+        let responsaveisIds = [];
+        if (isGestor) {
+            responsaveisIds = Array.from(new Set(this.state.selectedResponsaveis.map(resp => resp.id).filter(id => Number.isInteger(id) && id > 0)));
+            if (responsaveisIds.length === 0) {
+                if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                    EmailPopup.showToast('Selecione ao menos um responsável.', 'error');
+                } else if (window.Notifications && typeof Notifications.error === 'function') {
+                    Notifications.error('Selecione ao menos um responsável.');
+                } else {
+                    alert('Selecione ao menos um responsável.');
+                }
+                return;
+            }
+        } else if (user && user.userId) {
+            responsaveisIds = [user.userId];
+        }
+
         try {
-            await API.put(`/api/objetivos/${this.state.currentObjetivoId}`, { titulo, descricao, data_inicio, data_fim });
+            await API.put(`/api/objetivos/${this.state.currentObjetivoId}`, { titulo, descricao, data_inicio, data_fim, responsaveis_ids: responsaveisIds });
             this.closeModal();
             await this.loadList();
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
@@ -518,15 +563,30 @@ const Objetivos = {
                 responsavelField.style.display = isGestor ? 'block' : 'none';
             }
             
-            if (isGestor && objetivo.shared_responsaveis) {
-                objetivo.shared_responsaveis.forEach(resp => {
-                    if (resp.Id && resp.NomeCompleto) {
-                        this.state.selectedResponsaveis.push({
-                            id: resp.Id,
-                            name: `${resp.NomeCompleto} - ${resp.Departamento || 'N/A'}`
-                        });
-                    }
-                });
+            if (isGestor) {
+                const addResponsavelToState = (id, nome, departamento) => {
+                    if (!id || !nome) return;
+                    const numericId = Number(id);
+                    if (this.state.selectedResponsaveis.some(resp => resp.id === numericId)) return;
+                    this.state.selectedResponsaveis.push({
+                        id: numericId,
+                        name: `${nome} - ${departamento || 'N/A'}`
+                    });
+                };
+
+                const primaryRespId = objetivo.responsavel_id || objetivo.responsavelId || objetivo.owner_id;
+                const primaryRespNome = objetivo.responsavel_nome || objetivo.responsavelNome || objetivo.responsavel || '';
+                const primaryRespDept = objetivo.responsavel_descricao_departamento || objetivo.responsavelDescricaoDepartamento || objetivo.responsavel_departamento || objetivo.responsavelDepartamento || objetivo.responsavelDepart || objetivo.responsavel_depto || objetivo.responsavelDepto || objetivo.responsavelDescricao || objetivo.responsavelDepartamentoDescricao || objetivo.responsavel_departamento_descricao || '';
+                addResponsavelToState(primaryRespId, primaryRespNome, primaryRespDept);
+
+            if (Array.isArray(objetivo.shared_responsaveis)) {
+                    objetivo.shared_responsaveis.forEach(resp => {
+                        const respId = resp.Id || resp.user_id || resp.responsavel_id;
+                        const respNome = resp.NomeCompleto || resp.nome_responsavel || resp.nome || resp.UserName || '';
+                        const respDept = resp.DescricaoDepartamento || resp.descricaoDepartamento || resp.Departamento || resp.departamento || '';
+                        addResponsavelToState(respId, respNome, respDept);
+                    });
+                }
             }
             
             document.getElementById('objetivo-modal-title').innerHTML = '<i class="fas fa-edit"></i> Editar Objetivo';
@@ -657,50 +717,109 @@ const Objetivos = {
             document.getElementById('objetivo-criado-por').value = objetivo.criador_nome || 'N/A';
             
             const detalhesFields = document.getElementById('detalhes-fields');
-            console.log('Renderizando detalhes com', checkins.length, 'checkins');
-            let checkinsHtml = '';
-            if (checkins.length > 0) {
-                checkinsHtml = `
-                    <div class="form-group">
-                        <label class="form-label">Responsáveis</label>
-                        <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f9fafb;">
-                            ${responsaveisLista.map(r => `<div style="padding: 6px 0; color: #374151;"><i class="fas fa-user" style="margin-right: 8px; color: #0d556d;"></i>${r}</div>`).join('')}
-                        </div>
+            let checkinsHtml = `
+                <div class="form-group">
+                    <label class="form-label">Responsáveis</label>
+                    <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f9fafb;">
+                        ${responsaveisLista.map(r => `<div style="padding: 6px 0; color: #374151;"><i class="fas fa-user" style="margin-right: 8px; color: #0d556d;"></i>${r}</div>`).join('')}
                     </div>
+                </div>
+            `;
+
+            if (checkins.length > 0) {
+                const historyItems = checkins.map(c => {
+                    const eventDate = new Date(c.created_at);
+                    eventDate.setHours(eventDate.getHours() + 3);
+                    const rawObservacoes = (c.observacoes || '').trim();
+                    const isSystemEvent = /^\[SISTEMA\]/i.test(rawObservacoes);
+                    const cleanedObservacoes = rawObservacoes.replace(/^\[SISTEMA\]\s*/i, '');
+                    const lowerObs = cleanedObservacoes.toLowerCase();
+                    const numericProgress = Number(c.progresso) || 0;
+
+                    const theme = {
+                        borderColor: '#0d556d',
+                        badgeColor: '#0d556d',
+                        badgeLabel: 'Check-in',
+                        showProgress: true,
+                        progressLabel: `Progresso: ${numericProgress}%`
+                    };
+
+                    if (isSystemEvent) {
+                        theme.showProgress = false;
+                        theme.badgeLabel = 'Atualização';
+                        theme.borderColor = '#3b82f6';
+                        theme.badgeColor = '#3b82f6';
+
+                        if (lowerObs.includes('rejeit')) {
+                            theme.badgeLabel = 'Rejeição';
+                            theme.borderColor = '#ef4444';
+                            theme.badgeColor = '#ef4444';
+                            theme.showProgress = true;
+                            theme.progressLabel = `Progresso restaurado para ${numericProgress}%`;
+                        } else if (lowerObs.includes('aprov')) {
+                            theme.badgeLabel = 'Aprovação';
+                            theme.borderColor = '#10b981';
+                            theme.badgeColor = '#10b981';
+                        } else if (lowerObs.includes('aguard') || lowerObs.includes('pendente') || lowerObs.includes('solic')) {
+                            theme.badgeLabel = 'Aguardando';
+                            theme.borderColor = '#f59e0b';
+                            theme.badgeColor = '#f59e0b';
+                        }
+                    }
+
+                    const shouldTruncate = !isSystemEvent;
+                    const displayObservacoes = cleanedObservacoes
+                        ? (shouldTruncate && cleanedObservacoes.length > 250
+                            ? `${cleanedObservacoes.slice(0, 250)}...`
+                            : cleanedObservacoes)
+                        : '';
+
+                    const observacoesHtml = displayObservacoes
+                        ? `<div style="color: #6b7280; font-size: 14px; white-space: pre-wrap; word-break: break-word;">${displayObservacoes}</div>`
+                        : '';
+
+                    const progressHtml = theme.showProgress
+                        ? `<div style="color: #059669; font-weight: 600; margin-bottom: 4px;">${theme.progressLabel}</div>`
+                        : '';
+
+                    const displayName = isSystemEvent ? 'Sistema' : (c.user_name || 'Sistema');
+
+                    return `
+                        <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid ${theme.borderColor};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <strong style="color: #374151;">${displayName}</strong>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; border: 1px solid ${theme.badgeColor}; color: ${theme.badgeColor}; background-color: ${theme.badgeColor}1A;">
+                                        ${theme.badgeLabel}
+                                    </span>
+                                    <span style="color: #6b7280; font-size: 14px;">
+                                        ${eventDate.toLocaleDateString('pt-BR')} ${eventDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                            </div>
+                            ${progressHtml}
+                            ${observacoesHtml}
+                        </div>
+                    `;
+                }).join('');
+
+                checkinsHtml += `
                     <div class="form-group">
-                        <label class="form-label">Histórico de Check-ins</label>
+                        <label class="form-label">Histórico</label>
                         <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                ${checkins.map(c => {
-                                    const dataCheckin = new Date(c.created_at);
-                                    dataCheckin.setHours(dataCheckin.getHours() + 3);
-                                    return `
-                                    <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #0d556d;">
-                                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                            <strong style="color: #374151;">${c.user_name}</strong>
-                                            <span style="color: #6b7280; font-size: 14px;">${dataCheckin.toLocaleDateString('pt-BR')} ${dataCheckin.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</span>
-                                        </div>
-                                        <div style="color: #059669; font-weight: 600; margin-bottom: 4px;">Progresso: ${c.progresso}%</div>
-                                        ${c.observacoes ? `<div style="color: #6b7280; font-size: 14px;">${c.observacoes}</div>` : ''}
-                                    </div>
-                                `}).join('')}
+                                ${historyItems}
                             </div>
                         </div>
                     </div>
                 `;
             } else {
-                checkinsHtml = `
+                checkinsHtml += `
                     <div class="form-group">
-                        <label class="form-label">Responsáveis</label>
-                        <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f9fafb;">
-                            ${responsaveisLista.map(r => `<div style="padding: 6px 0; color: #374151;"><i class="fas fa-user" style="margin-right: 8px; color: #0d556d;"></i>${r}</div>`).join('')}
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Histórico de Check-ins</label>
+                        <label class="form-label">Histórico</label>
                         <div style="padding: 20px; text-align: center; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 8px;">
                             <i class="fas fa-info-circle" style="font-size: 24px; margin-bottom: 8px;"></i>
-                            <p>Nenhum check-in registrado ainda.</p>
+                            <p>Nenhuma atividade registrada ainda.</p>
                         </div>
                     </div>
                 `;
@@ -721,7 +840,6 @@ const Objetivos = {
                 </div>
                 ${checkinsHtml}
             `;
-            console.log('HTML final:', finalHtml.substring(0, 500));
             detalhesFields.innerHTML = finalHtml;
             
             Modal.open('objetivo-modal');
@@ -746,6 +864,121 @@ const Objetivos = {
         } catch (error) {
             console.error('Erro ao concluir objetivo:', error);
             alert('Erro ao concluir objetivo');
+        }
+    },
+
+    async approve(objetivoId) {
+        let confirmed = false;
+        if (window.Configuracoes && typeof Configuracoes.showConfirm === 'function') {
+            confirmed = await Configuracoes.showConfirm('Deseja aprovar a conclusão deste objetivo?');
+        } else {
+            confirmed = confirm('Deseja aprovar a conclusão deste objetivo?');
+        }
+        if (!confirmed) return;
+
+        try {
+            const response = await API.post(`/api/objetivos/${objetivoId}/approve`);
+            await this.loadList();
+            const message = (response && response.message) || 'Objetivo aprovado com sucesso!';
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast(message, 'success');
+            } else if (window.Notifications && typeof Notifications.success === 'function') {
+                Notifications.success(message);
+            } else {
+                alert(message);
+            }
+        } catch (error) {
+            console.error('Erro ao aprovar objetivo:', error);
+            const serverMessage = (error && (error.message || (error.data && (error.data.error || error.data.message)))) || '';
+            const displayMessage = serverMessage || 'Erro ao aprovar objetivo';
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast(displayMessage, 'error');
+            } else if (window.Notifications && typeof Notifications.error === 'function') {
+                Notifications.error(displayMessage);
+            } else {
+                alert(displayMessage);
+            }
+        }
+    },
+
+    openRejectionModal(objetivoId) {
+        this.state.rejectModal = {
+            objetivoId,
+        };
+        const overlay = document.getElementById('objetivo-reject-modal');
+        const textarea = document.getElementById('objetivo-reject-reason');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            overlay.classList.add('show');
+        }
+        if (textarea) {
+            textarea.value = '';
+            textarea.focus();
+        }
+    },
+
+    closeRejectionModal() {
+        this.state.rejectModal = null;
+        const overlay = document.getElementById('objetivo-reject-modal');
+        if (overlay) {
+            overlay.classList.add('hidden');
+            overlay.classList.remove('show');
+        }
+    },
+
+    async rejectCurrentObjetivo() {
+        if (!this.state.rejectModal || !this.state.rejectModal.objetivoId) {
+            this.closeRejectionModal();
+            return;
+        }
+        const textarea = document.getElementById('objetivo-reject-reason');
+        const motivo = textarea ? textarea.value.trim().slice(0, 500) : '';
+        if (!motivo) {
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('Informe o motivo da rejeição.', 'error');
+            } else if (window.Notifications && typeof Notifications.error === 'function') {
+                Notifications.error('Informe o motivo da rejeição.');
+            } else {
+                alert('Informe o motivo da rejeição.');
+            }
+            if (textarea) textarea.focus();
+            return;
+        }
+
+        const objetivoId = this.state.rejectModal.objetivoId;
+        try {
+            const response = await API.post(`/api/objetivos/${objetivoId}/reject`, { motivo });
+            await this.loadList();
+            const progressoAnterior = response && typeof response.progressoAnterior === 'number'
+                ? response.progressoAnterior
+                : null;
+            let message = 'Objetivo rejeitado com sucesso.';
+            if (progressoAnterior !== null) {
+                message = `Objetivo rejeitado e revertido para ${progressoAnterior}%`;
+            } else if (response && response.message) {
+                message = response.message;
+            }
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast(message, 'warning');
+            } else if (window.Notifications && typeof Notifications.warning === 'function') {
+                Notifications.warning(message);
+            } else if (window.Notifications && typeof Notifications.info === 'function') {
+                Notifications.info(message);
+            } else {
+                alert(message);
+            }
+            this.closeRejectionModal();
+        } catch (error) {
+            console.error('Erro ao rejeitar objetivo:', error);
+            const serverMessage = (error && (error.message || (error.data && (error.data.error || error.data.message)))) || '';
+            const displayMessage = serverMessage || 'Erro ao rejeitar objetivo';
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast(displayMessage, 'error');
+            } else if (window.Notifications && typeof Notifications.error === 'function') {
+                Notifications.error(displayMessage);
+            } else {
+                alert(displayMessage);
+            }
         }
     },
 
@@ -792,7 +1025,7 @@ const Objetivos = {
                     availableUsers = data.responsaveis.map(u => ({
                         userId: u.Id,
                         nomeCompleto: u.NomeCompleto,
-                        departamento: u.DescricaoDepartamento || u.Departamento || 'N/A'
+                        departamento: u.DescricaoDepartamento || u.descricaoDepartamento || u.Departamento || u.departamento || 'N/A'
                     }));
                 }
             } catch (error) {
@@ -802,7 +1035,7 @@ const Objetivos = {
             availableUsers = [{
                 userId: user.userId,
                 nomeCompleto: user.nomeCompleto,
-                departamento: user.departamento || 'N/A'
+                departamento: user.descricaoDepartamento || user.DescricaoDepartamento || user.departamento || user.Departamento || 'N/A'
             }];
         }
         
@@ -829,6 +1062,8 @@ function checkinObjetivo(id) { Objetivos.checkin(id); }
 function viewObjetivoDetails(id) { Objetivos.viewDetails(id); }
 function deleteObjetivo(id) { Objetivos.delete(id); }
 function completeObjetivo(id) { Objetivos.complete(id); }
+function approveObjetivo(id) { Objetivos.approve(id); }
+function rejectObjetivo(id) { Objetivos.openRejectionModal(id); }
 function loadObjetivos() { Objetivos.loadList(); }
 function populateObjetivoForm() { Objetivos.populateForm(); }
 function selectMultipleUser(userId, userName) {
@@ -897,13 +1132,18 @@ function toggleObjetivosFilters() {
     const container = document.getElementById('objetivos-filters-container');
     const btn = event.currentTarget;
     const icon = btn.querySelector('svg:last-child');
+    const card = btn.closest('.card');
     
     if (container && btn) {
         container.classList.toggle('collapsed');
         btn.classList.toggle('active');
+        const isCollapsed = container.classList.contains('collapsed');
+        if (card) {
+            card.classList.toggle('filters-collapsed', isCollapsed);
+        }
         
         if (icon) {
-            if (container.classList.contains('collapsed')) {
+            if (isCollapsed) {
                 icon.style.transform = 'rotate(0deg)';
             } else {
                 icon.style.transform = 'rotate(180deg)';
@@ -917,3 +1157,29 @@ function clearObjetivosFilters() {
     document.getElementById('objetivos-status-filter').value = '';
     Objetivos.loadList();
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const rejectModal = document.getElementById('objetivo-reject-modal');
+    if (rejectModal) {
+        rejectModal.addEventListener('click', (event) => {
+            if (event.target === rejectModal) {
+                Objetivos.closeRejectionModal();
+            }
+        });
+    }
+
+    const closeBtn = document.querySelector('[data-action="closeRejectionModal"]');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => Objetivos.closeRejectionModal());
+    }
+
+    const cancelBtn = document.querySelector('[data-action="cancelRejection"]');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => Objetivos.closeRejectionModal());
+    }
+
+    const confirmBtn = document.querySelector('[data-action="confirmRejection"]');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => Objetivos.rejectCurrentObjetivo());
+    }
+});

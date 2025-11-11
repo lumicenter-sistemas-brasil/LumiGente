@@ -16,6 +16,7 @@ const analyticsRoutes = require('./analyticsRoutes');
 const pesquisaRoutes = require('./pesquisaRoutes');
 const chatRoutes = require('./chatRoutes');
 const notificationRoutes = require('./notificationRoutes');
+const teamRoutes = require('./teamRoutes');
 
 // Definição dos prefixos para cada conjunto de rotas
 router.use('/', authRoutes); // Rotas como /login, /logout, /register
@@ -28,6 +29,7 @@ router.use('/objetivos', objetivoRoutes);
 router.use('/avaliacoes', avaliacaoRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/manager', analyticsRoutes); // Rotas de manager em analytics
+router.use('/team', teamRoutes);
 router.use('/pesquisas', pesquisaRoutes);
 router.use('/surveys', pesquisaRoutes); // Alias para compatibilidade com frontend
 router.use('/chat', chatRoutes);

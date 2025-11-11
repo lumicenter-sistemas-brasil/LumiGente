@@ -199,6 +199,14 @@
     transform: translateY(-1px);
 }
 
+#objetivo-reject-modal .modal-content {
+    max-width: 540px;
+}
+
+#objetivo-reject-modal .modal-actions .btn {
+    min-height: 44px;
+}
+
 .selected-responsavel .remove-btn {
     background: rgba(255, 255, 255, 0.2);
     border: none;
@@ -234,6 +242,7 @@
     justify-content: center;
     gap: 0.5rem;
     transition: all 0.2s ease;
+    margin-bottom: var(--spacing-md);
 }
 
 .filters-toggle-btn:hover {

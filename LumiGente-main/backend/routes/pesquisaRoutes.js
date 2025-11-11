@@ -13,7 +13,8 @@ router.get('/', requireAuth, pesquisaController.listPesquisas);
 router.get('/departamentos', requireAuth, pesquisaController.getDepartamentos);
 router.get('/stats', requireAuth, pesquisaController.getPesquisaStats);
 router.get('/user', requireAuth, pesquisaController.getPesquisaStats); // Alias para compatibilidade
-router.get('/:id', requireAuth, pesquisaController.getPesquisaById);
+
+// Rotas específicas com :id devem vir ANTES da rota genérica /:id
 router.get('/:id/my-response', requireAuth, pesquisaController.getMyResponse);
 router.post('/:id/responder', requireAuth, pesquisaController.responderPesquisa);
 
@@ -21,6 +22,11 @@ router.post('/:id/responder', requireAuth, pesquisaController.responderPesquisa)
 router.post('/', requireAuth, requireFeatureAccess('pesquisas'), pesquisaController.createPesquisa);
 router.get('/meta/filtros', requireAuth, requireFeatureAccess('pesquisas'), pesquisaController.getMetaFiltros);
 router.get('/:id/resultados', requireAuth, requireFeatureAccess('pesquisas'), pesquisaController.getPesquisaResultados);
+router.get('/:id/usuarios-elegiveis', requireAuth, requireFeatureAccess('pesquisas'), pesquisaController.getUsuariosElegiveis);
 router.post('/:id/reabrir', requireAuth, requireFeatureAccess('pesquisas'), pesquisaController.reabrirPesquisa);
+router.post('/:id/encerrar', requireAuth, requireFeatureAccess('pesquisas'), pesquisaController.encerrarPesquisa);
+
+// Rota genérica /:id deve vir por último
+router.get('/:id', requireAuth, pesquisaController.getPesquisaById);
 
 module.exports = router;

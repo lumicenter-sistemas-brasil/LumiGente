@@ -97,6 +97,35 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal de Confirmação de Encerrar Pesquisa -->
+        <div id="encerrar-pesquisa-modal" class="modal-overlay hidden">
+            <div class="modal encerrar-modal">
+                <div class="modal-header">
+                    <h3>
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Encerrar Pesquisa
+                    </h3>
+                    <button type="button" class="modal-close" onclick="pesquisasNovo.fecharModalEncerrar()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="modal-message">
+                        Tem certeza que deseja encerrar esta pesquisa imediatamente? Esta ação não pode ser desfeita e os usuários não poderão mais responder.
+                    </p>
+                    <div class="modal-actions">
+                        <button type="button" onclick="pesquisasNovo.fecharModalEncerrar()" class="btn btn-secondary">
+                            Cancelar
+                        </button>
+                        <button type="button" onclick="pesquisasNovo.confirmarEncerrarPesquisa()" class="btn btn-danger">
+                            <i class="fas fa-stop"></i>
+                            Encerrar Pesquisa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Módulos de Pesquisas -->

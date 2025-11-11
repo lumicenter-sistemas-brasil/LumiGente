@@ -152,12 +152,17 @@
     overflow: hidden;
 }
 
+.card.filters-collapsed {
+    padding-bottom: 16px;
+}
+
 .card h3 {
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 16px;
     display: flex;
     align-items: center;
+    gap: 0.5rem;
 }
 
 .card h3 i {
@@ -261,15 +266,22 @@
 }
 
 .filters-container {
-    transition: max-height 0.3s ease, opacity 0.3s ease;
-    overflow: hidden;
-    max-height: 1000px;
-    opacity: 1;
+    position: relative;
+    z-index: 20;
+    display: none;
+    margin-top: 0;
+}
+
+.filters-container:not(.collapsed) {
+    display: block;
+    margin-top: 16px;
 }
 
 .filters-container.collapsed {
-    max-height: 0;
-    opacity: 0;
+    display: none;
+    margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 @media (max-width: 768px) {
@@ -559,7 +571,7 @@ button[data-action="submitFeedback"] svg {
     border-radius: 0 0 12px 12px;
     max-height: 240px;
     overflow-y: auto;
-    z-index: 1000;
+    z-index: 1600;
     display: none;
     box-shadow: 0 10px 15px -3px rgba(13, 85, 109, 0.1);
 }

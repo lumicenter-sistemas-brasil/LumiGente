@@ -22,10 +22,11 @@
 
 .sidebar-header {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    gap: 1rem;
     margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     position: relative;
 }
@@ -66,7 +67,7 @@
 }
 
 .logo-img {
-    width: 120px;
+    max-width: 100%;
     height: auto;
     filter: brightness(0) invert(1);
 }
@@ -180,7 +181,6 @@
     
     .sidebar-header {
         margin-bottom: 1.5rem;
-        padding-bottom: 1.25rem;
     }
     
     .nav-item {

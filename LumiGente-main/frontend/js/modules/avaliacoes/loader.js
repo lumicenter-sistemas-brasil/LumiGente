@@ -17,11 +17,14 @@ const AvaliacoesLoader = {
             console.error('Erro ao carregar questionário:', error);
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #ef4444;">
-                    <i class="fas fa-exclamation-circle" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <i data-lucide="alert-circle" style="width: 48px; height: 48px; margin-bottom: 16px;"></i>
                     <h4>Erro ao carregar questionário</h4>
                     <p>${error.message}</p>
                 </div>
             `;
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons({ attrs: { 'stroke-width': 2 } });
+            }
         }
     },
 
@@ -40,11 +43,14 @@ const AvaliacoesLoader = {
             console.error('Erro ao carregar respostas:', error);
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #ef4444;">
-                    <i class="fas fa-exclamation-circle" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <i data-lucide="alert-circle" style="width: 48px; height: 48px; margin-bottom: 16px;"></i>
                     <h4>Erro ao carregar respostas</h4>
                     <p>${error.message}</p>
                 </div>
             `;
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons({ attrs: { 'stroke-width': 2 } });
+            }
         }
     }
 };

@@ -1,7 +1,7 @@
 const sql = require('mssql');
 const { getDatabasePool } = require('../config/db');
 const { getHierarchyLevel } = require('../utils/hierarchyHelper');
-const { hasFullAccess, isManager, checkHRTDPermissions } = require('../utils/permissionsHelper');
+const { hasFullAccess, isManager, checkHRTDPermissions, canCreateSurveys, canAccessHistory } = require('../utils/permissionsHelper');
 
 /**
  * Middleware que exige que o usuário esteja autenticado.
@@ -187,22 +187,23 @@ exports.requireFeatureAccess = (feature) => {
         }
 
         const { isHR, isTD } = checkHRTDPermissions(user);
+        const manager = isManager(user);
 
         // Definir regras de acesso por funcionalidade
         switch (feature) {
             case 'analytics':
             case 'relatorios':
-                // Gestores (nível 3+), RH e T&D
-                if (user.hierarchyLevel >= 3 || isHR || isTD) {
+                // Gestores e qualquer usuário de T&D
+                if (manager || isTD) {
                     console.log('✅ Acesso liberado para analytics/relatórios');
                     return next();
                 }
                 break;
 
             case 'pesquisas':
-                // APENAS RH e T&D podem criar/gerenciar pesquisas e ver resultados
-                if (hasFullAccess(user)) {
-                    console.log('✅ Acesso liberado para pesquisas (RH/T&D)');
+                // Apenas RH/T&D específicos (departamentos) podem criar/gerenciar
+                if (canCreateSurveys(user)) {
+                    console.log('✅ Acesso liberado para gerenciamento de pesquisas');
                     return next();
                 }
                 // Outros usuários podem apenas responder pesquisas ativas
@@ -214,7 +215,7 @@ exports.requireFeatureAccess = (feature) => {
 
             case 'avaliacoes':
                 // RH/T&D e gestores (nível 2+) podem criar/gerenciar avaliações
-                if (isHR || isTD || user.hierarchyLevel >= 2) {
+                if (isHR || isTD || manager) {
                     console.log('✅ Acesso liberado para avaliações (RH/T&D/Gestor)');
                     return next();
                 }
@@ -226,9 +227,8 @@ exports.requireFeatureAccess = (feature) => {
                 break;
 
             case 'historico':
-                // APENAS RH e T&D - conforme especificação do usuário
-                if (isHR || isTD) {
-                    console.log('✅ Acesso liberado para histórico (RH/T&D)');
+                if (canAccessHistory(user, { isHR, isTD, isHRTD: isHR || isTD })) {
+                    console.log('✅ Acesso liberado para histórico');
                     return next();
                 }
                 break;
@@ -236,7 +236,7 @@ exports.requireFeatureAccess = (feature) => {
             case 'team':
             case 'equipe':
                 // Gestores (nível 2+) podem ver equipe
-                if (user.hierarchyLevel >= 2) {
+                if (manager) {
                     console.log('✅ Acesso liberado para equipe (gestor)');
                     return next();
                 }
@@ -244,7 +244,7 @@ exports.requireFeatureAccess = (feature) => {
 
             case 'humor_empresa':
                 // Gestores (nível 2+), RH e T&D podem ver humor da empresa
-                if (user.hierarchyLevel >= 2 || isHR || isTD) {
+                if (manager || isHR || isTD) {
                     console.log('✅ Acesso liberado para humor da empresa');
                     return next();
                 }
@@ -259,7 +259,7 @@ exports.requireFeatureAccess = (feature) => {
         console.log('❌ Acesso negado para funcionalidade:', feature);
         return res.status(403).json({
             error: `Acesso negado. Você não tem permissão para acessar ${feature}.`,
-            requiredLevel: feature === 'analytics' || feature === 'relatorios' || feature === 'historico' ? 'Gestor (nível 3+)' : 'RH/T&D'
+            requiredLevel: feature === 'analytics' || feature === 'relatorios' ? 'Gestor ou T&D' : feature === 'historico' ? 'Gestor RH/T&D ou T&D' : 'Permissão restrita'
         });
     };
 };

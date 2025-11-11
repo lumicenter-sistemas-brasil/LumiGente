@@ -82,7 +82,7 @@ const LoginHandler = {
             userInfo.style.display = 'none';
             
             toggleText.textContent = 'Voltar ao login?';
-            toggleButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Fazer login';
+            toggleButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Fazer Login';
             
             // Setar FALSE para que ao clicar vá para LOGIN (else do toggleForm)
             this.isLoginForm = false;
@@ -113,7 +113,7 @@ const LoginHandler = {
             loginForm.style.display = 'none';
             registerForm.style.display = 'block';
             forgotPasswordForm.style.display = 'none';
-            toggleButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Já tenho conta';
+            toggleButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Fazer Login';
             toggleText.textContent = 'Já possui conta?';
             this.isLoginForm = false;
         } else {

@@ -265,6 +265,7 @@ class NovaPesquisa {
         document.getElementById('perguntas-container').insertAdjacentHTML('beforeend', questionHtml);
         this.perguntas.push({ id: questionId, tipo: 'texto_livre' });
         this.updateQuestionNumbers();
+        this.renderQuestionOptions(questionId, 'texto_livre');
     }
 
     removeQuestion(questionId) {
@@ -392,3 +393,21 @@ let novaPesquisa;
 document.addEventListener('DOMContentLoaded', () => {
     novaPesquisa = new NovaPesquisa();
 });
+
+window.setQuestionType = (questionId, tipo) => {
+    if (novaPesquisa) {
+        novaPesquisa.setQuestionType(questionId, tipo);
+    }
+};
+
+window.removeQuestion = (questionId) => {
+    if (novaPesquisa) {
+        novaPesquisa.removeQuestion(questionId);
+    }
+};
+
+window.addOption = (questionId) => {
+    if (novaPesquisa) {
+        novaPesquisa.addOption(questionId);
+    }
+};

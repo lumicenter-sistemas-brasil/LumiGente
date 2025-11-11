@@ -314,11 +314,17 @@ function toggleRecognitionFilters() {
     const container = document.getElementById('recognition-filters-container');
     const btn = event.currentTarget;
     const icon = btn.querySelector('svg:last-child');
+    const card = btn.closest('.card');
     
     container.classList.toggle('collapsed');
     btn.classList.toggle('active');
+
+    const isCollapsed = container.classList.contains('collapsed');
+    if (card) {
+        card.classList.toggle('filters-collapsed', isCollapsed);
+    }
     
-    if (container.classList.contains('collapsed')) {
+    if (isCollapsed) {
         icon.style.transform = 'rotate(0deg)';
     } else {
         icon.style.transform = 'rotate(180deg)';

@@ -101,7 +101,7 @@ class SincronizadorDadosExternos {
                 )
                 SELECT CPF, MATRICULA, DEPARTAMENTO, FILIAL, NOME, STATUS_GERAL
                 FROM FuncionarioPriorizado
-                WHERE rn = 1
+                WHERE rn = 1 AND STATUS_GERAL = 'ATIVO'
                 ORDER BY CPF;
             `);
             const funcionariosExternos = funcionariosExternosResult.recordset;
@@ -120,17 +120,13 @@ class SincronizadorDadosExternos {
                     
                     if (userCheck.recordset.length > 0) { // Usuário já existe
                         const userAtual = userCheck.recordset[0];
-                        if (func.STATUS_GERAL === 'ATIVO') {
-                            if (userAtual.Matricula !== func.MATRICULA || userAtual.NomeCompleto !== func.NOME || userAtual.Departamento !== func.DEPARTAMENTO || userAtual.Filial !== func.FILIAL || !userAtual.IsActive) {
-                                await this.atualizarUsuario(pool, func);
-                                atualizados++;
-                            }
+                        if (userAtual.Matricula !== func.MATRICULA || userAtual.NomeCompleto !== func.NOME || userAtual.Departamento !== func.DEPARTAMENTO || userAtual.Filial !== func.FILIAL || !userAtual.IsActive) {
+                            await this.atualizarUsuario(pool, func);
+                            atualizados++;
                         }
                     } else { // Usuário não existe
-                        if (func.STATUS_GERAL === 'ATIVO') {
-                            await this.criarUsuario(pool, func);
-                            criados++;
-                        }
+                        await this.criarUsuario(pool, func);
+                        criados++;
                     }
                 } catch (error) {
                     console.error(`   - ❌ Erro ao processar CPF ${func.CPF}:`, error.message);
@@ -164,8 +160,10 @@ class SincronizadorDadosExternos {
      * Cria um novo usuário na base de dados da aplicação.
      */
     async criarUsuario(pool, func) {
-        const { path, departamento } = await this.hierarchyManager.getHierarchyInfo(func.MATRICULA, func.CPF);
-        const descricaoDepartamento = await this.buscarDescricaoDepartamento(pool, departamento);
+        const { path } = await this.hierarchyManager.getHierarchyInfo(func.MATRICULA, func.CPF);
+        const departamentoCodigo = (func.DEPARTAMENTO || '').trim();
+        const departamentoFinal = departamentoCodigo !== '' ? departamentoCodigo : 'Não definido';
+        const descricaoDepartamento = await this.buscarDescricaoDepartamento(pool, departamentoCodigo || departamentoFinal);
         const primeiroNome = func.NOME ? func.NOME.split(' ')[0] : func.MATRICULA;
 
         await pool.request()
@@ -173,7 +171,7 @@ class SincronizadorDadosExternos {
             .input('matricula', sql.VarChar, func.MATRICULA)
             .input('nome', sql.VarChar, primeiroNome)
             .input('nomeCompleto', sql.VarChar, func.NOME)
-            .input('departamento', sql.VarChar, departamento)
+            .input('departamento', sql.VarChar, departamentoFinal)
             .input('descricaoDepartamento', sql.VarChar, descricaoDepartamento)
             .input('filial', sql.VarChar, func.FILIAL)
             .input('hierarchyPath', sql.VarChar, path)
@@ -187,8 +185,10 @@ class SincronizadorDadosExternos {
      * Atualiza os dados de um usuário existente na aplicação.
      */
     async atualizarUsuario(pool, func) {
-        const { path, departamento } = await this.hierarchyManager.getHierarchyInfo(func.MATRICULA, func.CPF);
-        const descricaoDepartamento = await this.buscarDescricaoDepartamento(pool, departamento);
+        const { path } = await this.hierarchyManager.getHierarchyInfo(func.MATRICULA, func.CPF);
+        const departamentoCodigo = (func.DEPARTAMENTO || '').trim();
+        const departamentoFinal = departamentoCodigo !== '' ? departamentoCodigo : 'Não definido';
+        const descricaoDepartamento = await this.buscarDescricaoDepartamento(pool, departamentoCodigo || departamentoFinal);
         const primeiroNome = func.NOME ? func.NOME.split(' ')[0] : func.MATRICULA;
 
         await pool.request()
@@ -196,7 +196,7 @@ class SincronizadorDadosExternos {
             .input('matricula', sql.VarChar, func.MATRICULA)
             .input('nome', sql.VarChar, primeiroNome)
             .input('nomeCompleto', sql.VarChar, func.NOME)
-            .input('departamento', sql.VarChar, departamento)
+            .input('departamento', sql.VarChar, departamentoFinal)
             .input('descricaoDepartamento', sql.VarChar, descricaoDepartamento)
             .input('filial', sql.VarChar, func.FILIAL)
             .input('hierarchyPath', sql.VarChar, path)

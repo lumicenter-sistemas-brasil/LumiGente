@@ -35,9 +35,11 @@ async function updatePesquisaStatus() {
             changed = true;
         }
         
+        const nowStr = new Date().toLocaleTimeString('pt-BR', { hour12: false });
         if (changed) {
-             const nowStr = new Date().toLocaleTimeString('pt-BR');
-             console.log(`🕒 [${nowStr}] Status das pesquisas verificado e atualizado.`);
+            console.log(`🕒 [${nowStr}] Status das pesquisas verificado e atualizado.`);
+        } else {
+            console.log(`🕒 [${nowStr}] Verificação de status de pesquisas concluída (sem alterações).`);
         }
 
     } catch (error) {
