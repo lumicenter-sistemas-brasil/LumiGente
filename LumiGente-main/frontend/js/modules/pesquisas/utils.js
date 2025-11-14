@@ -15,6 +15,9 @@ const SurveyUtils = {
                 parseInt(parts[6])
             );
             
+            // Adicionar 3 horas para compensar o timezone UTC-3
+            date.setHours(date.getHours() + 3);
+            
             return date.toLocaleDateString('pt-BR', {
                 year: 'numeric',
                 month: 'short',
@@ -24,7 +27,10 @@ const SurveyUtils = {
             });
         }
         
-        return new Date(dateString).toLocaleDateString('pt-BR', {
+        const date = new Date(dateString);
+        date.setHours(date.getHours() + 3);
+        
+        return date.toLocaleDateString('pt-BR', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -60,22 +66,33 @@ const SurveyUtils = {
             data_inicio: formData.get('data_inicio') || null,
             data_encerramento: formData.get('data_encerramento') || null,
             anonima: formData.has('anonima'),
-            perguntas: [],
-            filiais_filtro: [],
-            departamentos_filtro: []
+            perguntas: []
         };
         
         const targetType = document.querySelector('input[name="target_type"]:checked')?.value;
         data.target_type = targetType || 'todos';
         
-        if (targetType === 'filiais' || targetType === 'ambos') {
-            data.filiais_filtro = Array.from(document.querySelectorAll('input[name="filiais"]:checked'))
-                .map(cb => ({ codigo: cb.value, nome: cb.dataset.nome }));
+        if (targetType === 'filial') {
+            const select = document.getElementById('filial-select');
+            const selectedOption = select.options[select.selectedIndex];
+            if (selectedOption.value) {
+                data.filial_filtro = {
+                    codigo: selectedOption.value,
+                    nome: selectedOption.dataset.nome
+                };
+            }
         }
         
-        if (targetType === 'departamentos' || targetType === 'ambos') {
-            data.departamentos_filtro = Array.from(document.querySelectorAll('input[name="departamentos"]:checked'))
-                .map(cb => ({ codigo: cb.value, nome: cb.dataset.nome }));
+        if (targetType === 'departamento') {
+            const select = document.getElementById('departamento-select');
+            const selectedOption = select.options[select.selectedIndex];
+            if (selectedOption.value) {
+                data.departamento_filtro = {
+                    departamento_unico: selectedOption.value,
+                    nome: selectedOption.dataset.nome,
+                    filial: selectedOption.dataset.filial
+                };
+            }
         }
         
         perguntas.forEach(pergunta => {

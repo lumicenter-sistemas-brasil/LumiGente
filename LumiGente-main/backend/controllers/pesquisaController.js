@@ -243,10 +243,14 @@ exports.createPesquisa = async (req, res) => {
         await ensureSurveyFilterColumns(pool);
         await transaction.begin();
 
-        const { titulo, descricao, perguntas, filiais_filtro = [], departamentos_filtro = [], data_inicio, data_encerramento, anonima = false } = req.body;
+        const { titulo, descricao, perguntas, filial_filtro, departamento_filtro, data_inicio, data_encerramento, anonima = false } = req.body;
 
         if (!titulo || !perguntas || !Array.isArray(perguntas) || perguntas.length === 0) {
             return res.status(400).json({ error: 'Título e pelo menos uma pergunta são obrigatórios' });
+        }
+        
+        if (filial_filtro && departamento_filtro) {
+            return res.status(400).json({ error: 'Selecione apenas um tipo de filtro: filial OU departamento' });
         }
 
         // Validar datas antes de inserir (constraint CK_Surveys_Datas)
@@ -344,24 +348,21 @@ exports.createPesquisa = async (req, res) => {
             }
         }
         
-        if (filiais_filtro.length > 0) {
-            for (const filial of filiais_filtro) {
-                await new sql.Request(transaction)
-                    .input('survey_id', sql.Int, surveyId)
-                    .input('filial_codigo', sql.NVarChar, filial.codigo)
-                    .input('filial_nome', sql.NVarChar, filial.nome)
-                    .query(`INSERT INTO SurveyFilialFilters (survey_id, filial_codigo, filial_nome) VALUES (@survey_id, @filial_codigo, @filial_nome)`);
-            }
+        if (filial_filtro) {
+            await new sql.Request(transaction)
+                .input('survey_id', sql.Int, surveyId)
+                .input('filial_codigo', sql.NVarChar, filial_filtro.codigo)
+                .input('filial_nome', sql.NVarChar, filial_filtro.nome)
+                .input('unidade', sql.NVarChar, filial_filtro.codigo)
+                .query(`INSERT INTO SurveyFilialFilters (survey_id, filial_codigo, filial_nome, Unidade, NomeUnidade, UnidadeDescricao) VALUES (@survey_id, @filial_codigo, @filial_nome, @unidade, @filial_nome, @filial_nome)`);
         }
         
-        if (departamentos_filtro.length > 0) {
-            for (const depto of departamentos_filtro) {
-                await new sql.Request(transaction)
-                    .input('survey_id', sql.Int, surveyId)
-                    .input('depto_codigo', sql.NVarChar, depto.codigo)
-                    .input('depto_nome', sql.NVarChar, depto.nome)
-                    .query(`INSERT INTO SurveyDepartamentoFilters (survey_id, departamento_codigo, departamento_nome) VALUES (@survey_id, @depto_codigo, @depto_nome)`);
-            }
+        if (departamento_filtro) {
+            await new sql.Request(transaction)
+                .input('survey_id', sql.Int, surveyId)
+                .input('departamento_unico', sql.NVarChar, departamento_filtro.departamento_unico)
+                .input('depto_nome', sql.NVarChar, departamento_filtro.nome)
+                .query(`INSERT INTO SurveyDepartamentoFilters (survey_id, departamento_codigo, departamento_nome) VALUES (@survey_id, @departamento_unico, @depto_nome)`);
         }
 
         await new sql.Request(transaction)
@@ -675,12 +676,32 @@ exports.getDepartamentos = async (req, res) => {
 exports.getMetaFiltros = async (req, res) => {
     try {
         const pool = await getDatabasePool();
-        const filiaisPromise = pool.request().query(`SELECT DISTINCT FILIAL as codigo, FILIAL as nome FROM TAB_HIST_SRA WHERE STATUS_GERAL = 'ATIVO' AND FILIAL IS NOT NULL AND FILIAL != '' ORDER BY FILIAL`);
-        const departamentosPromise = pool.request().query(`SELECT DISTINCT DEPTO_ATUAL as codigo, DESCRICAO_ATUAL as nome FROM HIERARQUIA_CC WHERE DEPTO_ATUAL IS NOT NULL AND DESCRICAO_ATUAL IS NOT NULL ORDER BY nome`);
         
-        const [filiaisResult, departamentosResult] = await Promise.all([filiaisPromise, departamentosPromise]);
+        const filiaisResult = await pool.request().query(`
+            SELECT DISTINCT 
+                UPPER(LTRIM(RTRIM(COALESCE(Unidade, Filial)))) as codigo,
+                UPPER(LTRIM(RTRIM(COALESCE(Unidade, Filial)))) as nome
+            FROM Users
+            WHERE (Unidade IS NOT NULL OR Filial IS NOT NULL)
+              AND IsActive = 1
+            ORDER BY codigo
+        `);
+        
+        const departamentosResult = await pool.request().query(`
+            SELECT DISTINCT 
+                DepartamentoUnico as departamento_unico,
+                UPPER(LTRIM(RTRIM(DescricaoDepartamento))) as nome,
+                UPPER(LTRIM(RTRIM(COALESCE(Unidade, Filial)))) as filial
+            FROM Users
+            WHERE DepartamentoUnico IS NOT NULL
+              AND IsActive = 1
+            ORDER BY filial, nome
+        `);
 
-        res.json({ filiais: filiaisResult.recordset, departamentos: departamentosResult.recordset });
+        res.json({ 
+            filiais: filiaisResult.recordset, 
+            departamentos: departamentosResult.recordset 
+        });
     } catch (error) {
         console.error('Erro ao buscar filtros para pesquisas:', error);
         res.status(500).json({ error: 'Erro ao buscar filtros' });
