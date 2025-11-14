@@ -191,6 +191,9 @@ const Pesquisas = {
                 return `${dia}/${mes}/${ano}`;
             }
             
+            // Adicionar 3 horas para compensar timezone UTC-3
+            date.setHours(date.getHours() + 3);
+            
             // Formatar com data e hora
             const dia = String(date.getDate()).padStart(2, '0');
             const mes = String(date.getMonth() + 1).padStart(2, '0');

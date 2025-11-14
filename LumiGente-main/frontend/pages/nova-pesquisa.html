@@ -80,61 +80,50 @@
 
                     <div class="target-option">
                         <label class="radio-label">
-                            <input type="radio" name="target_type" value="filiais">
+                            <input type="radio" name="target_type" value="filial">
                             <span class="radio-mark"></span>
-                            <strong>Filiais específicas</strong>
-                            <small>Selecionar filiais que receberão a pesquisa</small>
+                            <strong>Uma filial específica</strong>
+                            <small>Selecionar apenas uma filial</small>
                         </label>
                     </div>
 
                     <div class="target-option">
                         <label class="radio-label">
-                            <input type="radio" name="target_type" value="departamentos">
+                            <input type="radio" name="target_type" value="departamento">
                             <span class="radio-mark"></span>
-                            <strong>Departamentos específicos</strong>
-                            <small>Selecionar departamentos que receberão a pesquisa</small>
-                        </label>
-                    </div>
-
-                    <div class="target-option">
-                        <label class="radio-label">
-                            <input type="radio" name="target_type" value="ambos">
-                            <span class="radio-mark"></span>
-                            <strong>Filiais E departamentos</strong>
-                            <small>Combinar filtros de filiais e departamentos</small>
+                            <strong>Um departamento específico</strong>
+                            <small>Selecionar apenas um departamento de uma filial</small>
                         </label>
                     </div>
                 </div>
 
-                <!-- Seleção de Filiais -->
-                <div id="filiais-section" class="filter-section" style="display: none;">
-                    <h3>Selecionar Filiais</h3>
-                    <div id="filiais-list" class="filter-list">
-                        <div class="loading-filters">Carregando filiais...</div>
+                <!-- Seleção de Filial -->
+                <div id="filial-section" class="filter-section" style="display: none;">
+                    <h3>Selecionar Filial</h3>
+                    <div class="form-group">
+                        <select id="filial-select" name="filial" class="form-select">
+                            <option value="">Selecione uma filial...</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- Seleção de Departamentos -->
-                <div id="departamentos-section" class="filter-section" style="display: none;">
-                    <h3>Selecionar Departamentos</h3>
+                <!-- Seleção de Departamento -->
+                <div id="departamento-section" class="filter-section" style="display: none;">
+                    <h3>Selecionar Departamento</h3>
                     
-                    <!-- Input de pesquisa inteligente -->
-                    <div class="search-container">
-                        <div class="search-input-wrapper">
-                            <i class="fas fa-search search-icon"></i>
-                            <input type="text" id="departamento-search" class="search-input" 
-                                   placeholder="Digite para buscar departamentos..." autocomplete="off">
-                            <button type="button" id="clear-search" class="clear-search-btn" style="display: none;">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <div class="search-results-info" id="search-results-info" style="display: none;">
-                            <span id="search-count">0</span> departamento(s) encontrado(s)
-                        </div>
+                    <div class="form-group">
+                        <label for="filial-filter">Filtrar por Filial</label>
+                        <select id="filial-filter" name="filial_filter" class="form-select">
+                            <option value="">Todas as filiais</option>
+                        </select>
+                        <small>Filtre os departamentos por filial para facilitar a busca</small>
                     </div>
                     
-                    <div id="departamentos-list" class="filter-list">
-                        <div class="loading-filters">Carregando departamentos...</div>
+                    <div class="form-group">
+                        <label for="departamento-select">Departamento</label>
+                        <select id="departamento-select" name="departamento" class="form-select">
+                            <option value="">Selecione um departamento...</option>
+                        </select>
                     </div>
                 </div>
 

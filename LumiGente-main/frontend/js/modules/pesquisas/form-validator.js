@@ -29,16 +29,12 @@ const SurveyValidator = {
             }
         }
         
-        // Validar filtros
         const targetType = document.querySelector('input[name="target_type"]:checked')?.value;
-        if (targetType === 'filiais' && data.filiais_filtro.length === 0) {
-            return { valid: false, message: 'Selecione pelo menos uma filial' };
+        if (targetType === 'filial' && !data.filial_filtro) {
+            return { valid: false, message: 'Selecione uma filial' };
         }
-        if (targetType === 'departamentos' && data.departamentos_filtro.length === 0) {
-            return { valid: false, message: 'Selecione pelo menos um departamento' };
-        }
-        if (targetType === 'ambos' && data.filiais_filtro.length === 0 && data.departamentos_filtro.length === 0) {
-            return { valid: false, message: 'Selecione pelo menos uma filial ou um departamento' };
+        if (targetType === 'departamento' && !data.departamento_filtro) {
+            return { valid: false, message: 'Selecione um departamento' };
         }
         
         return { valid: true };

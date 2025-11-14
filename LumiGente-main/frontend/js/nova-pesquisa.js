@@ -2,8 +2,6 @@ class NovaPesquisa {
     constructor() {
         this.filtros = { filiais: [], departamentos: [] };
         this.perguntas = [];
-        this.departamentosFiltrados = [];
-        this.searchTerm = '';
         this.init();
     }
 
@@ -14,37 +12,22 @@ class NovaPesquisa {
     }
 
     setupEventListeners() {
-        // Tipo de público alvo
         document.querySelectorAll('input[name="target_type"]').forEach(radio => {
             radio.addEventListener('change', () => this.handleTargetTypeChange());
         });
 
-        // Adicionar pergunta
         document.getElementById('add-question').addEventListener('click', () => {
             this.addQuestion();
         });
 
-        // Submit do formulário
         document.getElementById('surveyForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.submitSurvey();
         });
 
-        // Input de pesquisa de departamentos
-        const searchInput = document.getElementById('departamento-search');
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                this.handleDepartamentoSearch(e.target.value);
-            });
-        }
-
-        // Botão de limpar pesquisa
-        const clearBtn = document.getElementById('clear-search');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                this.clearDepartamentoSearch();
-            });
-        }
+        document.getElementById('filial-select')?.addEventListener('change', () => this.updateTargetSummary());
+        document.getElementById('filial-filter')?.addEventListener('change', (e) => this.filterDepartamentos(e.target.value));
+        document.getElementById('departamento-select')?.addEventListener('change', () => this.updateTargetSummary());
     }
 
     async loadFiltros() {
@@ -59,141 +42,56 @@ class NovaPesquisa {
     }
 
     renderFiliais() {
-        const container = document.getElementById('filiais-list');
-        if (!this.filtros.filiais || this.filtros.filiais.length === 0) {
-            container.innerHTML = '<div class="loading-filters">Nenhuma filial encontrada</div>';
-            return;
-        }
+        const filialSelect = document.getElementById('filial-select');
+        const filialFilter = document.getElementById('filial-filter');
+        
+        if (!this.filtros.filiais || this.filtros.filiais.length === 0) return;
 
-        container.innerHTML = this.filtros.filiais.map(filial => `
-            <div class="filter-item">
-                <label class="checkbox-label">
-                    <input type="checkbox" name="filiais" value="${filial.codigo}" data-nome="${filial.nome}">
-                    <span class="checkmark"></span>
-                    ${filial.nome} (${filial.codigo})
-                </label>
-            </div>
-        `).join('');
-
-        // Adicionar event listeners
-        container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-            checkbox.addEventListener('change', () => this.updateTargetSummary());
-        });
+        const options = this.filtros.filiais.map(f => 
+            `<option value="${f.codigo}" data-nome="${f.nome}">${f.nome} (${f.codigo})</option>`
+        ).join('');
+        
+        if (filialSelect) filialSelect.innerHTML += options;
+        if (filialFilter) filialFilter.innerHTML += options;
     }
 
     renderDepartamentos() {
-        const container = document.getElementById('departamentos-list');
-        if (!this.filtros.departamentos || this.filtros.departamentos.length === 0) {
-            container.innerHTML = '<div class="loading-filters">Nenhum departamento encontrado</div>';
-            return;
-        }
+        const select = document.getElementById('departamento-select');
+        if (!this.filtros.departamentos || this.filtros.departamentos.length === 0) return;
 
-        // Inicializar lista filtrada com todos os departamentos
-        this.departamentosFiltrados = [...this.filtros.departamentos];
-        this.renderDepartamentosList();
+        this.allDepartamentos = this.filtros.departamentos;
+        this.filterDepartamentos('');
     }
 
-    renderDepartamentosList() {
-        const container = document.getElementById('departamentos-list');
+    filterDepartamentos(filialCodigo) {
+        const select = document.getElementById('departamento-select');
+        select.innerHTML = '<option value="">Selecione um departamento...</option>';
         
-        if (this.departamentosFiltrados.length === 0) {
-            container.innerHTML = '<div class="loading-filters">Nenhum departamento encontrado</div>';
-            return;
+        let departamentosFiltrados = this.allDepartamentos;
+        if (filialCodigo) {
+            departamentosFiltrados = this.allDepartamentos.filter(d => d.filial === filialCodigo);
         }
-
-        container.innerHTML = this.departamentosFiltrados.map(dept => `
-            <div class="filter-item">
-                <label class="checkbox-label">
-                    <input type="checkbox" name="departamentos" value="${dept.codigo}" data-nome="${dept.nome}">
-                    <span class="checkmark"></span>
-                    ${this.highlightSearchTerm(dept.nome, this.searchTerm)}
-                </label>
-            </div>
-        `).join('');
-
-        // Adicionar event listeners
-        container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-            checkbox.addEventListener('change', () => this.updateTargetSummary());
-        });
-    }
-
-    highlightSearchTerm(text, searchTerm) {
-        return SurveyUtils.highlightSearchTerm(text, searchTerm);
+        
+        const options = departamentosFiltrados.map(d => 
+            `<option value="${d.departamento_unico}" data-nome="${d.nome}" data-filial="${d.filial}">${d.nome} (${d.filial})</option>`
+        ).join('');
+        
+        select.innerHTML += options;
     }
 
     handleTargetTypeChange() {
         const targetType = document.querySelector('input[name="target_type"]:checked').value;
         
-        // Mostrar/ocultar seções
-        document.getElementById('filiais-section').style.display = 
-            (targetType === 'filiais' || targetType === 'ambos') ? 'block' : 'none';
-        
-        document.getElementById('departamentos-section').style.display = 
-            (targetType === 'departamentos' || targetType === 'ambos') ? 'block' : 'none';
+        document.getElementById('filial-section').style.display = targetType === 'filial' ? 'block' : 'none';
+        document.getElementById('departamento-section').style.display = targetType === 'departamento' ? 'block' : 'none';
 
-        // Limpar pesquisa quando mudar o tipo
-        if (targetType !== 'departamentos' && targetType !== 'ambos') {
-            this.clearDepartamentoSearch();
-        } else if (targetType === 'departamentos' || targetType === 'ambos') {
-            // Garantir que a lista seja renderizada quando a seção for exibida
-            if (this.filtros.departamentos && this.filtros.departamentos.length > 0) {
-                this.departamentosFiltrados = [...this.filtros.departamentos];
-                this.renderDepartamentosList();
-            }
+        if (targetType !== 'filial') document.getElementById('filial-select').value = '';
+        if (targetType !== 'departamento') {
+            document.getElementById('filial-filter').value = '';
+            document.getElementById('departamento-select').value = '';
         }
 
         this.updateTargetSummary();
-    }
-
-    handleDepartamentoSearch(searchTerm) {
-        this.searchTerm = searchTerm.trim();
-        
-        // Atualizar botão de limpar
-        const clearBtn = document.getElementById('clear-search');
-        if (clearBtn) {
-            clearBtn.style.display = this.searchTerm ? 'block' : 'none';
-        }
-
-        // Filtrar departamentos
-        if (this.searchTerm === '') {
-            this.departamentosFiltrados = [...this.filtros.departamentos];
-        } else {
-            this.departamentosFiltrados = this.filtros.departamentos.filter(dept => 
-                dept.nome.toLowerCase().includes(this.searchTerm.toLowerCase())
-            );
-        }
-
-        // Atualizar contador de resultados
-        this.updateSearchResultsInfo();
-
-        // Re-renderizar lista
-        this.renderDepartamentosList();
-    }
-
-    clearDepartamentoSearch() {
-        const searchInput = document.getElementById('departamento-search');
-        if (searchInput) {
-            searchInput.value = '';
-        }
-        
-        const clearBtn = document.getElementById('clear-search');
-        if (clearBtn) {
-            clearBtn.style.display = 'none';
-        }
-
-        this.handleDepartamentoSearch('');
-    }
-
-    updateSearchResultsInfo() {
-        const resultsInfo = document.getElementById('search-results-info');
-        const searchCount = document.getElementById('search-count');
-        
-        if (this.searchTerm) {
-            resultsInfo.style.display = 'block';
-            searchCount.textContent = this.departamentosFiltrados.length;
-        } else {
-            resultsInfo.style.display = 'none';
-        }
     }
 
     updateTargetSummary() {
@@ -201,57 +99,26 @@ class NovaPesquisa {
         const descriptionEl = document.getElementById('target-description');
         const countEl = document.getElementById('target-count');
 
-        let description = '';
-        let selectedFiliais = [];
-        let selectedDepartamentos = [];
+        let description = 'Todos os funcionários';
+        let details = '';
 
-        switch (targetType) {
-            case 'todos':
-                description = 'Todos os funcionários';
-                break;
-            
-            case 'filiais':
-                selectedFiliais = Array.from(document.querySelectorAll('input[name="filiais"]:checked'))
-                    .map(cb => cb.dataset.nome);
-                description = selectedFiliais.length > 0 
-                    ? `${selectedFiliais.length} filiais selecionadas`
-                    : 'Nenhuma filial selecionada';
-                break;
-            
-            case 'departamentos':
-                selectedDepartamentos = Array.from(document.querySelectorAll('input[name="departamentos"]:checked'))
-                    .map(cb => cb.dataset.nome);
-                description = selectedDepartamentos.length > 0 
-                    ? `${selectedDepartamentos.length} departamentos selecionados`
-                    : 'Nenhum departamento selecionado';
-                break;
-            
-            case 'ambos':
-                selectedFiliais = Array.from(document.querySelectorAll('input[name="filiais"]:checked'))
-                    .map(cb => cb.dataset.nome);
-                selectedDepartamentos = Array.from(document.querySelectorAll('input[name="departamentos"]:checked'))
-                    .map(cb => cb.dataset.nome);
-                
-                const parts = [];
-                if (selectedFiliais.length > 0) parts.push(`${selectedFiliais.length} filiais`);
-                if (selectedDepartamentos.length > 0) parts.push(`${selectedDepartamentos.length} departamentos`);
-                
-                description = parts.length > 0 ? parts.join(' e ') + ' selecionados' : 'Nenhum filtro selecionado';
-                break;
+        if (targetType === 'filial') {
+            const select = document.getElementById('filial-select');
+            const selectedOption = select.options[select.selectedIndex];
+            description = selectedOption.value ? selectedOption.dataset.nome : 'Nenhuma filial selecionada';
+        } else if (targetType === 'departamento') {
+            const select = document.getElementById('departamento-select');
+            const selectedOption = select.options[select.selectedIndex];
+            if (selectedOption.value) {
+                description = selectedOption.dataset.nome;
+                details = `<div>Filial: ${selectedOption.dataset.filial}</div>`;
+            } else {
+                description = 'Nenhum departamento selecionado';
+            }
         }
 
         descriptionEl.textContent = description;
-        
-        // Mostrar detalhes se houver seleções específicas
-        let details = [];
-        if (selectedFiliais.length > 0 && selectedFiliais.length <= 5) {
-            details.push('Filiais: ' + selectedFiliais.join(', '));
-        }
-        if (selectedDepartamentos.length > 0 && selectedDepartamentos.length <= 5) {
-            details.push('Departamentos: ' + selectedDepartamentos.join(', '));
-        }
-        
-        countEl.innerHTML = details.length > 0 ? details.map(d => `<div>${d}</div>`).join('') : '';
+        countEl.innerHTML = details;
     }
 
     addFirstQuestion() {
