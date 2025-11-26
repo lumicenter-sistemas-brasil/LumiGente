@@ -1,0 +1,1 @@
+Garante que toda a arquitetura siga as melhores práticas de engenharia de software: alta coesão, baixo acoplamento, modularização e componentização. Cada parte do sistema deve ser clara, reutilizável e escalável. Sempre aplicar princípios SOLID, DRY, KISS e Clean Architecture.

@@ -135,6 +135,44 @@ exports.requireSurveyResultsAccess = (req, res, next) => {
     next();
 };
 
+/**
+ * Middleware para verificar acesso a Usuários Externos
+ * Apenas usuários com DescricaoDepartamento = 'DEPARTAMENTO TREINAM&DESENVOLV' ou 'SUPERVISAO RH'
+ */
+exports.requireExternalUserAccess = (req, res, next) => {
+    const user = req.session.user;
+
+    if (!user) {
+        return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    // Administradores sempre têm acesso
+    if (user.role === 'Administrador') {
+        console.log('✅ Acesso liberado: Administrador');
+        return next();
+    }
+
+    const departmentDesc = (user.descricaoDepartamento || user.DescricaoDepartamento || '').toString().toUpperCase().trim();
+    
+    const allowedDepartments = [
+        'DEPARTAMENTO TREINAM&DESENVOLV',
+        'SUPERVISAO RH'
+    ];
+
+    const hasAccess = allowedDepartments.some(dept => departmentDesc === dept || departmentDesc.includes(dept));
+
+    if (!hasAccess) {
+        console.log('❌ ACESSO NEGADO - Usuários Externos:', user.nomeCompleto, '-', departmentDesc);
+        return res.status(403).json({
+            error: 'Acesso negado. Apenas usuários do DEPARTAMENTO TREINAM&DESENVOLV ou SUPERVISAO RH podem acessar esta funcionalidade.',
+            userDepartment: departmentDesc
+        });
+    }
+
+    console.log('✅ ACESSO LIBERADO - Usuários Externos:', user.nomeCompleto, '-', departmentDesc);
+    next();
+};
+
 
 /**
  * Middleware que retorna uma função para verificar o nível hierárquico mínimo.

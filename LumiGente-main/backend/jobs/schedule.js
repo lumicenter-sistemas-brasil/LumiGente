@@ -3,6 +3,7 @@ const sql = require('mssql');
 const { getDatabasePool } = require('../config/db');
 const { updatePesquisaStatus, updateObjetivoStatus } = require('./updateStatus'); // Funções de atualização
 const AvaliacoesManager = require('../services/avaliacoesManager');
+const oracleMonitor = require('../services/oracleMonitor');
 
 /**
  * Função para verificar e criar avaliações de experiência automaticamente.
@@ -11,11 +12,24 @@ const AvaliacoesManager = require('../services/avaliacoesManager');
 async function verificarAvaliacoesAutomaticamente() {
     try {
         console.log('📋 [JOB] Executando verificação automática de criação de avaliações...');
-        const pool = await getDatabasePool();
-        const resultado = await AvaliacoesManager.verificarECriarAvaliacoes(pool);
+        
+        // Verifica saúde do Oracle antes de executar
+        const oracleStatus = await oracleMonitor.checkOracleHealth();
+        if (oracleStatus.isDown) {
+            console.warn('⚠️ [JOB] Oracle indisponível. Executando com fallback...');
+        }
+        
+        const resultado = await AvaliacoesManager.verificarECriarAvaliacoes();
         console.log('✅ [JOB] Verificação automática de avaliações concluída:', resultado);
     } catch (error) {
-        console.error('❌ [JOB] Erro na verificação automática de avaliações:', error);
+        // Log do erro mas não interrompe o sistema
+        if (error.message && error.message.includes('OraOLEDB.Oracle')) {
+            console.warn('⚠️ [JOB] Problema de conectividade com Oracle detectado. Sistema continuará funcionando.');
+            await oracleMonitor.checkOracleHealth(); // Atualiza status do monitor
+        } else {
+            console.error('❌ [JOB] Erro na verificação automática de avaliações:', error.message || error);
+        }
+        // Não re-lança o erro para evitar crash do sistema
     }
 }
 
@@ -25,36 +39,51 @@ async function verificarAvaliacoesAutomaticamente() {
  */
 async function verificarStatusAvaliacoes() {
     try {
-        console.log('📅 [JOB] Executando verificação de status de avaliações (expiradas/pendentes)...');
+        console.log('📅 [JOB] Executando verificação de status de avaliações (agendadas/pendentes/expiradas)...');
         const pool = await getDatabasePool();
 
-        // PASSO 1: Mudar avaliações AGENDADAS para PENDENTE quando chega o período
-        const resultAgendada45 = await pool.request().query(`
-            UPDATE Avaliacoes SET StatusAvaliacao = 'Pendente', AtualizadoEm = GETDATE()
-            WHERE StatusAvaliacao = 'Agendada' AND TipoAvaliacaoId = 1 AND DATEDIFF(DAY, DataAdmissao, GETDATE()) >= 45
+        // PASSO 1: Mudar avaliações AGENDADAS para PENDENTE quando faltam 10 dias ou menos para o prazo
+        const resultAgendadas = await pool.request().query(`
+            UPDATE Avaliacoes 
+            SET StatusAvaliacao = 'Pendente', AtualizadoEm = GETDATE()
+            WHERE StatusAvaliacao = 'Agendada' 
+            AND TipoAvaliacaoId = 1 
+            AND DATEDIFF(DAY, DataAdmissao, GETDATE()) >= 35
+            
+            UPDATE Avaliacoes 
+            SET StatusAvaliacao = 'Pendente', AtualizadoEm = GETDATE()
+            WHERE StatusAvaliacao = 'Agendada' 
+            AND TipoAvaliacaoId = 2 
+            AND DATEDIFF(DAY, DataAdmissao, GETDATE()) >= 80
         `);
-        if (resultAgendada45.rowsAffected[0] > 0) {
-            console.log(`   -> ${resultAgendada45.rowsAffected[0]} avaliação(ões) de 45 dias ativadas.`);
-        }
-
-        const resultAgendada90 = await pool.request().query(`
-            UPDATE Avaliacoes SET StatusAvaliacao = 'Pendente', AtualizadoEm = GETDATE()
-            WHERE StatusAvaliacao = 'Agendada' AND TipoAvaliacaoId = 2 AND DATEDIFF(DAY, DataAdmissao, GETDATE()) >= 90
-        `);
-        if (resultAgendada90.rowsAffected[0] > 0) {
-            console.log(`   -> ${resultAgendada90.rowsAffected[0]} avaliação(ões) de 90 dias ativadas.`);
+        if (resultAgendadas.rowsAffected[0] > 0 || resultAgendadas.rowsAffected[1] > 0) {
+            const total = (resultAgendadas.rowsAffected[0] || 0) + (resultAgendadas.rowsAffected[1] || 0);
+            console.log(`   -> ${total} avaliação(ões) ativadas (Agendada -> Pendente).`);
         }
 
         // PASSO 2: Marcar avaliações PENDENTES como EXPIRADAS quando passa o prazo
-        const resultExpirada = await pool.request().query(`
-            UPDATE Avaliacoes SET StatusAvaliacao = 'Expirada', AtualizadoEm = GETDATE()
-            WHERE StatusAvaliacao = 'Pendente' AND DataLimiteResposta < GETDATE()
+        const resultExpiradas = await pool.request().query(`
+            UPDATE Avaliacoes 
+            SET StatusAvaliacao = 'Expirada', AtualizadoEm = GETDATE()
+            WHERE StatusAvaliacao = 'Pendente' 
+            AND DataLimiteResposta IS NOT NULL 
+            AND CAST(DataLimiteResposta AS DATE) < CAST(GETDATE() AS DATE)
         `);
-        if (resultExpirada.rowsAffected[0] > 0) {
-            console.log(`   -> ${resultExpirada.rowsAffected[0]} avaliação(ões) marcadas como expiradas.`);
+        if (resultExpiradas.rowsAffected[0] > 0) {
+            console.log(`   -> ${resultExpiradas.rowsAffected[0]} avaliação(ões) marcadas como expiradas.`);
+        }
+
+        const totalAgendadas = (resultAgendadas.rowsAffected[0] || 0) + (resultAgendadas.rowsAffected[1] || 0);
+        const totalExpiradas = resultExpiradas.rowsAffected[0] || 0;
+        
+        if (totalAgendadas === 0 && totalExpiradas === 0) {
+            console.log('   -> Nenhuma alteração de status necessária.');
         }
     } catch (error) {
-        console.error('❌ [JOB] Erro ao verificar status de avaliações:', error);
+        // Ignora erro se a tabela não existir ainda
+        if (!error.message.toLowerCase().includes("invalid object name 'avaliacoes'")) {
+            console.error('❌ [JOB] Erro ao verificar status de avaliações:', error);
+        }
     }
 }
 
@@ -92,6 +121,13 @@ function setupScheduledJobs() {
     setTimeout(verificarStatusAvaliacoes, 15000); // Roda 15s após o início
     schedule.scheduleJob(avaliacaoStatusTime, verificarStatusAvaliacoes);
     console.log(`   -> Tarefa de status de avaliações agendada para: ${avaliacaoStatusTime}`);
+
+    // --- Job de Monitoramento Oracle (a cada 5 minutos) ---
+    console.log('🔄 [ORACLE] Configurando monitoramento de conectividade Oracle...');
+    schedule.scheduleJob('*/5 * * * *', async () => {
+        await oracleMonitor.checkOracleHealth();
+    });
+    console.log('   -> Monitoramento Oracle agendado para rodar a cada 5 minutos.');
 
     console.log('✅ Todas as tarefas agendadas foram configuradas.');
 }

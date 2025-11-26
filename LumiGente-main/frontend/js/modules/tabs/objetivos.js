@@ -35,22 +35,22 @@ const Objetivos = {
         await this.loadList();
     },
 
-	async loadList() {
-		// Debounce quando chamado a partir dos inputs de busca e filtro de status
-		const evt = typeof window !== 'undefined' ? window.event : null;
-		if (
-			evt &&
-			((evt.type === 'input' && evt.target && (evt.target.id === 'objetivos-search' || evt.target.id === 'objetivos-responsavel-search')) ||
-			 (evt.type === 'change' && evt.target && evt.target.id === 'objetivos-status-filter'))
-		) {
-			clearTimeout(this._searchDebounce);
-			return await new Promise(resolve => {
-				this._searchDebounce = setTimeout(async () => {
-					await this.loadList();
-					resolve();
-				}, 300);
-			});
-		}
+    async loadList() {
+        // Debounce quando chamado a partir dos inputs de busca e filtro de status
+        const evt = typeof window !== 'undefined' ? window.event : null;
+        if (
+            evt &&
+            ((evt.type === 'input' && evt.target && (evt.target.id === 'objetivos-search' || evt.target.id === 'objetivos-responsavel-search')) ||
+                (evt.type === 'change' && evt.target && evt.target.id === 'objetivos-status-filter'))
+        ) {
+            clearTimeout(this._searchDebounce);
+            return await new Promise(resolve => {
+                this._searchDebounce = setTimeout(async () => {
+                    await this.loadList();
+                    resolve();
+                }, 300);
+            });
+        }
         try {
             const container = document.getElementById('objetivos-list');
             if (!container) return;
@@ -60,39 +60,39 @@ const Objetivos = {
             const searchTerms = {};
             const objetivosSearch = document.getElementById('objetivos-search');
             if (objetivosSearch?.value.trim()) searchTerms.search = objetivosSearch.value.trim();
-            
+
             const responsavelSearch = document.getElementById('objetivos-responsavel-search');
             if (responsavelSearch?.value.trim()) searchTerms.responsavel = responsavelSearch.value.trim();
-            
+
             const statusFilter = document.getElementById('objetivos-status-filter');
             if (statusFilter?.value.trim()) searchTerms.status = statusFilter.value.trim();
 
-			const objetivos = await API.get('/api/objetivos', searchTerms);
-			// Filtros adicionais no cliente, insensíveis a acentos
-			let lista = objetivos;
-			if (objetivosSearch?.value.trim()) {
-				const termTitulo = this.normalizeText(objetivosSearch.value.trim());
-				lista = lista.filter(o => this.normalizeText(o.titulo || '').includes(termTitulo));
-			}
-			if (responsavelSearch?.value.trim()) {
-				const termResp = this.normalizeText(responsavelSearch.value.trim());
-				lista = lista.filter(o => {
-					const nomes = [];
-					if (o.responsavel_nome) nomes.push(o.responsavel_nome);
-					if (Array.isArray(o.shared_responsaveis)) {
-						o.shared_responsaveis.forEach(r => {
-							const nome = r.NomeCompleto || r.nome_responsavel || r.nome || r.user_name;
-							if (nome) nomes.push(nome);
-						});
-					}
-					return nomes.some(n => this.normalizeText(n).includes(termResp));
-				});
-			}
-			if (statusFilter?.value.trim()) {
-				const termStatus = this.normalizeText(statusFilter.value.trim());
-				lista = lista.filter(o => this.normalizeText(o.status || '') === termStatus);
-			}
-			this.updateList(lista);
+            const objetivos = await API.get('/api/objetivos', searchTerms);
+            // Filtros adicionais no cliente, insensíveis a acentos
+            let lista = objetivos;
+            if (objetivosSearch?.value.trim()) {
+                const termTitulo = this.normalizeText(objetivosSearch.value.trim());
+                lista = lista.filter(o => this.normalizeText(o.titulo || '').includes(termTitulo));
+            }
+            if (responsavelSearch?.value.trim()) {
+                const termResp = this.normalizeText(responsavelSearch.value.trim());
+                lista = lista.filter(o => {
+                    const nomes = [];
+                    if (o.responsavel_nome) nomes.push(o.responsavel_nome);
+                    if (Array.isArray(o.shared_responsaveis)) {
+                        o.shared_responsaveis.forEach(r => {
+                            const nome = r.NomeCompleto || r.nome_responsavel || r.nome || r.user_name;
+                            if (nome) nomes.push(nome);
+                        });
+                    }
+                    return nomes.some(n => this.normalizeText(n).includes(termResp));
+                });
+            }
+            if (statusFilter?.value.trim()) {
+                const termStatus = this.normalizeText(statusFilter.value.trim());
+                lista = lista.filter(o => this.normalizeText(o.status || '') === termStatus);
+            }
+            this.updateList(lista);
         } catch (error) {
             console.error('Erro ao carregar objetivos:', error);
         }
@@ -126,7 +126,7 @@ const Objetivos = {
             const dataInicio = objetivo.data_inicio ? this.formatDate(objetivo.data_inicio) : '';
             const dataFim = objetivo.data_fim ? this.formatDate(objetivo.data_fim) : '';
             const isOverdue = objetivo.data_fim && new Date(objetivo.data_fim + 'T00:00:00') < new Date() && objetivo.status === 'Ativo';
-            
+
             let responsaveisLista = [];
             if (objetivo.responsavel_nome) responsaveisLista.push(objetivo.responsavel_nome.trim());
             if (objetivo.shared_responsaveis?.length > 0) {
@@ -137,10 +137,10 @@ const Objetivos = {
                 });
             }
             const responsaveisTexto = responsaveisLista.length > 0 ? responsaveisLista.join(', ') : 'Nenhum responsável';
-            
+
             const descricao = objetivo.descricao || 'Sem descrição';
             const descricaoHtml = this.formatDescricao(descricao, `objetivo-${index}`);
-            
+
             const statusConfig = {
                 'Ativo': { color: '#10b981', icon: 'fas fa-play-circle' },
                 'Agendado': { color: '#3b82f6', icon: 'fas fa-calendar-alt' },
@@ -242,16 +242,16 @@ const Objetivos = {
         if (!descricao || descricao === 'Sem descrição') {
             return '<p class="objetivo-descricao">Sem descrição</p>';
         }
-        
+
         const formattedText = descricao.replace(/\n/g, '<br>');
         const maxLength = 150;
-        
+
         if (descricao.length <= maxLength) {
             return `<p class="objetivo-descricao">${formattedText}</p>`;
         }
-        
+
         const shortText = descricao.substring(0, maxLength).replace(/\n/g, '<br>');
-        
+
         return `
             <div>
                 <p id="desc-short-${id}" class="objetivo-descricao">${shortText}...</p>
@@ -267,7 +267,7 @@ const Objetivos = {
         const shortEl = document.getElementById(`desc-short-${id}`);
         const fullEl = document.getElementById(`desc-full-${id}`);
         const toggleEl = document.getElementById(`toggle-${id}`);
-        
+
         if (shortEl && fullEl && toggleEl) {
             if (shortEl.style.display === 'none') {
                 shortEl.style.display = 'block';
@@ -288,14 +288,14 @@ const Objetivos = {
         this.setSubmitButtonLoading(false);
         const user = State.getUser();
         const isGestor = user && user.hierarchyLevel >= 3;
-        
+
         if (!isGestor && user) {
             this.state.selectedResponsaveis = [{
                 id: user.userId,
                 name: `${user.nomeCompleto} - ${user.departamento || 'N/A'}`
             }];
         }
-        
+
         const responsavelField = document.getElementById('responsavel-field');
         if (responsavelField) {
             responsavelField.style.display = isGestor ? 'block' : 'none';
@@ -311,7 +311,7 @@ const Objetivos = {
         this.state.isSubmitting = false;
         this.setSubmitButtonLoading(false);
         updateSelectedResponsaveisUI();
-            document.getElementById('objetivo-titulo').value = '';
+        document.getElementById('objetivo-titulo').value = '';
         document.getElementById('objetivo-descricao').value = '';
         document.getElementById('objetivo-data-inicio').value = '';
         document.getElementById('objetivo-data-fim').value = '';
@@ -359,7 +359,7 @@ const Objetivos = {
             }
             return;
         }
-        
+
         const titulo = document.getElementById('objetivo-titulo')?.value?.trim();
         const descricao = document.getElementById('objetivo-descricao')?.value?.trim();
         const data_inicio = document.getElementById('objetivo-data-inicio')?.value;
@@ -427,7 +427,7 @@ const Objetivos = {
                 observacoesInput.value = observacoes;
             }
         }
-        
+
         if (!observacoes) {
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
                 EmailPopup.showToast('Preencha a descrição do check-in', 'error');
@@ -438,7 +438,7 @@ const Objetivos = {
             }
             return;
         }
-        
+
         if (progresso < 0 || progresso > 100) {
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
                 EmailPopup.showToast('Progresso deve ser entre 0 e 100', 'error');
@@ -449,7 +449,7 @@ const Objetivos = {
             }
             return;
         }
-        
+
         try {
             const result = await API.post(`/api/objetivos/${this.state.currentObjetivoId}/checkin`, { progresso, observacoes });
             this.closeModal();
@@ -553,7 +553,7 @@ const Objetivos = {
         this.state.selectedResponsaveis = [];
         this.state.isSubmitting = false;
         this.setSubmitButtonLoading(false);
-        
+
         try {
             const objetivo = await API.get(`/api/objetivos/${objetivoId}`);
             const user = State.getUser();
@@ -562,7 +562,7 @@ const Objetivos = {
             if (responsavelField) {
                 responsavelField.style.display = isGestor ? 'block' : 'none';
             }
-            
+
             if (isGestor) {
                 const addResponsavelToState = (id, nome, departamento) => {
                     if (!id || !nome) return;
@@ -579,7 +579,7 @@ const Objetivos = {
                 const primaryRespDept = objetivo.responsavel_descricao_departamento || objetivo.responsavelDescricaoDepartamento || objetivo.responsavel_departamento || objetivo.responsavelDepartamento || objetivo.responsavelDepart || objetivo.responsavel_depto || objetivo.responsavelDepto || objetivo.responsavelDescricao || objetivo.responsavelDepartamentoDescricao || objetivo.responsavel_departamento_descricao || '';
                 addResponsavelToState(primaryRespId, primaryRespNome, primaryRespDept);
 
-            if (Array.isArray(objetivo.shared_responsaveis)) {
+                if (Array.isArray(objetivo.shared_responsaveis)) {
                     objetivo.shared_responsaveis.forEach(resp => {
                         const respId = resp.Id || resp.user_id || resp.responsavel_id;
                         const respNome = resp.NomeCompleto || resp.nome_responsavel || resp.nome || resp.UserName || '';
@@ -588,7 +588,7 @@ const Objetivos = {
                     });
                 }
             }
-            
+
             document.getElementById('objetivo-modal-title').innerHTML = '<i class="fas fa-edit"></i> Editar Objetivo';
             const submitBtn = document.getElementById('objetivo-submit-btn');
             submitBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações';
@@ -608,7 +608,7 @@ const Objetivos = {
             if (checkinFields) checkinFields.classList.add('hidden');
             const detalhesFields = document.getElementById('detalhes-fields');
             if (detalhesFields) detalhesFields.style.display = 'none';
-            
+
             await this.populateForm();
             updateSelectedResponsaveisUI();
             Modal.open('objetivo-modal');
@@ -623,7 +623,7 @@ const Objetivos = {
         this.state.currentObjetivoId = objetivoId;
         this.state.isSubmitting = false;
         this.setSubmitButtonLoading(false);
-        
+
         try {
             const objetivo = await API.get(`/api/objetivos/${objetivoId}`);
             // Verificação de permissão: somente responsáveis podem fazer check-in
@@ -650,20 +650,20 @@ const Objetivos = {
             const submitBtn = document.getElementById('objetivo-submit-btn');
             submitBtn.innerHTML = '<i class="fas fa-check"></i> Registrar Check-in';
             submitBtn.style.display = 'block';
-            
+
             document.getElementById('objetivo-titulo').value = objetivo.titulo || '';
             document.getElementById('objetivo-titulo').disabled = true;
             document.getElementById('objetivo-descricao').value = objetivo.descricao || '';
             document.getElementById('objetivo-descricao').disabled = true;
-            
+
             document.getElementById('responsavel-field').style.display = 'none';
             document.getElementById('objetivo-data-inicio').parentElement.parentElement.style.display = 'none';
             document.getElementById('checkin-fields').classList.remove('hidden');
             document.getElementById('detalhes-fields').style.display = 'none';
-            
+
             document.getElementById('checkin-progresso').value = objetivo.progresso || 0;
             document.getElementById('checkin-observacoes').value = '';
-            
+
             Modal.open('objetivo-modal');
         } catch (error) {
             console.error('Erro ao carregar objetivo:', error);
@@ -674,13 +674,13 @@ const Objetivos = {
     async viewDetails(objetivoId) {
         this.state.modalMode = 'details';
         this.state.currentObjetivoId = objetivoId;
-        
+
         try {
             const [objetivo, checkins] = await Promise.all([
                 API.get(`/api/objetivos/${objetivoId}`),
                 API.get(`/api/objetivos/${objetivoId}/checkins`)
             ]);
-            
+
             let responsaveisLista = [];
             if (objetivo.responsavel_nome) responsaveisLista.push(objetivo.responsavel_nome.trim());
             if (objetivo.shared_responsaveis?.length > 0) {
@@ -691,10 +691,10 @@ const Objetivos = {
                 });
             }
             const responsaveisTexto = responsaveisLista.length > 0 ? responsaveisLista.join(', ') : 'Nenhum responsável';
-            
+
             document.getElementById('objetivo-modal-title').innerHTML = '<i class="fas fa-eye"></i> Detalhes do Objetivo';
             document.getElementById('objetivo-submit-btn').style.display = 'none';
-            
+
             document.getElementById('objetivo-titulo').value = objetivo.titulo || '';
             document.getElementById('objetivo-titulo').disabled = true;
             document.getElementById('objetivo-descricao').value = objetivo.descricao || '';
@@ -703,19 +703,19 @@ const Objetivos = {
             document.getElementById('objetivo-data-inicio').disabled = true;
             document.getElementById('objetivo-data-fim').value = objetivo.data_fim ? objetivo.data_fim.split('T')[0] : '';
             document.getElementById('objetivo-data-fim').disabled = true;
-            
+
             document.getElementById('responsavel-field').style.display = 'none';
             document.getElementById('objetivo-data-inicio').parentElement.parentElement.style.display = 'none';
             document.getElementById('checkin-fields').classList.add('hidden');
-            
+
             const detalhesFieldsDiv = document.getElementById('detalhes-fields');
             detalhesFieldsDiv.style.display = 'block';
             detalhesFieldsDiv.classList.remove('hidden');
-            
+
             document.getElementById('objetivo-status').value = objetivo.status || 'N/A';
             document.getElementById('objetivo-progresso-atual').value = `${objetivo.progresso || 0}%`;
             document.getElementById('objetivo-criado-por').value = objetivo.criador_nome || 'N/A';
-            
+
             const detalhesFields = document.getElementById('detalhes-fields');
             let checkinsHtml = `
                 <div class="form-group">
@@ -824,7 +824,7 @@ const Objetivos = {
                     </div>
                 `;
             }
-            
+
             const finalHtml = `
                 <div class="form-group">
                     <label class="form-label">Status</label>
@@ -841,7 +841,7 @@ const Objetivos = {
                 ${checkinsHtml}
             `;
             detalhesFields.innerHTML = finalHtml;
-            
+
             Modal.open('objetivo-modal');
         } catch (error) {
             console.error('Erro ao carregar objetivo:', error);
@@ -851,7 +851,7 @@ const Objetivos = {
 
     async complete(objetivoId) {
         if (!confirm('Tem certeza que deseja marcar este objetivo como concluído?')) return;
-        
+
         try {
             const result = await API.put(`/api/objetivos/${objetivoId}/complete`);
             await this.loadList();
@@ -1017,7 +1017,7 @@ const Objetivos = {
         const user = State.getUser();
         const isGestor = user && user.hierarchyLevel >= 3;
         let availableUsers = [];
-        
+
         if (isGestor) {
             try {
                 const data = await API.get('/api/objetivos/filtros');
@@ -1038,11 +1038,11 @@ const Objetivos = {
                 departamento: user.descricaoDepartamento || user.DescricaoDepartamento || user.departamento || user.Departamento || 'N/A'
             }];
         }
-        
+
         const responsavelList = document.getElementById('objetivo-responsavel-list');
         if (responsavelList) {
             responsavelList.innerHTML = '';
-            
+
             availableUsers.forEach(u => {
                 const displayName = `${u.nomeCompleto} - ${u.departamento}`;
                 responsavelList.innerHTML += `<div class="select-option" data-value="${u.userId}" ` +
@@ -1053,19 +1053,20 @@ const Objetivos = {
 };
 
 // Global functions for onclick
-function openObjetivoModal() { Objetivos.openModal(); }
-function openNewObjetivoModal() { Objetivos.openModal(); }
-function closeObjetivoModal() { Objetivos.closeModal(); }
-function submitObjetivo() { Objetivos.submit(); }
-function editObjetivo(id) { Objetivos.edit(id); }
-function checkinObjetivo(id) { Objetivos.checkin(id); }
-function viewObjetivoDetails(id) { Objetivos.viewDetails(id); }
-function deleteObjetivo(id) { Objetivos.delete(id); }
-function completeObjetivo(id) { Objetivos.complete(id); }
-function approveObjetivo(id) { Objetivos.approve(id); }
-function rejectObjetivo(id) { Objetivos.openRejectionModal(id); }
-function loadObjetivos() { Objetivos.loadList(); }
-function populateObjetivoForm() { Objetivos.populateForm(); }
+// Global functions for onclick
+window.openObjetivoModal = function () { Objetivos.openModal(); };
+window.openNewObjetivoModal = function () { Objetivos.openModal(); };
+window.closeObjetivoModal = function () { Objetivos.closeModal(); };
+window.submitObjetivo = function () { Objetivos.submit(); };
+window.editObjetivo = function (id) { Objetivos.edit(id); };
+window.checkinObjetivo = function (id) { Objetivos.checkin(id); };
+window.viewObjetivoDetails = function (id) { Objetivos.viewDetails(id); };
+window.deleteObjetivo = function (id) { Objetivos.delete(id); };
+window.completeObjetivo = function (id) { Objetivos.complete(id); };
+window.approveObjetivo = function (id) { Objetivos.approve(id); };
+window.rejectObjetivo = function (id) { Objetivos.openRejectionModal(id); };
+window.loadObjetivos = function () { Objetivos.loadList(); };
+window.populateObjetivoForm = function () { Objetivos.populateForm(); };
 function selectMultipleUser(userId, userName) {
     if (!userId) return;
     const userIdNum = parseInt(userId, 10);
@@ -1076,10 +1077,10 @@ function selectMultipleUser(userId, userName) {
     }
     Objetivos.state.selectedResponsaveis.push({ id: userIdNum, name: userName });
     updateSelectedResponsaveisUI();
-    
+
     const searchInput = document.getElementById('objetivo-responsavel-search');
     if (searchInput) searchInput.value = '';
-    
+
     const list = document.getElementById('objetivo-responsavel-list');
     if (list) list.classList.remove('show');
 }
@@ -1103,12 +1104,12 @@ function removeSelectedResponsavel(userId) {
 function updateSelectedResponsaveisUI() {
     const container = document.getElementById('selected-responsaveis-container');
     if (!container) return;
-    
+
     if (Objetivos.state.selectedResponsaveis.length === 0) {
         container.innerHTML = '<div class="no-responsavel-placeholder" style="color: #dc3545; border: 1px dashed #dc3545; padding: 8px; border-radius: 4px; text-align: center; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Nenhum responsável selecionado</div>';
         return;
     }
-    
+
     container.innerHTML = Objetivos.state.selectedResponsaveis.map(r => `
         <div class="selected-responsavel">
             ${r.name}
@@ -1133,7 +1134,7 @@ function toggleObjetivosFilters() {
     const btn = event.currentTarget;
     const icon = btn.querySelector('svg:last-child');
     const card = btn.closest('.card');
-    
+
     if (container && btn) {
         container.classList.toggle('collapsed');
         btn.classList.toggle('active');
@@ -1141,7 +1142,7 @@ function toggleObjetivosFilters() {
         if (card) {
             card.classList.toggle('filters-collapsed', isCollapsed);
         }
-        
+
         if (icon) {
             if (isCollapsed) {
                 icon.style.transform = 'rotate(0deg)';
@@ -1183,3 +1184,18 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmBtn.addEventListener('click', () => Objetivos.rejectCurrentObjetivo());
     }
 });
+
+window.Objetivos = Objetivos;
+
+// Global functions for onclick handlers
+window.openNewObjetivoModal = function () {
+    Objetivos.openModal();
+};
+
+window.closeObjetivoModal = function () {
+    Objetivos.closeModal();
+};
+
+window.submitObjetivo = function () {
+    Objetivos.submit();
+};

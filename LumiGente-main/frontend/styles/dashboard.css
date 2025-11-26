@@ -5,6 +5,8 @@
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: var(--spacing-xl);
     margin-bottom: var(--spacing-xl);
+    position: relative;
+    z-index: 50;
 }
 
 .metric-card {
@@ -52,10 +54,22 @@
     color: var(--color-white);
 }
 
-.icon-blue { background-color: var(--color-primary); }
-.icon-amber { background-color: var(--color-secondary); }
-.icon-green { background-color: var(--color-success); }
-.icon-purple { background-color: #8b5cf6; }
+.icon-blue {
+    background-color: var(--color-primary);
+}
+
+.icon-amber {
+    background-color: var(--color-secondary);
+}
+
+.icon-green {
+    background-color: var(--color-success);
+}
+
+.icon-purple {
+    background-color: #8b5cf6;
+}
+
 
 .action-buttons {
     display: flex;
@@ -67,6 +81,7 @@
     position: relative;
     overflow: visible;
     z-index: 20;
+    contain: none !important;
 }
 
 .quick-actions-wrapper {
@@ -379,10 +394,21 @@
     color: var(--color-white);
 }
 
-.leaderboard-position.top-1 { background: var(--color-secondary); }
-.leaderboard-position.top-2 { background: var(--color-gray-500); }
-.leaderboard-position.top-3 { background: var(--color-error); }
-.leaderboard-position.other { background: var(--color-info); }
+.leaderboard-position.top-1 {
+    background: var(--color-secondary);
+}
+
+.leaderboard-position.top-2 {
+    background: var(--color-gray-500);
+}
+
+.leaderboard-position.top-3 {
+    background: var(--color-error);
+}
+
+.leaderboard-position.other {
+    background: var(--color-info);
+}
 
 .leaderboard-user {
     flex: 1;
@@ -410,7 +436,7 @@
         grid-template-columns: repeat(2, 1fr);
         gap: var(--spacing-lg);
     }
-    
+
     .dashboard-grid {
         grid-template-columns: 1fr;
         gap: var(--spacing-xl);
@@ -423,84 +449,84 @@
         gap: var(--spacing-md);
         margin-bottom: var(--spacing-lg);
     }
-    
+
     .metric-card {
         padding: var(--spacing-lg);
     }
-    
+
     .metric-info .value {
         font-size: 24px;
     }
-    
+
     .metric-icon {
         width: 40px;
         height: 40px;
         font-size: 18px;
     }
-    
+
     .dashboard-grid {
         gap: var(--spacing-lg);
         margin-top: var(--spacing-lg);
     }
-    
+
     .recognition-item {
         padding: var(--spacing-md);
         gap: var(--spacing-md);
     }
-    
+
     .recognition-icon {
         width: 28px;
         height: 28px;
         font-size: 14px;
         flex-shrink: 0;
     }
-    
+
     .recognition-message {
         font-size: 13px;
     }
-    
+
     .recognition-badge {
         font-size: 11px;
         padding: 3px 6px;
     }
-    
+
     .user-ranking-card {
         padding: var(--spacing-md);
         gap: var(--spacing-md);
         flex-wrap: wrap;
     }
-    
+
     .user-ranking-position {
         font-size: 16px;
     }
-    
+
     .user-ranking-name {
         font-size: 14px;
     }
-    
+
     .user-ranking-points {
         font-size: 13px;
     }
-    
+
     .leaderboard-item {
         padding: var(--spacing-md);
         gap: var(--spacing-md);
     }
-    
+
     .leaderboard-position {
         width: 26px;
         height: 26px;
         font-size: 12px;
     }
-    
+
     .leaderboard-user-name {
         font-size: 14px;
     }
-    
+
     .leaderboard-user-department {
         font-size: 11px;
     }
-    
+
     .leaderboard-score {
         font-size: 14px;
     }
@@ -510,96 +536,96 @@
     .metric-card {
         padding: var(--spacing-md);
     }
-    
+
     .metric-card-content {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--spacing-md);
     }
-    
+
     .metric-info h3 {
         font-size: 13px;
     }
-    
+
     .metric-info .value {
         font-size: 20px;
     }
-    
+
     .metric-icon {
         width: 36px;
         height: 36px;
         font-size: 16px;
     }
-    
+
     .recognition-item {
         padding: var(--spacing-md);
         gap: var(--spacing-md);
     }
-    
+
     .recognition-icon {
         width: 24px;
         height: 24px;
         font-size: 12px;
     }
-    
+
     .recognition-message {
         font-size: 12px;
     }
-    
+
     .recognition-points {
         font-size: 12px;
     }
-    
+
     .user-ranking-card {
         padding: var(--spacing-md);
         gap: var(--spacing-md);
     }
-    
+
     .user-ranking-position {
         font-size: 14px;
     }
-    
+
     .user-ranking-position i {
         font-size: 16px;
     }
-    
+
     .user-ranking-name {
         font-size: 13px;
     }
-    
+
     .user-ranking-points {
         font-size: 12px;
     }
-    
+
     .gamification-stats {
         flex-direction: column;
         gap: var(--spacing-sm);
         align-items: stretch;
     }
-    
+
     .leaderboard-item {
         padding: var(--spacing-sm);
         gap: var(--spacing-sm);
     }
-    
+
     .leaderboard-position {
         width: 24px;
         height: 24px;
         font-size: 11px;
     }
-    
+
     .leaderboard-user-name {
         font-size: 13px;
     }
-    
+
     .leaderboard-user-department {
         font-size: 10px;
     }
-    
+
     .leaderboard-score {
         font-size: 13px;
     }
-    
+
     .points-actions li {
         font-size: 12px;
     }

@@ -6,8 +6,6 @@ Monorepo contendo os módulos **backend** e **frontend** do projeto LumiGente.
 
 - `LumiGente-main/backend/` – API Node.js + Express, integrações com SQL Server e serviços de e-mail/notificações.
 - `LumiGente-main/frontend/` – Aplicação web com HTML/CSS/JS modularizada por funcionalidades.
-- `.cursor/` – Configurações de automação da IDE (não versionadas).
-- `service/` – Serviços locais/instalações do NSSM (excluídos do versionamento).
 
 ## Pré-requisitos
 

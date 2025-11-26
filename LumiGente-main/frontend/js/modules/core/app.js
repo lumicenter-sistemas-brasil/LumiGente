@@ -8,7 +8,7 @@ const App = {
             window.location.replace('/pages/login.html');
             return;
         }
-        
+
         // Verificar autenticação antes de carregar qualquer coisa
         try {
             const authCheck = await fetch('/api/usuario', { credentials: 'include' });
@@ -24,7 +24,7 @@ const App = {
             window.location.replace('/pages/login.html');
             return;
         }
-        
+
         this.setupNavigationProtection();
         const authenticated = await Auth.checkAuth();
         if (authenticated) {
@@ -54,7 +54,7 @@ const App = {
 
     async loadInitialData() {
         await Dashboard.loadMetrics();
-        
+
         requestIdleCallback(() => {
             Users.load();
             Feedbacks.loadList();
@@ -62,7 +62,7 @@ const App = {
             Dashboard.loadGamification();
             Dashboard.loadColleaguesHumor();
         }, { timeout: 2000 });
-        
+
         NotificationsManager.init();
         EmailPopup.init();
     },
@@ -76,7 +76,7 @@ const App = {
                 document.querySelector('.main-content')?.classList.add('expanded');
             }
         }
-        
+
         // User info click handler for mobile
         const userInfoBtn = document.getElementById('user-info-btn');
         if (userInfoBtn) {
@@ -92,7 +92,7 @@ const App = {
                 document.querySelectorAll('.badge-option').forEach(b => b.classList.remove('selected'));
                 badge.classList.add('selected');
                 State.selectedBadge = badge.dataset.badge;
-                
+
                 if (badge.dataset.badge === 'outro') {
                     showCustomBadgeInput();
                 } else {
@@ -129,6 +129,7 @@ const App = {
             'pesquisas': 'Pesquisas',
             'avaliacoes': 'Avaliações',
             'historico': 'Histórico',
+            'external-users': 'Usuários Externos',
             'configuracoes': 'Configurações'
         };
 
@@ -138,14 +139,14 @@ const App = {
                 this.switchTab(tab, tabTitles);
             });
         });
-        
+
         // Verificar hash na URL ao carregar
         const hash = window.location.hash.substring(1);
         if (hash && tabTitles[hash]) {
             this.switchTab(hash, tabTitles);
         }
     },
-    
+
     switchTab(tab, tabTitles) {
         document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
         document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
@@ -159,7 +160,7 @@ const App = {
     },
 
     handleTabSwitch(tab) {
-        switch(tab) {
+        switch (tab) {
             case 'dashboard':
                 Dashboard.load();
                 break;
@@ -193,6 +194,9 @@ const App = {
             case 'configuracoes':
                 Configuracoes.load();
                 break;
+            case 'external-users':
+                ExternalUsers.load();
+                break;
         }
     }
 };
@@ -202,10 +206,10 @@ function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const mainContent = document.querySelector('.main-content');
     const overlay = document.getElementById('sidebar-overlay');
-    
+
     sidebar.classList.toggle('hidden');
     mainContent.classList.toggle('expanded');
-    
+
     // Gerenciar overlay em mobile
     if (window.innerWidth <= 768) {
         overlay.classList.toggle('show');
@@ -216,7 +220,7 @@ function toggleSidebar() {
             document.body.style.overflow = '';
         }
     }
-    
+
     // Salvar preferência apenas em desktop
     if (window.innerWidth > 768) {
         localStorage.setItem('sidebarHidden', sidebar.classList.contains('hidden'));
@@ -245,7 +249,7 @@ window.addEventListener('resize', () => {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
     const userInfoDropdown = document.getElementById('user-info-dropdown');
-    
+
     if (window.innerWidth > 768) {
         overlay.classList.remove('show');
         document.body.style.overflow = '';
@@ -282,7 +286,7 @@ function setupQuickActions() {
     }
 
     if (!menu.dataset.listenerAttached) {
-        menu.addEventListener('click', (event) => event.stopPropagation());
+        // Removed stopPropagation to allow delegation
         menu.dataset.listenerAttached = 'true';
     }
 }
@@ -299,6 +303,7 @@ function toggleQuickActionsDropdown() {
         toggle.setAttribute('aria-expanded', 'true');
     }
 }
+window.toggleQuickActionsDropdown = toggleQuickActionsDropdown;
 
 function closeQuickActionsDropdown() {
     const { toggle, menu, card } = getQuickActionsElements();
@@ -308,6 +313,7 @@ function closeQuickActionsDropdown() {
     menu.classList.remove('show');
     toggle.setAttribute('aria-expanded', 'false');
 }
+window.closeQuickActionsDropdown = closeQuickActionsDropdown;
 
 function setQuickActionValue(label) {
     const { label: labelElement } = getQuickActionsElements();
@@ -315,14 +321,13 @@ function setQuickActionValue(label) {
         labelElement.textContent = label || 'Selecione uma ação';
     }
 }
+window.setQuickActionValue = setQuickActionValue;
 
-// Toggle user info dropdown in mobile
 function toggleUserInfoDropdown() {
     if (window.innerWidth <= 768) {
         const dropdown = document.getElementById('user-info-dropdown');
         if (dropdown) {
             dropdown.classList.toggle('show');
-            console.log('Dropdown toggled:', dropdown.classList.contains('show'));
         }
     }
 }
@@ -335,14 +340,14 @@ document.addEventListener('click', (e) => {
             closeQuickActionsDropdown();
         }
     }
-    
+
     // Close user-info dropdown when clicking outside
     const userInfoBtn = document.getElementById('user-info-btn');
     const userInfoDropdown = document.getElementById('user-info-dropdown');
     if (userInfoBtn && userInfoDropdown && !userInfoBtn.contains(e.target) && !userInfoDropdown.contains(e.target)) {
         userInfoDropdown.classList.remove('show');
     }
-    
+
     // Close select-dropdown when clicking outside
     document.querySelectorAll('.select-dropdown.show').forEach(selectDropdown => {
         const searchableSelect = selectDropdown.closest('.searchable-select');
@@ -370,27 +375,26 @@ document.addEventListener('focusout', (e) => {
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => App.init());
 
-
 function toggleFilters(id) {
     const container = document.getElementById(id);
     if (!container) return;
-    
+
     const btn = event.target.closest('.filters-toggle-btn');
     if (!btn) return;
-    
+
     const icon = btn.querySelector('svg:last-child');
     const text = btn.querySelector('span');
     const card = btn.closest('.card');
-    
+
     container.classList.toggle('collapsed');
     btn.classList.toggle('active');
-    
+
     const isCollapsed = container.classList.contains('collapsed');
-    
+
     if (card) {
         card.classList.toggle('filters-collapsed', isCollapsed);
     }
-    
+
     if (isCollapsed) {
         if (text) text.textContent = 'Mostrar Filtros';
         if (icon) icon.style.transform = 'rotate(0deg)';

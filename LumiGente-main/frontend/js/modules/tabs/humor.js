@@ -17,13 +17,7 @@ const Humor = {
 
     async submit() {
         if (!State.selectedHumorScore) {
-            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
-                EmailPopup.showToast('Selecione um humor', 'error');
-            } else if (window.Notifications && typeof Notifications.error === 'function') {
-                Notifications.error('Selecione um humor');
-            } else {
-                alert('Selecione um humor');
-            }
+            EmailPopup.showToast('Selecione um humor', 'error');
             return;
         }
 
@@ -39,26 +33,16 @@ const Humor = {
                 Notifications.points(result.pointsEarned, 'registrar humor');
                 await Dashboard.loadGamification();
             }
-            // Toast de sucesso com o mesmo estilo do fluxo de token
-            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
-                EmailPopup.showToast('Humor registrado com sucesso!', 'success');
-            } else if (window.Notifications && typeof Notifications.success === 'function') {
-                Notifications.success('Humor registrado com sucesso!');
-            }
-            
+
+            EmailPopup.showToast('Humor registrado com sucesso!', 'success');
+
             State.selectedHumorScore = null;
             document.getElementById('humor-description').value = '';
             document.querySelectorAll('.humor-option').forEach(option => option.classList.remove('selected'));
             await this.load();
         } catch (error) {
             console.error('Erro ao registrar humor:', error);
-            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
-                EmailPopup.showToast('Erro ao registrar humor', 'error');
-            } else if (window.Notifications && typeof Notifications.error === 'function') {
-                Notifications.error('Erro ao registrar humor');
-            } else {
-                alert('Erro ao registrar humor');
-            }
+            EmailPopup.showToast('Erro ao registrar humor', 'error');
         }
     },
 
@@ -195,7 +179,7 @@ const Humor = {
         try {
             const user = State.getUser();
             const isManager = user && user.hierarchyLevel >= 3;
-            
+
             if (isManager) {
                 const history = await API.get('/api/humor/team-history');
                 this.updateHistory(history, true);
@@ -280,16 +264,16 @@ const Humor = {
 
     formatDescription(description, id) {
         if (!description) return '';
-        
+
         const formattedText = description.replace(/\n/g, '<br>');
         const maxLength = 150;
-        
+
         if (description.length <= maxLength) {
             return `<p style="color: #6b7280; font-size: 14px; margin-top: 4px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;">${formattedText}</p>`;
         }
-        
+
         const shortText = description.substring(0, maxLength).replace(/\n/g, '<br>');
-        
+
         return `
             <div>
                 <p id="desc-short-${id}" style="color: #6b7280; font-size: 14px; margin-top: 4px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;">${shortText}...</p>
@@ -305,7 +289,7 @@ const Humor = {
         const shortEl = document.getElementById(`desc-short-${id}`);
         const fullEl = document.getElementById(`desc-full-${id}`);
         const toggleEl = document.getElementById(`toggle-${id}`);
-        
+
         if (shortEl && fullEl && toggleEl) {
             if (shortEl.style.display === 'none') {
                 shortEl.style.display = 'block';

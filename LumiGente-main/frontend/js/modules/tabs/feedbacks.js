@@ -14,7 +14,7 @@ const Feedbacks = {
             const dateEnd = document.getElementById('feedback-date-end')?.value || '';
             const type = document.getElementById('feedback-type-filter')?.value || '';
             const category = document.getElementById('feedback-category-filter')?.value || '';
-            
+
             const params = {
                 ...(dateStart && { dateStart }),
                 ...(dateEnd && { dateEnd }),
@@ -35,26 +35,26 @@ const Feedbacks = {
         if (!container) return;
 
         if (feedbacks.length === 0) {
-            const message = State.currentFeedbackTab === 'sent' ? 
-                'Você ainda não enviou nenhum feedback.' : 
+            const message = State.currentFeedbackTab === 'sent' ?
+                'Você ainda não enviou nenhum feedback.' :
                 'Você ainda não recebeu nenhum feedback.';
             container.innerHTML = `<div class="loading">${message}</div>`;
             return;
         }
 
         container.innerHTML = feedbacks.map(feedback => {
-            const displayName = State.currentFeedbackTab === 'sent' ? 
-                `Você → ${feedback.to_name}` : 
+            const displayName = State.currentFeedbackTab === 'sent' ?
+                `Você → ${feedback.to_name}` :
                 `${feedback.from_name} → Você`;
-            
-            const usefulButton = feedback.viewed ? 
+
+            const usefulButton = feedback.viewed ?
                 `<button class="action-btn status-uteis ${feedback.user_reacted ? 'active' : ''}" onclick="Feedbacks.toggleReaction(${feedback.Id}, 'useful')" data-feedback-id="${feedback.Id}" data-reaction="useful" title="Marcar como útil">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg> Útil <span class="counter">${feedback.useful_count || 0}</span>
                 </button>` :
                 `<button class="action-btn status-uteis disabled" data-feedback-id="${feedback.Id}" data-reaction="useful" title="Visualize o feedback primeiro para marcar como útil" style="cursor: not-allowed; opacity: 0.5;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg> Útil <span class="counter">${feedback.useful_count || 0}</span>
                 </button>`;
-            
+
             const actionButtons = State.currentFeedbackTab === 'sent' ?
                 `<button class="action-btn ${feedback.has_reactions ? 'status-visualizado' : 'status-nao-visualizado'}" title="Status de visualização">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ${feedback.has_reactions ? 'Visualizado' : 'Não visualizado'}
@@ -107,7 +107,7 @@ const Feedbacks = {
     async loadFilters() {
         try {
             const filters = await API.get('/api/filters');
-            
+
             const typeContainer = document.getElementById('type-filters');
             if (typeContainer && filters.types) {
                 typeContainer.innerHTML = filters.types.map(type => `
@@ -157,16 +157,23 @@ const Feedbacks = {
         const type = document.getElementById('feedback-type').value;
         const category = document.getElementById('feedback-category').value;
         const message = document.getElementById('feedback-message').value;
+        const submitBtn = document.querySelector('[data-action="submitFeedback"]');
 
         if (!toUserId || !type || !category || !message) {
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
                 EmailPopup.showToast('Todos os campos são obrigatórios', 'error');
-            } else if (window.Notifications && typeof Notifications.error === 'function') {
-                Notifications.error('Todos os campos são obrigatórios');
             } else {
                 alert('Todos os campos são obrigatórios');
             }
             return;
+        }
+
+        // Save original state
+        const originalContent = submitBtn ? submitBtn.innerHTML : 'Enviar';
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="spinner"></div> Enviando...';
         }
 
         try {
@@ -181,22 +188,32 @@ const Feedbacks = {
             await this.loadList();
             await Dashboard.loadMetrics();
             await Dashboard.loadGamification();
-            
+
             if (result.pointsEarned > 0) {
-                Notifications.points(result.pointsEarned, 'enviar feedback');
+                if (window.Notifications && typeof Notifications.points === 'function') {
+                    Notifications.points(result.pointsEarned, 'enviar feedback');
+                }
             } else if (result.pointsMessage) {
-                Notifications.info(result.pointsMessage);
-            } else {
-                Notifications.success('Feedback enviado com sucesso!');
+                if (window.Notifications && typeof Notifications.info === 'function') {
+                    Notifications.info(result.pointsMessage);
+                }
             }
+
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('Feedback enviado com sucesso!', 'success');
+            }
+
         } catch (error) {
             console.error('Erro ao enviar feedback:', error);
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
                 EmailPopup.showToast('Erro ao enviar feedback', 'error');
-            } else if (window.Notifications && typeof Notifications.error === 'function') {
-                Notifications.error('Erro ao enviar feedback');
             } else {
                 alert('Erro ao enviar feedback');
+            }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalContent;
             }
         }
     },

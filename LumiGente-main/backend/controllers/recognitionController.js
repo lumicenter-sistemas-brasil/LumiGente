@@ -84,7 +84,7 @@ exports.createRecognition = async (req, res) => {
 
         // Adicionar pontos para quem enviou e para quem recebeu
         const pointsResultSent = await addPointsToUser(pool, from_user_id, 'reconhecimento_enviado', 5);
-        const pointsResultReceived = await addPointsToUser(pool, to_user_id, 'reconhecimento_recebido', 5);
+        const pointsResultReceived = await addPointsToUser(pool, to_user_id, 'reconhecimento_recebido', 10);
 
         // Criar notificação para quem recebeu
         const userResult = await pool.request().input('userId', sql.Int, from_user_id).query('SELECT NomeCompleto FROM Users WHERE Id = @userId');
@@ -95,7 +95,7 @@ exports.createRecognition = async (req, res) => {
         try {
             const toUserResult = await pool.request().input('userId', sql.Int, to_user_id).query('SELECT NomeCompleto, Email FROM Users WHERE Id = @userId');
             const toUser = toUserResult.recordset[0];
-            
+
             if (toUser && toUser.Email) {
                 await emailService.sendRecognitionNotificationEmail(
                     toUser.Email,
@@ -134,7 +134,13 @@ exports.getReceivedRecognitions = async (req, res) => {
         const result = await pool.request()
             .input('userId', sql.Int, userId)
             .query(`
-                SELECT r.*, u1.NomeCompleto as from_name, u2.NomeCompleto as to_name
+                SELECT r.*, u1.NomeCompleto as from_name, u2.NomeCompleto as to_name,
+                       CASE WHEN r.Id = (
+                           SELECT TOP 1 Id FROM Recognitions r2 
+                           WHERE CAST(r2.created_at AS DATE) = CAST(r.created_at AS DATE) 
+                           AND r2.to_user_id = @userId 
+                           ORDER BY r2.created_at ASC
+                       ) THEN 1 ELSE 0 END as show_points
                 FROM Recognitions r
                 JOIN Users u1 ON r.from_user_id = u1.Id
                 JOIN Users u2 ON r.to_user_id = u2.Id
@@ -160,7 +166,13 @@ exports.getGivenRecognitions = async (req, res) => {
         const result = await pool.request()
             .input('userId', sql.Int, userId)
             .query(`
-                SELECT r.*, u1.NomeCompleto as from_name, u2.NomeCompleto as to_name
+                SELECT r.*, u1.NomeCompleto as from_name, u2.NomeCompleto as to_name,
+                       CASE WHEN r.Id = (
+                           SELECT TOP 1 Id FROM Recognitions r2 
+                           WHERE CAST(r2.created_at AS DATE) = CAST(r.created_at AS DATE) 
+                           AND r2.from_user_id = @userId 
+                           ORDER BY r2.created_at ASC
+                       ) THEN 1 ELSE 0 END as show_points
                 FROM Recognitions r
                 JOIN Users u1 ON r.from_user_id = u1.Id
                 JOIN Users u2 ON r.to_user_id = u2.Id
@@ -207,7 +219,12 @@ exports.getAllRecognitions = async (req, res) => {
             .input('userId', sql.Int, userId)
             .query(`
                 SELECT r.*, u1.NomeCompleto as from_name, u2.NomeCompleto as to_name, 'received' as direction,
-                       CASE WHEN EXISTS(SELECT 1 FROM Gamification WHERE UserId = @userId AND Action = 'reconhecimento_recebido' AND CAST(CreatedAt AS DATE) = CAST(r.created_at AS DATE)) THEN 1 ELSE 0 END as earned_points
+                       CASE WHEN r.Id = (
+                           SELECT TOP 1 Id FROM Recognitions r2 
+                           WHERE CAST(r2.created_at AS DATE) = CAST(r.created_at AS DATE) 
+                           AND r2.to_user_id = @userId 
+                           ORDER BY r2.created_at ASC
+                       ) THEN 1 ELSE 0 END as show_points
                 FROM Recognitions r
                 JOIN Users u1 ON r.from_user_id = u1.Id
                 JOIN Users u2 ON r.to_user_id = u2.Id
@@ -219,7 +236,12 @@ exports.getAllRecognitions = async (req, res) => {
             .input('userId', sql.Int, userId)
             .query(`
                 SELECT r.*, u1.NomeCompleto as from_name, u2.NomeCompleto as to_name, 'given' as direction,
-                       CASE WHEN EXISTS(SELECT 1 FROM Gamification WHERE UserId = @userId AND Action = 'reconhecimento_enviado' AND CAST(CreatedAt AS DATE) = CAST(r.created_at AS DATE)) THEN 1 ELSE 0 END as earned_points
+                       CASE WHEN r.Id = (
+                           SELECT TOP 1 Id FROM Recognitions r2 
+                           WHERE CAST(r2.created_at AS DATE) = CAST(r.created_at AS DATE) 
+                           AND r2.from_user_id = @userId 
+                           ORDER BY r2.created_at ASC
+                       ) THEN 1 ELSE 0 END as show_points
                 FROM Recognitions r
                 JOIN Users u1 ON r.from_user_id = u1.Id
                 JOIN Users u2 ON r.to_user_id = u2.Id

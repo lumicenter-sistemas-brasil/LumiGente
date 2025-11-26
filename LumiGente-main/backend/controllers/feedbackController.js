@@ -259,7 +259,8 @@ exports.getFeedbackInfo = async (req, res) => {
         const result = await pool.request()
             .input('feedbackId', sql.Int, id)
             .query(`
-                SELECT f.type, f.category, f.message, f.created_at, u1.NomeCompleto as from_name, u2.NomeCompleto as to_name
+                SELECT f.type, f.category, f.message, f.created_at, f.from_user_id, f.to_user_id,
+                       u1.NomeCompleto as from_name, u2.NomeCompleto as to_name
                 FROM Feedbacks f
                 JOIN Users u1 ON f.from_user_id = u1.Id
                 JOIN Users u2 ON f.to_user_id = u2.Id

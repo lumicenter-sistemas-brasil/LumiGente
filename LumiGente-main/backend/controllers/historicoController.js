@@ -136,6 +136,8 @@ exports.getAllFeedbacks = async (req, res) => {
                 f.category,
                 f.message,
                 f.created_at,
+                f.from_user_id,
+                f.to_user_id,
                 uFrom.NomeCompleto AS from_name,
                 uTo.NomeCompleto AS to_name,
                 uFrom.Departamento AS from_department,

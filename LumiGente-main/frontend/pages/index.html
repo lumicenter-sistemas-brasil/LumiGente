@@ -1,5 +1,6 @@
 ﻿<!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -14,30 +15,94 @@
     <link rel="preload" as="image" href="../assets/images/logo.png" fetchpriority="high">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link rel="preconnect" href="https://unpkg.com">
-    
+
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        media="print" onload="this.media='all'">
+    <noscript>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    </noscript>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    
+
     <style>
         /* Critical CSS - prevent layout shifts */
-        @font-face { font-family: system; src: local('system-ui'); font-display: swap; }
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; contain: layout; }
-        .metric-card { min-height: 120px; contain: layout; }
-        .card { contain: layout; }
-        .loading { display: flex; align-items: center; justify-content: center; min-height: 100px; }
-        .spinner { display: none; }
-        img { aspect-ratio: attr(width) / attr(height); }
-        
+        @font-face {
+            font-family: system;
+            src: local('system-ui');
+            font-display: swap;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            contain: layout;
+        }
+
+        .metric-card {
+            min-height: 120px;
+            contain: layout;
+        }
+
+        .card {
+            contain: layout;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100px;
+        }
+
+        .spinner {
+            display: none;
+        }
+
+        img {
+            aspect-ratio: attr(width) / attr(height);
+        }
+
         /* Skeleton loaders */
-        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s ease-in-out infinite; border-radius: 4px; }
-        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-        .skeleton-text { height: 16px; margin: 8px 0; }
-        .skeleton-title { height: 24px; width: 60%; margin-bottom: 12px; }
-        .skeleton-card { height: 100px; margin: 12px 0; }
-        .skeleton-metric { height: 48px; width: 80px; margin: 8px 0; }
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s ease-in-out infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .skeleton-text {
+            height: 16px;
+            margin: 8px 0;
+        }
+
+        .skeleton-title {
+            height: 24px;
+            width: 60%;
+            margin-bottom: 12px;
+        }
+
+        .skeleton-card {
+            height: 100px;
+            margin: 12px 0;
+        }
+
+        .skeleton-metric {
+            height: 48px;
+            width: 80px;
+            margin: 8px 0;
+        }
     </style>
 
     <!-- Crítico -->
@@ -53,95 +118,164 @@
     <script src="../js/modules/shared/css-loader.js" defer></script>
     <script src="../js/modules/shared/mobile-init.js" defer></script>
 </head>
+
 <body>
     <!-- Overlay para sidebar mobile -->
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
-    
+
     <!-- Email Popup -->
     <div class="email-popup-overlay" id="email-popup-overlay">
         <div class="email-popup">
             <div class="email-popup-header">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m2 7 10 7 10-7" />
+                </svg>
                 <h3>Cadastre seu Email</h3>
             </div>
-            
+
             <!-- Step 1: Email Input -->
             <div class="email-popup-body" id="email-popup-step-1">
                 <p>Para receber notificações importantes e conseguir alterar sua senha, cadastre seu email abaixo:</p>
-                <input type="email" class="email-popup-input" id="email-popup-input" placeholder="seu.email@exemplo.com">
+                <input type="email" class="email-popup-input" id="email-popup-input"
+                    placeholder="seu.email@exemplo.com">
             </div>
             <div class="email-popup-actions" id="email-popup-actions-1">
-                <button class="email-popup-btn email-popup-btn-secondary" onclick="EmailPopup.dismiss()">Agora não</button>
-                <button class="email-popup-btn email-popup-btn-primary" onclick="EmailPopup.save()">Enviar Token</button>
+                <button class="email-popup-btn email-popup-btn-secondary" onclick="EmailPopup.dismiss()">Agora
+                    não</button>
+                <button class="email-popup-btn email-popup-btn-primary" onclick="EmailPopup.save()">Enviar
+                    Token</button>
             </div>
-            
+
             <!-- Step 2: Token Verification -->
             <div class="email-popup-body" id="email-popup-step-2" style="display: none;">
                 <p>Digite o token de 6 dígitos enviado para seu email:</p>
-                <input type="text" class="email-popup-input" id="email-popup-token-input" placeholder="000000" maxlength="6">
+                <input type="text" class="email-popup-input" id="email-popup-token-input" placeholder="000000"
+                    maxlength="6">
             </div>
             <div class="email-popup-actions" id="email-popup-actions-2" style="display: none;">
-                <button class="email-popup-btn email-popup-btn-secondary" onclick="EmailPopup.cancelToken()">Voltar</button>
-                <button class="email-popup-btn email-popup-btn-primary" onclick="EmailPopup.verifyToken()">Verificar</button>
+                <button class="email-popup-btn email-popup-btn-secondary"
+                    onclick="EmailPopup.cancelToken()">Voltar</button>
+                <button class="email-popup-btn email-popup-btn-primary"
+                    onclick="EmailPopup.verifyToken()">Verificar</button>
             </div>
         </div>
     </div>
-    
+
     <div class="container">
         <!-- Sidebar -->
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo" style="width: 180px; height: 60px;">
-                    <img src="../assets/images/logo.png" alt="LumiGente Logo" class="logo-img" width="180" height="60" fetchpriority="high" loading="eager" decoding="async">
+                    <img src="../assets/images/logo.png" alt="LumiGente Logo" class="logo-img" width="180" height="60"
+                        fetchpriority="high" loading="eager" decoding="async">
                 </div>
                 <button class="sidebar-close-btn" title="Fechar Menu">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
                 </button>
             </div>
-            
+
             <div class="nav-menu">
                 <button class="nav-item active" data-tab="dashboard">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
                     Dashboard
                 </button>
                 <button class="nav-item" data-tab="feedback">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
                     Feedbacks
                 </button>
                 <button class="nav-item" data-tab="recognition">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="8" r="7" />
+                        <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+                    </svg>
                     Reconhecimentos
                 </button>
                 <button class="nav-item" data-tab="team">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
                     Equipe
                 </button>
                 <button class="nav-item" data-tab="analytics">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
                     Relatórios
                 </button>
                 <button class="nav-item" data-tab="humor">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                        <line x1="9" y1="9" x2="9.01" y2="9" />
+                        <line x1="15" y1="9" x2="15.01" y2="9" />
+                    </svg>
                     Humor do Dia
                 </button>
                 <button class="nav-item" data-tab="objetivos">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <circle cx="12" cy="12" r="6" />
+                        <circle cx="12" cy="12" r="2" />
+                    </svg>
                     Objetivos
                 </button>
                 <button class="nav-item" data-tab="pesquisas">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                    </svg>
                     Pesquisas
                 </button>
                 <button class="nav-item" data-tab="avaliacoes">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 11l3 3L22 4" />
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                    </svg>
                     Avaliações
                 </button>
                 <button class="nav-item" data-tab="historico" id="historico-tab">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
                     Histórico
                 </button>
                 <button class="nav-item" data-tab="configuracoes">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                    </svg>
                     Configurações
                 </button>
             </div>
@@ -160,14 +294,22 @@
                 <div class="header-right">
                     <div style="position: relative;">
                         <button class="notification-btn" id="notifications-btn" title="Notificações">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                            </svg>
                             <span class="notifications-badge" id="notifications-badge">0</span>
                         </button>
                         <div class="notifications-dropdown hidden" id="notifications-dropdown">
                             <div class="notifications-header">
                                 <h3>Notificações</h3>
                                 <button class="mark-all-read-btn" title="Marcar todas como lidas">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <polyline points="9 11 12 14 22 4" />
+                                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                                    </svg>
                                     <span>Marcar todas</span>
                                 </button>
                             </div>
@@ -177,16 +319,30 @@
                         </div>
                     </div>
                     <button class="notification-btn" title="Logout">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
                     </button>
                     <div style="position: relative;">
                         <div class="user-info" id="user-info-btn">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                            </svg>
                             <span>Carregando...</span>
                         </div>
                         <div class="user-info-dropdown" id="user-info-dropdown">
                             <div class="user-info-content">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M6.168 18.849A4 4 0 0 1 10 16h4a4 4 0 0 1 3.834 2.855"/></svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                                    <path d="M6.168 18.849A4 4 0 0 1 10 16h4a4 4 0 0 1 3.834 2.855" />
+                                </svg>
                                 <span id="user-info-name">Carregando...</span>
                             </div>
                         </div>
@@ -203,8 +359,15 @@
                         <div class="metric-card">
                             <div class="metric-card-content">
                                 <div class="metric-info">
-                                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="margin-right: 8px;"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>Feedbacks Recebidos</h3>
-                                    <div class="value" id="feedbacks-received-count"><div class="skeleton skeleton-metric" style="width: 60px; height: 36px;"></div></div>
+                                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6"
+                                            stroke-width="2" style="margin-right: 8px;">
+                                            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+                                            <path
+                                                d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+                                        </svg>Feedbacks Recebidos</h3>
+                                    <div class="value" id="feedbacks-received-count">
+                                        <div class="skeleton skeleton-metric" style="width: 60px; height: 36px;"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -212,8 +375,14 @@
                         <div class="metric-card">
                             <div class="metric-card-content">
                                 <div class="metric-info">
-                                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Reconhecimentos Recebidos</h3>
-                                    <div class="value" id="recognitions-received-count"><div class="skeleton skeleton-metric" style="width: 60px; height: 36px;"></div></div>
+                                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b"
+                                            stroke-width="2" style="margin-right: 8px;">
+                                            <polygon
+                                                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                        </svg>Reconhecimentos Recebidos</h3>
+                                    <div class="value" id="recognitions-received-count">
+                                        <div class="skeleton skeleton-metric" style="width: 60px; height: 36px;"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -221,32 +390,61 @@
                         <div class="metric-card">
                             <div class="metric-card-content">
                                 <div class="metric-info">
-                                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-right: 8px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Feedbacks Enviados</h3>
-                                    <div class="value" id="feedbacks-sent-count"><div class="skeleton skeleton-metric" style="width: 60px; height: 36px;"></div></div>
+                                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981"
+                                            stroke-width="2" style="margin-right: 8px;">
+                                            <line x1="22" y1="2" x2="11" y2="13" />
+                                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                        </svg>Feedbacks Enviados</h3>
+                                    <div class="value" id="feedbacks-sent-count">
+                                        <div class="skeleton skeleton-metric" style="width: 60px; height: 36px;"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="metric-card quick-actions-card" style="flex-direction: column; align-items: stretch;">
+                        <div class="metric-card quick-actions-card"
+                            style="flex-direction: column; align-items: stretch;">
                             <div class="metric-info">
-                                <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Ações Rápidas</h3>
+                                <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b"
+                                        stroke-width="2" style="margin-right: 8px;">
+                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                                    </svg>Ações Rápidas</h3>
                             </div>
                             <div class="quick-actions-wrapper" style="margin-top: 16px; position: relative;">
-                                <button type="button" class="btn btn-amber quick-actions-toggle" id="quick-actions-toggle" data-action="toggleQuickActionsDropdown" aria-haspopup="true" aria-expanded="false">
+                                <button type="button" class="btn btn-amber quick-actions-toggle"
+                                    id="quick-actions-toggle" data-action="toggleQuickActionsDropdown"
+                                    aria-haspopup="true" aria-expanded="false">
                                     <span class="quick-actions-label">Selecione uma ação</span>
                                     <i data-lucide="chevron-down"></i>
                                 </button>
-                                <div class="quick-actions-menu" id="quick-actions-menu" role="menu" aria-label="Ações rápidas">
-                                    <button type="button" class="quick-actions-item" data-action="openFeedbackModal" data-label="Enviar Feedback">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                <div class="quick-actions-menu" id="quick-actions-menu" role="menu"
+                                    aria-label="Ações rápidas">
+                                    <button type="button" class="quick-actions-item" data-action="openFeedbackModal"
+                                        data-label="Enviar Feedback">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <line x1="12" y1="5" x2="12" y2="19" />
+                                            <line x1="5" y1="12" x2="19" y2="12" />
+                                        </svg>
                                         Enviar Feedback
                                     </button>
-                                    <button type="button" class="quick-actions-item" data-action="openRecognitionModal" data-label="Reconhecer Colega">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                                    <button type="button" class="quick-actions-item" data-action="openRecognitionModal"
+                                        data-label="Reconhecer Colega">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="8" r="7" />
+                                            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+                                        </svg>
                                         Reconhecer Colega
                                     </button>
-                                    <button type="button" class="quick-actions-item" data-action="openNewObjetivoModal" data-label="Novo Objetivo">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                                    <button type="button" class="quick-actions-item" data-action="openNewObjetivoModal"
+                                        data-label="Novo Objetivo">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <circle cx="12" cy="12" r="6" />
+                                            <circle cx="12" cy="12" r="2" />
+                                        </svg>
                                         Novo Objetivo
                                     </button>
                                 </div>
@@ -257,7 +455,13 @@
                     <!-- Humor dos Colegas (Dashboard) -->
                     <div class="card" id="dashboard-colleagues-humor-card" style="display: none;">
                         <h3>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" style="margin-right: 8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6"
+                                stroke-width="2" style="margin-right: 8px;">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                            </svg>
                             Humor dos Colegas Hoje
                         </h3>
                         <div id="dashboard-colleagues-humor-today">
@@ -271,11 +475,21 @@
                     <!-- Recent Recognitions -->
                     <div class="card">
                         <h3>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" ><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
+                                stroke-width="2">
+                                <path
+                                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                            </svg>
                             Últimos Reconhecimentos
                         </h3>
                         <p style="color: #6b7280; font-size: 14px; margin-bottom: 16px;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-right: 4px; vertical-align: middle;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5" stroke-linecap="round"
+                                style="margin-right: 4px; vertical-align: middle;">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="16" x2="12" y2="12" />
+                                <circle cx="12" cy="8" r="0.5" fill="currentColor" />
+                            </svg>
                             Mostra os últimos reconhecimentos enviados e recebidos
                         </p>
                         <div class="recognitions-list" id="recognitions-list" style="min-height: 150px;">
@@ -299,7 +513,11 @@
                             <div class="user-ranking-info" id="user-ranking-info" style="display: none;">
                                 <div class="user-ranking-card">
                                     <div class="user-ranking-position">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="8" r="6" />
+                                            <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+                                        </svg>
                                         <span id="user-position">-</span>
                                     </div>
                                     <div class="user-ranking-details">
@@ -308,7 +526,7 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Top 10 usuários -->
                             <div class="leaderboard-preview" id="leaderboard-preview">
                                 <div class="loading">
@@ -325,76 +543,107 @@
                     <!-- Feedback Tabs -->
                     <div class="feedback-tabs" style="margin-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
                         <div style="display: flex; gap: 24px;">
-                            <button class="feedback-tab active" data-feedback-tab="received" data-action="switchFeedbackTab" data-param="received">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+                            <button class="feedback-tab active" data-feedback-tab="received"
+                                data-action="switchFeedbackTab" data-param="received">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+                                    <path
+                                        d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+                                </svg>
                                 Feedbacks Recebidos
                             </button>
-                            <button class="feedback-tab" data-feedback-tab="sent" data-action="switchFeedbackTab" data-param="sent">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            <button class="feedback-tab" data-feedback-tab="sent" data-action="switchFeedbackTab"
+                                data-param="sent">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <line x1="22" y1="2" x2="11" y2="13" />
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                </svg>
                                 Feedbacks Enviados
                             </button>
                         </div>
                     </div>
 
                     <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <h3 style="margin: 0;">Filtros</h3>
                             <button class="btn btn-amber" data-action="openFeedbackModal">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
                                 Novo Feedback
                             </button>
                         </div>
                         <button class="filters-toggle-btn" data-action="toggleFilters" data-param="feedback-filters">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                            </svg>
                             <span>Mostrar Filtros</span>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
                         </button>
                         <div class="filters-container collapsed" id="feedback-filters">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Data Início</label>
-                                <input type="date" class="form-input" id="feedback-date-start" onchange="Feedbacks.loadList()">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Data Início</label>
+                                    <input type="date" class="form-input" id="feedback-date-start"
+                                        onchange="Feedbacks.loadList()">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Data Fim</label>
+                                    <input type="date" class="form-input" id="feedback-date-end"
+                                        onchange="Feedbacks.loadList()">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Tipo</label>
+                                    <select class="form-select" id="feedback-type-filter"
+                                        onchange="Feedbacks.loadList()">
+                                        <option value="">Todos</option>
+                                        <option value="Positivo">Positivo</option>
+                                        <option value="Desenvolvimento">Desenvolvimento</option>
+                                        <option value="Sugestão">Sugestão</option>
+                                        <option value="Outros">Outros</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Categoria</label>
+                                    <select class="form-select" id="feedback-category-filter"
+                                        onchange="Feedbacks.loadList()">
+                                        <option value="">Todas</option>
+                                        <option value="Comunicação">Comunicação</option>
+                                        <option value="Trabalho em Equipe">Trabalho em Equipe</option>
+                                        <option value="Proatividade">Proatividade</option>
+                                        <option value="Qualidade do Trabalho">Qualidade do Trabalho</option>
+                                        <option value="Pontualidade">Pontualidade</option>
+                                        <option value="Organização">Organização</option>
+                                        <option value="Criatividade">Criatividade</option>
+                                        <option value="Resolução de Problemas">Resolução de Problemas</option>
+                                        <option value="Relacionamento Interpessoal">Relacionamento Interpessoal</option>
+                                        <option value="Comprometimento">Comprometimento</option>
+                                        <option value="Desenvolvimento Profissional">Desenvolvimento Profissional
+                                        </option>
+                                        <option value="Liderança">Liderança</option>
+                                        <option value="Outros">Outros</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="display: flex; align-items: flex-end;">
+                                    <button class="btn btn-secondary" data-action="clearFeedbackFilters">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
+                                        Limpar Filtros
+                                    </button>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">Data Fim</label>
-                                <input type="date" class="form-input" id="feedback-date-end" onchange="Feedbacks.loadList()">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Tipo</label>
-                                <select class="form-select" id="feedback-type-filter" onchange="Feedbacks.loadList()">
-                                    <option value="">Todos</option>
-                                    <option value="Positivo">Positivo</option>
-                                    <option value="Desenvolvimento">Desenvolvimento</option>
-                                    <option value="Sugestão">Sugestão</option>
-                                    <option value="Outros">Outros</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Categoria</label>
-                                <select class="form-select" id="feedback-category-filter" onchange="Feedbacks.loadList()">
-                                    <option value="">Todas</option>
-                                    <option value="Comunicação">Comunicação</option>
-                                    <option value="Trabalho em Equipe">Trabalho em Equipe</option>
-                                    <option value="Proatividade">Proatividade</option>
-                                    <option value="Qualidade do Trabalho">Qualidade do Trabalho</option>
-                                    <option value="Pontualidade">Pontualidade</option>
-                                    <option value="Organização">Organização</option>
-                                    <option value="Criatividade">Criatividade</option>
-                                    <option value="Resolução de Problemas">Resolução de Problemas</option>
-                                    <option value="Relacionamento Interpessoal">Relacionamento Interpessoal</option>
-                                    <option value="Comprometimento">Comprometimento</option>
-                                    <option value="Desenvolvimento Profissional">Desenvolvimento Profissional</option>
-                                    <option value="Liderança">Liderança</option>
-                                    <option value="Outros">Outros</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="display: flex; align-items: flex-end;">
-                                <button class="btn btn-secondary" data-action="clearFeedbackFilters">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                    Limpar Filtros
-                                </button>
-                            </div>
-                        </div>
                         </div>
                     </div>
 
@@ -411,36 +660,54 @@
                 <!-- Recognition Section -->
                 <div id="recognition-content" class="tab-content hidden">
                     <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <h3 style="margin: 0;">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" ><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b"
+                                    stroke-width="2">
+                                    <circle cx="12" cy="8" r="7" />
+                                    <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+                                </svg>
                                 Meus Reconhecimentos
                             </h3>
                             <button class="btn btn-amber" data-action="openRecognitionModal">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
                                 Novo Reconhecimento
                             </button>
                         </div>
 
                         <button class="filters-toggle-btn" onclick="toggleRecognitionFilters()">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                            </svg>
                             Filtros
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
                         </button>
 
                         <div class="filters-container collapsed" id="recognition-filters-container">
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label">Data Início</label>
-                                    <input type="date" class="form-input" id="recognition-date-start" onchange="Recognitions.loadAll()">
+                                    <input type="date" class="form-input" id="recognition-date-start"
+                                        onchange="Recognitions.loadAll()">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Data Fim</label>
-                                    <input type="date" class="form-input" id="recognition-date-end" onchange="Recognitions.loadAll()">
+                                    <input type="date" class="form-input" id="recognition-date-end"
+                                        onchange="Recognitions.loadAll()">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Badge</label>
-                                    <select class="form-select" id="recognition-badge-filter" onchange="Recognitions.loadAll()">
+                                    <select class="form-select" id="recognition-badge-filter"
+                                        onchange="Recognitions.loadAll()">
                                         <option value="">Todos</option>
                                         <option value="Inovador">Inovador</option>
                                         <option value="Colaborativo">Colaborativo</option>
@@ -451,7 +718,11 @@
                                 </div>
                                 <div class="form-group" style="display: flex; align-items: flex-end;">
                                     <button class="btn btn-secondary" data-action="clearRecognitionFilters">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
                                         Limpar Filtros
                                     </button>
                                 </div>
@@ -505,62 +776,62 @@
                     <!-- Lista de Membros da Equipe -->
                     <div class="card">
                         <h3>
-                                <i data-lucide="list-checks" style="color: #8b5cf6;"></i>
+                            <i data-lucide="list-checks" style="color: #8b5cf6;"></i>
                             Membros da Equipe
                         </h3>
-                        <button class="filters-toggle-btn" data-action="toggleFilters" data-param="team-filters-container">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                        <button class="filters-toggle-btn" data-action="toggleFilters"
+                            data-param="team-filters-container">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                            </svg>
                             <span>Filtros</span>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
                         </button>
                         <div class="filters-container collapsed" id="team-filters-container">
                             <div class="team-filters">
-                            <div class="filter-group department-filter-group">
-                                <label>
+                                <div class="filter-group department-filter-group">
+                                    <label>
                                         <i data-lucide="building-2"></i>
-                                    Pesquisar Departamento:
-                                </label>
-                                <input 
-                                    type="text" 
-                                    id="team-department-search" 
-                                    class="form-input"
-                                    placeholder="Digite para buscar departamento..." 
-                                    oninput="filterDepartmentSearch()"
-                                    autocomplete="off"
-                                />
-                                <div id="department-suggestions" class="department-suggestions hidden"></div>
-                            </div>
+                                        Pesquisar Departamento:
+                                    </label>
+                                    <input type="text" id="team-department-search" class="form-input"
+                                        placeholder="Digite para buscar departamento..."
+                                        oninput="filterDepartmentSearch()" autocomplete="off" />
+                                    <div id="department-suggestions" class="department-suggestions hidden"></div>
+                                </div>
 
-                            <div class="filter-group user-filter-group">
-                                <label>
+                                <div class="filter-group user-filter-group">
+                                    <label>
                                         <i data-lucide="search"></i>
-                                    Pesquisar Usuário:
-                                </label>
-                                <div class="searchable-select">
-                                    <input 
-                                        type="text" 
-                                        class="form-input" 
-                                        id="team-user-search" 
-                                        placeholder="Digite para buscar colaborador..." 
-                                        oninput="filterTeamUsers('team-user-search', 'team-user-list')"
-                                        autocomplete="off"
-                                    />
-                                    <div class="select-dropdown" id="team-user-list">
-                                        <div class="select-option" data-value="" data-action="selectTeamUser" data-param="Todos os usuários">
-                                            Todos os usuários
+                                        Pesquisar Usuário:
+                                    </label>
+                                    <div class="searchable-select">
+                                        <input type="text" class="form-input" id="team-user-search"
+                                            placeholder="Digite para buscar colaborador..."
+                                            oninput="filterTeamUsers('team-user-search', 'team-user-list')"
+                                            autocomplete="off" />
+                                        <div class="select-dropdown" id="team-user-list">
+                                            <div class="select-option" data-value="" data-action="selectTeamUser"
+                                                data-param="Todos os usuários">
+                                                Todos os usuários
+                                            </div>
                                         </div>
                                     </div>
+                                    <input type="hidden" id="team-selected-user" value="">
                                 </div>
-                                <input type="hidden" id="team-selected-user" value="">
-                            </div>
-                            
-                            <div class="filter-group" style="display: flex; flex-direction: column; gap: 8px;">
-                                <label style="opacity: 0; pointer-events: none;">Ações:</label>
-                                <button class="btn-clear-filters" data-action="clearTeamFilters" title="Limpar todos os filtros">
+
+                                <div class="filter-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label style="opacity: 0; pointer-events: none;">Ações:</label>
+                                    <button class="btn-clear-filters" data-action="clearTeamFilters"
+                                        title="Limpar todos os filtros">
                                         <i data-lucide="x-circle"></i>
-                                    Limpar Filtros
-                                </button>
-                            </div>
+                                        Limpar Filtros
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div id="team-members-list">
@@ -593,15 +864,11 @@
                                     <div class="analytics-field analytics-department-field">
                                         <label for="analytics-department-search">Departamento:</label>
                                         <div class="analytics-department-input">
-                                            <input
-                                                type="text"
-                                                id="analytics-department-search"
-                                                class="form-input"
-                                                placeholder="Digite para filtrar departamento..."
-                                                autocomplete="off"
-                                            />
+                                            <input type="text" id="analytics-department-search" class="form-input"
+                                                placeholder="Digite para filtrar departamento..." autocomplete="off" />
                                             <input type="hidden" id="analytics-selected-department" value="">
-                                            <div id="analytics-department-suggestions" class="analytics-department-suggestions hidden"></div>
+                                            <div id="analytics-department-suggestions"
+                                                class="analytics-department-suggestions hidden"></div>
                                         </div>
                                     </div>
 
@@ -687,7 +954,8 @@
                                 <i data-lucide="line-chart" style="color: #ef4444;"></i>
                                 Humor semanal (últimos 3 meses)
                             </h3>
-                            <p class="analytics-chart-subtitle">Cada ponto representa a média de humor das semanas com ao menos um registro.</p>
+                            <p class="analytics-chart-subtitle">Cada ponto representa a média de humor das semanas com
+                                ao menos um registro.</p>
                             <div id="temporal-analysis" class="chart-wrapper">
                                 <div class="loading">
                                     <div class="spinner"></div>
@@ -730,9 +998,15 @@
                             </div>
                             <div class="form-group" style="flex-direction: column; display: flex; gap: 20px;">
                                 <label class="form-label">Descrição (opcional)</label>
-                                <textarea class="form-textarea" id="humor-description" placeholder="Como você está se sentindo hoje?"></textarea>
+                                <textarea class="form-textarea" id="humor-description"
+                                    placeholder="Como você está se sentindo hoje?"></textarea>
                                 <button class="btn btn-amber" data-action="submitHumor" style="width: 12rem;">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                        <polyline points="17 21 17 13 7 13 7 21" />
+                                        <polyline points="7 3 7 8 15 8" />
+                                    </svg>
                                     Registrar Humor
                                 </button>
                             </div>
@@ -743,7 +1017,10 @@
                     <div class="dashboard-grid">
                         <div class="card" id="my-humor-card">
                             <h3>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-right: 8px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981"
+                                    stroke-width="2" style="margin-right: 8px;">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                                </svg>
                                 Seu Humor Hoje
                             </h3>
                             <div id="my-humor-today">
@@ -756,7 +1033,13 @@
 
                         <div class="card" id="company-humor-card" style="display: none;">
                             <h3>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="margin-right: 8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6"
+                                    stroke-width="2" style="margin-right: 8px;">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                    <circle cx="9" cy="7" r="4" />
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                </svg>
                                 Humor da Equipe
                             </h3>
                             <div id="company-humor">
@@ -771,7 +1054,13 @@
                     <!-- Humor dos Colegas (apenas para não-gestores) -->
                     <div class="card" id="colleagues-humor-card" style="display: none;">
                         <h3>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" style="margin-right: 8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6"
+                                stroke-width="2" style="margin-right: 8px;">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                            </svg>
                             Humor dos Colegas Hoje
                         </h3>
                         <div id="colleagues-humor-today">
@@ -785,7 +1074,11 @@
                     <!-- Histórico de Humor -->
                     <div class="card">
                         <h3>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" style="margin-right: 8px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6"
+                                stroke-width="2" style="margin-right: 8px;">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                            </svg>
                             Histórico de Humor da Equipe (últimos 7 dias)
                         </h3>
                         <div id="humor-history">
@@ -800,36 +1093,55 @@
                 <!-- Objetivos -->
                 <div id="objetivos-content" class="tab-content hidden">
                     <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <h3 style="margin: 0;">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" ><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981"
+                                    stroke-width="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <circle cx="12" cy="12" r="6" />
+                                    <circle cx="12" cy="12" r="2" />
+                                </svg>
                                 Meus Objetivos
                             </h3>
                             <button class="btn btn-amber" data-action="openNewObjetivoModal">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
                                 Novo Objetivo
                             </button>
                         </div>
 
                         <button class="filters-toggle-btn" onclick="toggleObjetivosFilters()">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                            </svg>
                             Filtros
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
                         </button>
 
                         <div class="filters-container collapsed" id="objetivos-filters-container">
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label">Buscar por Nome</label>
-                                    <input type="text" class="form-input" id="objetivos-search" placeholder="Buscar objetivos..." oninput="Objetivos.loadList()">
+                                    <input type="text" class="form-input" id="objetivos-search"
+                                        placeholder="Buscar objetivos..." oninput="Objetivos.loadList()">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Buscar por Responsável</label>
-                                    <input type="text" class="form-input" id="objetivos-responsavel-search" placeholder="Filtrar por responsável..." oninput="Objetivos.loadList()">
+                                    <input type="text" class="form-input" id="objetivos-responsavel-search"
+                                        placeholder="Filtrar por responsável..." oninput="Objetivos.loadList()">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Buscar por Status</label>
-                                    <select class="form-select" id="objetivos-status-filter" onchange="Objetivos.loadList()">
+                                    <select class="form-select" id="objetivos-status-filter"
+                                        onchange="Objetivos.loadList()">
                                         <option value="">Todos os status</option>
                                         <option value="Ativo">Ativo</option>
                                         <option value="Agendado">Agendado</option>
@@ -839,7 +1151,11 @@
                                 </div>
                                 <div class="form-group" style="display: flex; align-items: flex-end;">
                                     <button class="btn btn-secondary" onclick="clearObjetivosFilters()">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
                                         Limpar Filtros
                                     </button>
                                 </div>
@@ -861,51 +1177,68 @@
                     <div class="card">
                         <div class="card-header">
                             <h3>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d556d"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="8" y1="6" x2="21" y2="6" />
+                                    <line x1="8" y1="12" x2="21" y2="12" />
+                                    <line x1="8" y1="18" x2="21" y2="18" />
+                                    <line x1="3" y1="6" x2="3.01" y2="6" />
+                                    <line x1="3" y1="12" x2="3.01" y2="12" />
+                                    <line x1="3" y1="18" x2="3.01" y2="18" />
+                                </svg>
                                 Minhas Pesquisas
                             </h3>
                             <div class="pesquisas-actions" id="pesquisas-actions-container">
-                                <button class="btn btn-success" data-action="openWindow" data-param="nova-pesquisa.html" data-features="width=1200,height=800" id="create-survey-btn">
+                                <button class="btn btn-success" data-action="openWindow" data-param="nova-pesquisa.html"
+                                    data-features="width=1200,height=800" id="create-survey-btn">
                                     <i data-lucide="plus"></i>
                                     Nova Pesquisa
                                 </button>
-                                <button class="btn btn-info" data-action="openWindow" data-param="pesquisas-novo.html" data-features="width=1400,height=900" id="manage-survey-btn">
+                                <button class="btn btn-info" data-action="openWindow" data-param="pesquisas-novo.html"
+                                    data-features="width=1400,height=900" id="manage-survey-btn">
                                     <i data-lucide="list"></i>
                                     Gerenciar Pesquisas
                                 </button>
                             </div>
                         </div>
-                        
+
                         <!-- Filtros de Pesquisas -->
                         <div class="card">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                                 <h3 style="margin: 0;">Filtros</h3>
                                 <button class="btn btn-secondary" data-action="clearSurveyFilters">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
                                     Limpar Filtros
                                 </button>
                             </div>
                             <button class="filters-toggle-btn" data-action="toggleFilters" data-param="survey-filters">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                                </svg>
                                 <span>Mostrar Filtros</span>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
                             </button>
                             <div class="filters-container collapsed" id="survey-filters">
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label class="form-label">Pesquisar por Nome</label>
-                                        <input
-                                            type="text"
-                                            id="survey-name-search"
-                                            class="form-input"
-                                            placeholder="Digite para buscar pesquisa..."
-                                            oninput="filterSurveys()"
-                                            autocomplete="off"
-                                        />
+                                        <input type="text" id="survey-name-search" class="form-input"
+                                            placeholder="Digite para buscar pesquisa..." oninput="filterSurveys()"
+                                            autocomplete="off" />
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">Filtrar por Status</label>
-                                        <select id="survey-status-filter" class="form-select" onchange="filterSurveys()">
+                                        <select id="survey-status-filter" class="form-select"
+                                            onchange="filterSurveys()">
                                             <option value="">Todos</option>
                                             <option value="ativa">Ativas</option>
                                             <option value="encerrada">Encerradas</option>
@@ -916,7 +1249,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="pesquisas-list" id="user-surveys-list">
                             <div class="loading">
                                 <div class="spinner"></div>
@@ -930,30 +1263,36 @@
                 <!-- Avaliações -->
                 <div id="avaliacoes-content" class="tab-content hidden">
                     <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <div>
                                 <h3 style="margin: 0;">
                                     <i data-lucide="clipboard-check" style="color: #3b82f6;"></i>
                                     Avaliações
                                 </h3>
-                                <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 14px;">Sistema de Avaliações - O conteúdo será personalizado de acordo com seu setor e permissões.</p>
+                                <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 14px;">Sistema de Avaliações - O
+                                    conteúdo será personalizado de acordo com seu setor e permissões.</p>
                             </div>
-                            
+
                             <div style="display: flex; gap: 12px; align-items: center;">
                                 <!-- Botão Editar Templates - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
-                                <button class="btn btn-amber" id="btn-editar-templates" data-action="abrirModalEditarQuestionarios" style="display: none;">
+                                <button class="btn btn-amber" id="btn-editar-templates"
+                                    data-action="abrirModalEditarQuestionarios" style="display: none;">
                                     <i data-lucide="edit"></i>
                                     Editar Templates
                                 </button>
-                                
+
                                 <!-- Botões de alternância - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
                                 <div id="avaliacoes-toggle-buttons" style="display: none;">
-                                    <div class="btn-group" style="display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 8px;">
-                                        <button class="btn-toggle active" data-view="minhas" data-action="toggleAvaliacoesView" data-param="minhas">
+                                    <div class="btn-group"
+                                        style="display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 8px;">
+                                        <button class="btn-toggle active" data-view="minhas"
+                                            data-action="toggleAvaliacoesView" data-param="minhas">
                                             <i data-lucide="user"></i>
                                             Minhas Avaliações
                                         </button>
-                                        <button class="btn-toggle" data-view="todas" data-action="toggleAvaliacoesView" data-param="todas">
+                                        <button class="btn-toggle" data-view="todas" data-action="toggleAvaliacoesView"
+                                            data-param="todas">
                                             <i data-lucide="list"></i>
                                             Todas as Avaliações
                                         </button>
@@ -971,7 +1310,8 @@
                                 Avaliações Pendentes
                             </h3>
                             <div style="text-align: center; padding: 40px 20px;">
-                                <i data-lucide="clipboard-list" style="font-size: 64px; color: #e5e7eb; margin-bottom: 16px;"></i>
+                                <i data-lucide="clipboard-list"
+                                    style="font-size: 64px; color: #e5e7eb; margin-bottom: 16px;"></i>
                                 <h4 style="color: #6b7280; margin-bottom: 8px;">Conteúdo em Desenvolvimento</h4>
                                 <p style="color: #9ca3af;">Suas avaliações para responder aparecerão aqui.</p>
                             </div>
@@ -984,7 +1324,8 @@
                         <div id="todas-avaliacoes-conteudo">
                             <div class="card">
                                 <div style="text-align: center; padding: 40px 20px;">
-                                    <i data-lucide="list-checks" style="font-size: 64px; color: #e5e7eb; margin-bottom: 16px;"></i>
+                                    <i data-lucide="list-checks"
+                                        style="font-size: 64px; color: #e5e7eb; margin-bottom: 16px;"></i>
                                     <h4 style="color: #6b7280; margin-bottom: 8px;">Visão Administrativa</h4>
                                     <p style="color: #9ca3af;">Lista completa de todas as avaliações da empresa.</p>
                                 </div>
@@ -997,7 +1338,11 @@
                 <div id="configuracoes-content" class="tab-content hidden">
                     <div class="config-section">
                         <div class="config-section-header">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                            </svg>
                             <h3>Informações da Conta</h3>
                         </div>
                         <div class="config-item">
@@ -1007,41 +1352,86 @@
                             </div>
                             <div class="password-reset-container">
                                 <div id="email-initial">
-                                    <button class="btn btn-amber" id="email-action-btn" onclick="Configuracoes.startEmailProcess()">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+                                    <button class="btn btn-amber" id="email-action-btn"
+                                        onclick="Configuracoes.startEmailProcess()">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <rect x="2" y="4" width="20" height="16" rx="2" />
+                                            <path d="m2 7 10 7 10-7" />
+                                        </svg>
                                         Cadastrar Email
                                     </button>
                                 </div>
                                 <div id="email-input-step" style="display: none;">
-                                    <p style="color: var(--color-gray-600); margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                    <p
+                                        style="color: var(--color-gray-600); margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <line x1="12" y1="16" x2="12" y2="12" />
+                                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                                        </svg>
                                         Digite seu email para receber o token de verificação.
                                     </p>
                                     <div class="token-input-group">
-                                        <input type="email" class="form-input" id="email-input" placeholder="seu.email@exemplo.com">
-                                        <button class="btn btn-amber" onclick="Configuracoes.requestEmailVerification()">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+                                        <input type="email" class="form-input" id="email-input"
+                                            placeholder="seu.email@exemplo.com">
+                                        <button class="btn btn-amber"
+                                            onclick="Configuracoes.requestEmailVerification()">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <rect x="2" y="4" width="20" height="16" rx="2" />
+                                                <path d="m2 7 10 7 10-7" />
+                                            </svg>
                                             Enviar Token
                                         </button>
-                                        <button class="btn btn-secondary" onclick="Configuracoes.cancelEmailVerification()">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        <button class="btn btn-secondary"
+                                            onclick="Configuracoes.cancelEmailVerification()">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
                                             Cancelar
                                         </button>
                                     </div>
                                 </div>
                                 <div id="email-token-input" style="display: none;">
-                                    <p style="color: var(--color-gray-600); margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                    <p
+                                        style="color: var(--color-gray-600); margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <line x1="12" y1="16" x2="12" y2="12" />
+                                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                                        </svg>
                                         Um token foi enviado para seu email. Insira-o abaixo para continuar.
                                     </p>
                                     <div class="token-input-group">
-                                        <input type="text" class="form-input" id="email-token-input-field" placeholder="Digite o token" maxlength="6" style="text-transform: uppercase;">
+                                        <input type="text" class="form-input" id="email-token-input-field"
+                                            placeholder="Digite o token" maxlength="6"
+                                            style="text-transform: uppercase;">
                                         <button class="btn btn-amber" onclick="Configuracoes.verifyEmailToken()">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <polyline points="20 6 9 17 4 12" />
+                                            </svg>
                                             Verificar
                                         </button>
-                                        <button class="btn btn-secondary" onclick="Configuracoes.cancelEmailVerification()">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        <button class="btn btn-secondary"
+                                            onclick="Configuracoes.cancelEmailVerification()">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
                                             Cancelar
                                         </button>
                                     </div>
@@ -1052,7 +1442,11 @@
 
                     <div class="config-section">
                         <div class="config-section-header">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
                             <h3>Segurança</h3>
                         </div>
                         <div class="config-item">
@@ -1063,34 +1457,57 @@
                             <div class="password-reset-container">
                                 <div id="password-reset-initial">
                                     <button class="btn btn-amber">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                        </svg>
                                         Alterar Senha
                                     </button>
                                 </div>
 
                                 <!-- Passo 1: Informar senha atual e nova senha -->
                                 <div id="password-reset-current-password" style="display: none;">
-                                    <p style="color: var(--color-gray-600); margin-bottom: var(--spacing-lg); font-size: var(--font-size-sm);">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                                        Informe sua senha atual e escolha uma nova senha. Um token será enviado para seu email para confirmar a alteração.
+                                    <p
+                                        style="color: var(--color-gray-600); margin-bottom: var(--spacing-lg); font-size: var(--font-size-sm);">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <line x1="12" y1="16" x2="12" y2="12" />
+                                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                                        </svg>
+                                        Informe sua senha atual e escolha uma nova senha. Um token será enviado para seu
+                                        email para confirmar a alteração.
                                     </p>
                                     <form class="password-inputs" id="password-reset-form" onsubmit="return false;">
-                                        <input type="text" name="username" autocomplete="username" tabindex="-1" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0; pointer-events:none;">
+                                        <input type="text" name="username" autocomplete="username" tabindex="-1"
+                                            aria-hidden="true"
+                                            style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0; pointer-events:none;">
                                         <div class="form-group">
                                             <label class="form-label">Senha Atual</label>
-                                            <input type="password" class="form-input" id="current-password-input" placeholder="Digite sua senha atual" autocomplete="current-password">
+                                            <input type="password" class="form-input" id="current-password-input"
+                                                placeholder="Digite sua senha atual" autocomplete="current-password">
                                         </div>
                                         <div class="form-group">
                                             <label class="form-label">Nova Senha</label>
-                                            <input type="password" class="form-input" id="new-password-input-initial" placeholder="Digite a nova senha" autocomplete="new-password">
+                                            <input type="password" class="form-input" id="new-password-input-initial"
+                                                placeholder="Digite a nova senha" autocomplete="new-password">
                                         </div>
                                         <div class="form-group">
                                             <label class="form-label">Confirmar Nova Senha</label>
-                                            <input type="password" class="form-input" id="confirm-password-input-initial" placeholder="Confirme a nova senha" autocomplete="new-password">
+                                            <input type="password" class="form-input"
+                                                id="confirm-password-input-initial" placeholder="Confirme a nova senha"
+                                                autocomplete="new-password">
                                         </div>
                                         <div class="password-requirements">
                                             <h5>
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    stroke-linejoin="round">
+                                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                                </svg>
                                                 Requisitos da Senha:
                                             </h5>
                                             <ul>
@@ -1099,13 +1516,24 @@
                                                 <li>As senhas devem coincidir</li>
                                             </ul>
                                         </div>
-                                        <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+                                        <div
+                                            style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
                                             <button class="btn btn-amber" id="initiate-password-change-btn">
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    stroke-linejoin="round">
+                                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                                    <polyline points="22 4 12 14.01 9 11.01" />
+                                                </svg>
                                                 Enviar Token
                                             </button>
                                             <button class="btn btn-secondary" id="cancel-initial-password-btn">
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    stroke-linejoin="round">
+                                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                                </svg>
                                                 Cancelar
                                             </button>
                                         </div>
@@ -1114,18 +1542,36 @@
 
                                 <!-- Passo 2: Confirmar com token -->
                                 <div id="password-reset-token-input" style="display: none;">
-                                    <p style="color: var(--color-gray-600); margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                    <p
+                                        style="color: var(--color-gray-600); margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <line x1="12" y1="16" x2="12" y2="12" />
+                                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                                        </svg>
                                         Um token foi enviado para seu email. Insira-o abaixo para continuar.
                                     </p>
                                     <div class="token-input-group">
-                                        <input type="text" class="form-input" id="reset-token-input" placeholder="Digite o token" maxlength="6" style="text-transform: uppercase;">
+                                        <input type="text" class="form-input" id="reset-token-input"
+                                            placeholder="Digite o token" maxlength="6"
+                                            style="text-transform: uppercase;">
                                         <button class="btn btn-amber">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <polyline points="20 6 9 17 4 12" />
+                                            </svg>
                                             Verificar
                                         </button>
                                         <button class="btn btn-secondary" id="cancel-token-btn">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
                                             Cancelar
                                         </button>
                                     </div>
@@ -1140,16 +1586,26 @@
                     <div class="historico-tabs">
                         <div class="historico-tabs-wrapper">
                             <button class="historico-tab active" data-historico-tab="overview">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11h18"/><path d="M5 15h14"/><path d="M10 7h4"/><path d="M12 3v4"/><path d="M6 11v4"/><path d="M18 11v2"/><circle cx="12" cy="19" r="2"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M3 11h18" />
+                                    <path d="M5 15h14" />
+                                    <path d="M10 7h4" />
+                                    <path d="M12 3v4" />
+                                    <path d="M6 11v4" />
+                                    <path d="M18 11v2" />
+                                    <circle cx="12" cy="19" r="2" />
+                                </svg>
                                 Visão RH
                             </button>
                             <button class="historico-tab" data-historico-tab="downloads">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18h16"/><path d="m12 3 4 4-4 4-4-4 4-4"/><path d="M12 9v9"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M4 18h16" />
+                                    <path d="m12 3 4 4-4 4-4-4 4-4" />
+                                    <path d="M12 9v9" />
+                                </svg>
                                 Planilhas Feedz
-                            </button>
-                            <button class="historico-tab" data-historico-tab="relatorios">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M7 7h10v10H7z"/></svg>
-                                Relatórios Interativos
                             </button>
                         </div>
                     </div>
@@ -1169,7 +1625,8 @@
                             <div class="overview-filter-row">
                                 <div class="form-group">
                                     <label>Pesquisar</label>
-                                    <input type="text" class="form-input" id="overview-objetivos-search" placeholder="Título, descrição ou criador">
+                                    <input type="text" class="form-input" id="overview-objetivos-search"
+                                        placeholder="Título, descrição ou criador">
                                 </div>
                                 <div class="form-group">
                                     <label>Status</label>
@@ -1234,7 +1691,8 @@
                             <div class="overview-section-header">
                                 <div>
                                     <h3><i data-lucide="messages-square"></i> Feedbacks</h3>
-                                    <p>Acompanhe todos os feedbacks enviados no sistema e visualize as conversas completas.</p>
+                                    <p>Acompanhe todos os feedbacks enviados no sistema e visualize as conversas
+                                        completas.</p>
                                 </div>
                                 <button type="button" class="btn btn-secondary" id="overview-feedbacks-refresh">
                                     <i data-lucide="refresh-cw"></i>
@@ -1244,7 +1702,8 @@
                             <div class="overview-filter-row">
                                 <div class="form-group">
                                     <label>Pesquisar</label>
-                                    <input type="text" class="form-input" id="overview-feedbacks-search" placeholder="Mensagem, remetente ou destinatário">
+                                    <input type="text" class="form-input" id="overview-feedbacks-search"
+                                        placeholder="Mensagem, remetente ou destinatário">
                                 </div>
                                 <div class="form-group">
                                     <label>Tipo</label>
@@ -1270,7 +1729,8 @@
                                         <option value="Resolução de Problemas">Resolução de Problemas</option>
                                         <option value="Relacionamento Interpessoal">Relacionamento Interpessoal</option>
                                         <option value="Comprometimento">Comprometimento</option>
-                                        <option value="Desenvolvimento Profissional">Desenvolvimento Profissional</option>
+                                        <option value="Desenvolvimento Profissional">Desenvolvimento Profissional
+                                        </option>
                                         <option value="Liderança">Liderança</option>
                                         <option value="Outros">Outros</option>
                                     </select>
@@ -1332,7 +1792,8 @@
                             <div class="overview-filter-row">
                                 <div class="form-group">
                                     <label>Pesquisar</label>
-                                    <input type="text" class="form-input" id="overview-recognitions-search" placeholder="Mensagem, remetente ou destinatário">
+                                    <input type="text" class="form-input" id="overview-recognitions-search"
+                                        placeholder="Mensagem, remetente ou destinatário">
                                 </div>
                                 <div class="form-group">
                                     <label>Badge</label>
@@ -1400,7 +1861,8 @@
                             <div class="overview-filter-row">
                                 <div class="form-group">
                                     <label>Pesquisar</label>
-                                    <input type="text" class="form-input" id="overview-humor-search" placeholder="Colaborador ou descrição">
+                                    <input type="text" class="form-input" id="overview-humor-search"
+                                        placeholder="Colaborador ou descrição">
                                 </div>
                                 <div class="form-group">
                                     <label>Departamento</label>
@@ -1410,11 +1872,13 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Score mínimo</label>
-                                    <input type="number" class="form-input" id="overview-humor-min-score" min="1" max="5">
+                                    <input type="number" class="form-input" id="overview-humor-min-score" min="1"
+                                        max="5">
                                 </div>
                                 <div class="form-group">
                                     <label>Score máximo</label>
-                                    <input type="number" class="form-input" id="overview-humor-max-score" min="1" max="5">
+                                    <input type="number" class="form-input" id="overview-humor-max-score" min="1"
+                                        max="5">
                                 </div>
                                 <div class="form-group">
                                     <label>Data inicial</label>
@@ -1461,19 +1925,14 @@
                     <div id="historico-downloads" class="historico-tab-panel hidden"></div>
 
                     <div id="historico-relatorios" class="historico-tab-panel hidden">
-                        <div id="historico-relatorios-placeholder" class="card historico-empty-state" style="display: none;">
-                            <i data-lucide="database"></i>
-                            <h3>Visualização interativa em preparação</h3>
-                            <p>Estamos organizando os dados históricos para exibição direta no sistema. Enquanto isso, utilize a aba "Planilhas Feedz" para baixar os relatórios completos.</p>
-                        </div>
-
                         <div id="historico-relatorios-body">
                             <div class="card">
                                 <h3>
                                     <i data-lucide="history" style="color: #0d556d;"></i>
                                     Histórico de Feedbacks - Sistema Anterior
                                 </h3>
-                                <p>Visualize e analise os dados históricos do sistema anterior de feedbacks da empresa.</p>
+                                <p>Visualize e analise os dados históricos do sistema anterior de feedbacks da empresa.
+                                </p>
                             </div>
 
                             <!-- Filtros de Histórico -->
@@ -1516,7 +1975,8 @@
                                     </div>
                                     <div class="filter-group historico-actions-group">
                                         <label style="opacity: 0; pointer-events: none;">Ações</label>
-                                        <button class="btn-clear-filters" type="button" onclick="clearHistoricoFilters()" title="Limpar filtros do histórico">
+                                        <button class="btn-clear-filters" type="button"
+                                            onclick="clearHistoricoFilters()" title="Limpar filtros do histórico">
                                             <i data-lucide="x-circle"></i>
                                             Limpar filtros
                                         </button>
@@ -1524,267 +1984,279 @@
                                 </div>
                             </div>
 
-            <!-- Seção de Relatórios de Avaliação de Desempenho -->
-            <div class="card historico-section collapsed" data-tipo="avaliacao">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                    <i data-lucide="clipboard-check" style="color: #10b981;"></i>
-                                    Avaliação de Desempenho por Colaborador
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="avaliacao">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Relatórios de Avaliação de Desempenho -->
+                            <div class="card historico-section collapsed" data-tipo="avaliacao">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="clipboard-check" style="color: #10b981;"></i>
+                                            Avaliação de Desempenho por Colaborador
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="avaliacao">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="avaliacao-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de avaliação...
+                                    </div>
+                                    <div class="historico-table" id="avaliacao-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="avaliacao-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de avaliação...
-                            </div>
-                            <div class="historico-table" id="avaliacao-table" style="display: none;"></div>
-                        </div>
-                    </div>
 
-                    <!-- Seção de Conteúdo de Feedbacks -->
-                    <div class="card historico-section collapsed" data-tipo="feedback">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                <i data-lucide="message-square" style="color: #3b82f6;"></i>
-                                    Conteúdo de Feedbacks
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="feedback">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Conteúdo de Feedbacks -->
+                            <div class="card historico-section collapsed" data-tipo="feedback">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="message-square" style="color: #3b82f6;"></i>
+                                            Conteúdo de Feedbacks
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="feedback">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="feedback-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de feedbacks...
+                                    </div>
+                                    <div class="historico-table" id="feedback-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="feedback-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de feedbacks...
-                            </div>
-                            <div class="historico-table" id="feedback-table" style="display: none;"></div>
-                        </div>
-                    </div>
 
-                    <!-- Seção de Histórico de Humor -->
-                    <div class="card historico-section collapsed" data-tipo="humor">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                    <i data-lucide="smile" style="color: #f59e0b;"></i>
-                                    Histórico de Humor
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="humor">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Histórico de Humor -->
+                            <div class="card historico-section collapsed" data-tipo="humor">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="smile" style="color: #f59e0b;"></i>
+                                            Histórico de Humor
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="humor">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="humor-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de humor...
+                                    </div>
+                                    <div class="historico-table" id="humor-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="humor-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de humor...
-                            </div>
-                            <div class="historico-table" id="humor-table" style="display: none;"></div>
-                        </div>
-                    </div>
 
-                    <!-- Seção de Listagem de Colaboradores -->
-                    <div class="card historico-section collapsed" data-tipo="colaboradores">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                    <i data-lucide="users" style="color: #8b5cf6;"></i>
-                                    Listagem de Colaboradores
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="colaboradores">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Listagem de Colaboradores -->
+                            <div class="card historico-section collapsed" data-tipo="colaboradores">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="users" style="color: #8b5cf6;"></i>
+                                            Listagem de Colaboradores
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="colaboradores">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="colaboradores-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de colaboradores...
+                                    </div>
+                                    <div class="historico-table" id="colaboradores-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="colaboradores-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de colaboradores...
-                            </div>
-                            <div class="historico-table" id="colaboradores-table" style="display: none;"></div>
-                        </div>
-                    </div>
 
-                    <!-- Seção de Médias de Feedbacks -->
-                    <div class="card historico-section collapsed" data-tipo="medias">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                    <i data-lucide="bar-chart" style="color: #ef4444;"></i>
-                                    Médias de Feedbacks
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="medias">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Médias de Feedbacks -->
+                            <div class="card historico-section collapsed" data-tipo="medias">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="bar-chart" style="color: #ef4444;"></i>
+                                            Médias de Feedbacks
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="medias">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="medias-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de médias...
+                                    </div>
+                                    <div class="historico-table" id="medias-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="medias-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de médias...
-                            </div>
-                            <div class="historico-table" id="medias-table" style="display: none;"></div>
-                        </div>
-                    </div>
 
-                    <!-- Seção de Ranking de Gamificação -->
-                    <div class="card historico-section collapsed" data-tipo="ranking">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                    <i data-lucide="trophy" style="color: #f59e0b;"></i>
-                                    Ranking de Gamificação
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="ranking">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Ranking de Gamificação -->
+                            <div class="card historico-section collapsed" data-tipo="ranking">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="trophy" style="color: #f59e0b;"></i>
+                                            Ranking de Gamificação
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="ranking">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="ranking-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de ranking...
+                                    </div>
+                                    <div class="historico-table" id="ranking-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="ranking-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de ranking...
-                            </div>
-                            <div class="historico-table" id="ranking-table" style="display: none;"></div>
-                        </div>
-                    </div>
 
-                    <!-- Seção de Resumo de Atividades -->
-                    <div class="card historico-section collapsed" data-tipo="resumo">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                    <i data-lucide="line-chart" style="color: #059669;"></i>
-                                    Resumo de Atividades
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="resumo">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Resumo de Atividades -->
+                            <div class="card historico-section collapsed" data-tipo="resumo">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="line-chart" style="color: #059669;"></i>
+                                            Resumo de Atividades
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="resumo">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="resumo-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de resumo...
+                                    </div>
+                                    <div class="historico-table" id="resumo-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="resumo-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de resumo...
-                            </div>
-                            <div class="historico-table" id="resumo-table" style="display: none;"></div>
-                        </div>
-                    </div>
 
-                    <!-- Seção de Turnovers -->
-                    <div class="card historico-section collapsed" data-tipo="turnover">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                    <i data-lucide="user-x" style="color: #dc2626;"></i>
-                                    Turnovers
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="turnover">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Turnovers -->
+                            <div class="card historico-section collapsed" data-tipo="turnover">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="user-x" style="color: #dc2626;"></i>
+                                            Turnovers
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="turnover">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="turnover-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de turnover...
+                                    </div>
+                                    <div class="historico-table" id="turnover-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="turnover-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de turnover...
-                            </div>
-                            <div class="historico-table" id="turnover-table" style="display: none;"></div>
-                        </div>
-                    </div>
 
-                    <!-- Seção de Planos de Desenvolvimento Individual -->
-                    <div class="card historico-section collapsed" data-tipo="pdi">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                    <i data-lucide="graduation-cap" style="color: #7c3aed;"></i>
-                                    Planos de Desenvolvimento Individual
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="pdi">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Planos de Desenvolvimento Individual -->
+                            <div class="card historico-section collapsed" data-tipo="pdi">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="graduation-cap" style="color: #7c3aed;"></i>
+                                            Planos de Desenvolvimento Individual
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="pdi">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="pdi-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de PDI...
+                                    </div>
+                                    <div class="historico-table" id="pdi-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="pdi-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de PDI...
-                            </div>
-                            <div class="historico-table" id="pdi-table" style="display: none;"></div>
-                        </div>
-                    </div>
 
-                    <!-- Seção de Pesquisas Rápidas -->
-                    <div class="card historico-section collapsed" data-tipo="pesquisas">
-                        <div class="card-header">
-                            <div class="header-content">
-                                <h3>
-                                    <i data-lucide="bar-chart-3" style="color: #0ea5e9;"></i>
-                                    Pesquisas Rápidas
-                                </h3>
-                                <div class="header-actions">
-                                    <button class="btn btn-amber btn-sm" data-action="exportHistoricoData" data-param="pesquisas">
-                                        <i data-lucide="download"></i>
-                                        Exportar
-                                    </button>
+                            <!-- Seção de Pesquisas Rápidas -->
+                            <div class="card historico-section collapsed" data-tipo="pesquisas">
+                                <div class="card-header">
+                                    <div class="header-content">
+                                        <h3>
+                                            <i data-lucide="bar-chart-3" style="color: #0ea5e9;"></i>
+                                            Pesquisas Rápidas
+                                        </h3>
+                                        <div class="header-actions">
+                                            <button class="btn btn-amber btn-sm" data-action="exportHistoricoData"
+                                                data-param="pesquisas">
+                                                <i data-lucide="download"></i>
+                                                Exportar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="historico-table-container">
+                                    <div class="loading" id="pesquisas-loading">
+                                        <div class="spinner"></div>
+                                        Carregando dados de pesquisas...
+                                    </div>
+                                    <div class="historico-table" id="pesquisas-table" style="display: none;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="historico-table-container">
-                            <div class="loading" id="pesquisas-loading">
-                                <div class="spinner"></div>
-                                Carregando dados de pesquisas...
-                            </div>
-                            <div class="historico-table" id="pesquisas-table" style="display: none;"></div>
-                        </div>
-                    </div>
                         </div>
                     </div>
 
                     <div id="historico-feedback-modal" class="modal-overlay hidden">
                         <div class="modal">
                             <div class="modal-content historico-modal-content">
-                                <div class="modal-header" style="display:flex; justify-content: space-between; align-items: center; gap: 12px;">
+                                <div class="modal-header"
+                                    style="display:flex; justify-content: space-between; align-items: center; gap: 12px;">
                                     <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
                                         <i data-lucide="messages-square"></i>
                                         Conversa do Feedback
                                     </h3>
-                                    <button type="button" id="historico-feedback-modal-close" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 8px; border-radius: 6px; display:flex;">
+                                    <button type="button" id="historico-feedback-modal-close"
+                                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 8px; border-radius: 6px; display:flex;">
                                         <i data-lucide="x"></i>
                                     </button>
                                 </div>
@@ -1810,19 +2282,30 @@
             <div class="modal-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
                     <h3 style="margin: 0;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"
+                            style="margin-right: 8px;">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
                         Novo Feedback
                     </h3>
-                    <button type="button" data-action="closeFeedbackModal" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <button type="button" data-action="closeFeedbackModal"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
                     </button>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Para quem?</label>
                     <div class="searchable-select">
-                        <input type="text" class="form-input" id="feedback-to-user-search" placeholder="Digite para buscar colaborador..." oninput="filterUsers('feedback-to-user-search', 'feedback-to-user-list')">
+                        <input type="text" class="form-input" id="feedback-to-user-search"
+                            placeholder="Digite para buscar colaborador..."
+                            oninput="filterUsers('feedback-to-user-search', 'feedback-to-user-list')">
                         <div class="select-dropdown" id="feedback-to-user-list">
-                            <div class="select-option" data-value="" data-action="selectUser" data-param="feedback-to-user">
+                            <div class="select-option" data-value="" data-action="selectUser"
+                                data-param="feedback-to-user">
                             </div>
                         </div>
                     </div>
@@ -1857,7 +2340,8 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Mensagem</label>
-                    <textarea class="form-textarea" id="feedback-message" placeholder="Descreva seu feedback de forma construtiva..." maxlength="1280"></textarea>
+                    <textarea class="form-textarea" id="feedback-message"
+                        placeholder="Descreva seu feedback de forma construtiva..." maxlength="1280"></textarea>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-amber" data-action="submitFeedback" style="width: 100%;">
@@ -1875,19 +2359,31 @@
             <div class="modal-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"
+                            style="margin-right: 8px;">
+                            <circle cx="12" cy="8" r="7" />
+                            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+                        </svg>
                         Reconhecer Colega
                     </h3>
-                    <button type="button" data-action="closeRecognitionModal" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <button type="button" data-action="closeRecognitionModal"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
                     </button>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Colaborador</label>
                     <div class="searchable-select">
-                        <input type="text" class="form-input" id="recognition-to-user-search" placeholder="Digite para buscar colaborador..." oninput="filterUsers('recognition-to-user-search', 'recognition-to-user-list')">
+                        <input type="text" class="form-input" id="recognition-to-user-search"
+                            placeholder="Digite para buscar colaborador..."
+                            oninput="filterUsers('recognition-to-user-search', 'recognition-to-user-list')">
                         <div class="select-dropdown" id="recognition-to-user-list">
-                            <div class="select-option" data-value="" data-action="selectUser" data-param="recognition-to-user">
+                            <div class="select-option" data-value="" data-action="selectUser"
+                                data-param="recognition-to-user">
                             </div>
                         </div>
                     </div>
@@ -1904,16 +2400,22 @@
                     </div>
                     <div id="custom-badge-container" class="form-group" style="display: none; margin-top: 12px;">
                         <label class="form-label">Badge Personalizado</label>
-                        <input type="text" class="form-input" id="custom-badge-input" placeholder="Digite o badge personalizado..." maxlength="30">
+                        <input type="text" class="form-input" id="custom-badge-input"
+                            placeholder="Digite o badge personalizado..." maxlength="30">
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Motivo do Reconhecimento</label>
-                    <textarea class="form-textarea" id="recognition-message" placeholder="Descreva o que motivou este reconhecimento..." maxlength="1280"></textarea>
+                    <textarea class="form-textarea" id="recognition-message"
+                        placeholder="Descreva o que motivou este reconhecimento..." maxlength="1280"></textarea>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-amber" data-action="submitRecognition" style="width: 100%;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="12" cy="8" r="7" />
+                            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+                        </svg>
                         Reconhecer
                     </button>
                 </div>
@@ -1927,37 +2429,48 @@
             <div class="modal-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0;" id="objetivo-modal-title">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-right: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"
+                            style="margin-right: 8px;">
                             <circle cx="12" cy="12" r="10"></circle>
                             <circle cx="12" cy="12" r="6"></circle>
                             <circle cx="12" cy="12" r="2"></circle>
                         </svg>
                         Novo Objetivo
                     </h3>
-                    <button type="button" data-action="closeObjetivoModal" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <button type="button" data-action="closeObjetivoModal"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Título</label>
-                    <input type="text" class="form-input" id="objetivo-titulo" placeholder="Digite o título do objetivo">
+                    <input type="text" class="form-input" id="objetivo-titulo"
+                        placeholder="Digite o título do objetivo">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Descrição</label>
-                    <textarea class="form-textarea" id="objetivo-descricao" placeholder="Descreva o objetivo..."></textarea>
+                    <textarea class="form-textarea" id="objetivo-descricao"
+                        placeholder="Descreva o objetivo..."></textarea>
                 </div>
                 <div class="form-group" id="responsavel-field">
                     <label class="form-label">Responsáveis</label>
                     <div class="multi-select-container">
                         <div class="searchable-select">
-                            <input type="text" class="form-input" id="objetivo-responsavel-search" placeholder="Digite para buscar responsáveis..." oninput="filterObjetivoResponsaveis('objetivo-responsavel-search', 'objetivo-responsavel-list')">
+                            <input type="text" class="form-input" id="objetivo-responsavel-search"
+                                placeholder="Digite para buscar responsáveis..."
+                                oninput="filterObjetivoResponsaveis('objetivo-responsavel-search', 'objetivo-responsavel-list')">
                             <div class="select-dropdown" id="objetivo-responsavel-list">
                             </div>
                         </div>
-                        
+
                         <!-- Container para responsáveis selecionados -->
-                        <div id="selected-responsaveis-container" class="selected-responsaveis" style="margin-top: 8px; min-height: 40px;"></div>
-                    
+                        <div id="selected-responsaveis-container" class="selected-responsaveis"
+                            style="margin-top: 8px; min-height: 40px;"></div>
+
                         <!-- Campos hidden para armazenar os IDs selecionados -->
                         <div id="responsaveis-selected" style="display: none;"></div>
                     </div>
@@ -1973,19 +2486,21 @@
                         <input type="date" class="form-input" id="objetivo-data-fim">
                     </div>
                 </div>
-                
+
                 <!-- Campos para Check-in (ocultos por padrão) -->
                 <div id="checkin-fields" class="hidden">
                     <div class="form-group">
                         <label class="form-label">Progresso Atual (%)</label>
-                        <input type="number" class="form-input" id="checkin-progresso" min="0" max="100" placeholder="Digite o progresso atual">
+                        <input type="number" class="form-input" id="checkin-progresso" min="0" max="100"
+                            placeholder="Digite o progresso atual">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Observações</label>
-                        <textarea class="form-textarea" id="checkin-observacoes" placeholder="Adicione observações sobre o progresso..." maxlength="250"></textarea>
+                        <textarea class="form-textarea" id="checkin-observacoes"
+                            placeholder="Adicione observações sobre o progresso..." maxlength="250"></textarea>
                     </div>
                 </div>
-                
+
                 <!-- Campos para Detalhes (ocultos por padrão) -->
                 <div id="detalhes-fields" class="hidden">
                     <div class="form-group">
@@ -2002,8 +2517,10 @@
                     </div>
                 </div>
                 <div class="modal-actions" id="objetivo-modal-actions">
-                    <button type="button" class="btn btn-amber" id="objetivo-submit-btn" data-action="submitObjetivo" style="width: 100%;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                    <button type="button" class="btn btn-amber" id="objetivo-submit-btn" data-action="submitObjetivo"
+                        style="width: 100%;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" style="margin-right: 4px;">
                             <circle cx="12" cy="12" r="10"></circle>
                             <circle cx="12" cy="12" r="6"></circle>
                             <circle cx="12" cy="12" r="2"></circle>
@@ -2027,8 +2544,10 @@
                         </svg>
                         Rejeitar Conclusão
                     </h3>
-                    <button type="button" class="modal-close" data-action="closeRejectionModal" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 8px; border-radius: 6px;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button type="button" class="modal-close" data-action="closeRejectionModal"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
@@ -2036,7 +2555,8 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="objetivo-reject-reason">Motivo da Rejeição</label>
-                    <textarea class="form-textarea" id="objetivo-reject-reason" maxlength="500" placeholder="Descreva o motivo da rejeição..." required></textarea>
+                    <textarea class="form-textarea" id="objetivo-reject-reason" maxlength="500"
+                        placeholder="Descreva o motivo da rejeição..." required></textarea>
                 </div>
                 <div class="modal-actions" style="display: flex; gap: 12px;">
                     <button type="button" class="btn btn-secondary" style="flex: 1;" data-action="cancelRejection">
@@ -2060,15 +2580,18 @@
                 </h3>
                 <div class="form-group">
                     <label class="form-label">Título da Pesquisa</label>
-                    <input type="text" class="form-input" id="pesquisa-titulo" placeholder="Digite o título da pesquisa">
+                    <input type="text" class="form-input" id="pesquisa-titulo"
+                        placeholder="Digite o título da pesquisa">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Descrição</label>
-                    <textarea class="form-textarea" id="pesquisa-descricao" placeholder="Descreva o objetivo da pesquisa..."></textarea>
+                    <textarea class="form-textarea" id="pesquisa-descricao"
+                        placeholder="Descreva o objetivo da pesquisa..."></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Pergunta</label>
-                    <textarea class="form-textarea" id="pesquisa-pergunta" placeholder="Digite a pergunta da pesquisa..."></textarea>
+                    <textarea class="form-textarea" id="pesquisa-pergunta"
+                        placeholder="Digite a pergunta da pesquisa..."></textarea>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -2081,12 +2604,14 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Departamentos Alvo</label>
-                        <input type="text" class="form-input" id="pesquisa-departamentos" placeholder="Ex: TI, RH, Vendas">
+                        <input type="text" class="form-input" id="pesquisa-departamentos"
+                            placeholder="Ex: TI, RH, Vendas">
                     </div>
                 </div>
                 <div class="form-group" id="opcoes-container" style="display: none;">
                     <label class="form-label">Opções (uma por linha)</label>
-                    <textarea class="form-textarea" id="pesquisa-opcoes" placeholder="Digite cada opção em uma linha separada..."></textarea>
+                    <textarea class="form-textarea" id="pesquisa-opcoes"
+                        placeholder="Digite cada opção em uma linha separada..."></textarea>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -2163,7 +2688,8 @@
                     <div id="responder-texto-container" style="display: none;">
                         <div class="form-group">
                             <label class="form-label">Sua resposta:</label>
-                            <textarea class="form-textarea" id="responder-resposta-texto" placeholder="Digite sua resposta..."></textarea>
+                            <textarea class="form-textarea" id="responder-resposta-texto"
+                                placeholder="Digite sua resposta..."></textarea>
                         </div>
                     </div>
                 </div>
@@ -2189,11 +2715,16 @@
                         <i class="fas fa-eye" style="color: #0d556d;"></i>
                         Minhas Respostas
                     </h3>
-                    <button type="button" class="close-btn" data-action="closeVerRespostasModal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.2s;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <button type="button" class="close-btn" data-action="closeVerRespostasModal"
+                        style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.2s;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
-                
+
                 <div id="ver-respostas-content">
                     <div class="loading" style="text-align: center; padding: 40px;">
                         <div class="spinner"></div>
@@ -2213,36 +2744,40 @@
                         <i data-lucide="edit"></i>
                         Editar Templates de Avaliações
                     </h3>
-                    <button type="button" data-action="fecharModalEditarQuestionarios" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" data-action="fecharModalEditarQuestionarios"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                         <i data-lucide="x" style="font-size: 22px;"></i>
                     </button>
                 </div>
-                
+
                 <!-- Seletor de Template -->
                 <div class="form-group">
                     <label class="form-label">Selecionar Template para Editar:</label>
                     <div style="display: flex; gap: 12px;">
-                        <button class="btn-template-selector active" data-template="45" data-action="selecionarTemplateEdicao" data-param="45">
+                        <button class="btn-template-selector active" data-template="45"
+                            data-action="selecionarTemplateEdicao" data-param="45">
                             <i data-lucide="calendar-days"></i>
                             Template 45 Dias
                         </button>
-                        <button class="btn-template-selector" data-template="90" data-action="selecionarTemplateEdicao" data-param="90">
+                        <button class="btn-template-selector" data-template="90" data-action="selecionarTemplateEdicao"
+                            data-param="90">
                             <i data-lucide="calendar"></i>
                             Template 90 Dias
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Lista de Perguntas -->
                 <div class="form-group">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <label class="form-label" style="margin: 0;">Perguntas do Questionário:</label>
                         <button class="btn btn-secondary btn-sm" data-action="adicionarNovaPergunta">
                             <i data-lucide="plus"></i>
                             Nova Pergunta
                         </button>
                     </div>
-                    
+
                     <div id="lista-perguntas-edicao" class="lista-perguntas-edicao">
                         <div class="loading">
                             <div class="spinner"></div>
@@ -2250,7 +2785,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" data-action="fecharModalEditarQuestionarios">
                         Cancelar
@@ -2273,30 +2808,33 @@
                         <i data-lucide="clipboard-check"></i>
                         Responder Avaliação
                     </h3>
-                    <button type="button" data-action="fecharModalResponderAvaliacao" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" data-action="fecharModalResponderAvaliacao"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                         <i data-lucide="x" style="font-size: 22px;"></i>
                     </button>
                 </div>
-                
+
                 <!-- Informações da Avaliação -->
                 <div id="info-avaliacao" class="card" style="background: #f9fafb; margin-bottom: 24px;">
                     <!-- Será preenchido dinamicamente -->
                 </div>
-                
+
                 <!-- Abas: Responder / Visualizar Respostas -->
                 <div class="avaliacoes-tabs" style="margin-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
                     <div style="display: flex; gap: 24px;">
-                        <button class="avaliacao-tab active" data-avaliacao-tab="responder" data-action="trocarAbaAvaliacao" data-param="responder" id="tab-responder">
+                        <button class="avaliacao-tab active" data-avaliacao-tab="responder"
+                            data-action="trocarAbaAvaliacao" data-param="responder" id="tab-responder">
                             <i data-lucide="edit"></i>
                             Responder
                         </button>
-                        <button class="avaliacao-tab" data-avaliacao-tab="visualizar" data-action="trocarAbaAvaliacao" data-param="visualizar" id="tab-visualizar" style="display: none;">
+                        <button class="avaliacao-tab" data-avaliacao-tab="visualizar" data-action="trocarAbaAvaliacao"
+                            data-param="visualizar" id="tab-visualizar" style="display: none;">
                             <i data-lucide="eye"></i>
                             Visualizar Respostas
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Conteúdo: Responder -->
                 <div id="aba-responder-avaliacao" class="aba-avaliacao-content">
                     <div id="formulario-avaliacao">
@@ -2306,7 +2844,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Conteúdo: Visualizar Respostas -->
                 <div id="aba-visualizar-respostas" class="aba-avaliacao-content hidden">
                     <div id="respostas-avaliacao">
@@ -2316,12 +2854,13 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="modal-actions" id="acoes-avaliacao">
                     <button type="button" class="btn btn-secondary" data-action="fecharModalResponderAvaliacao">
                         Fechar
                     </button>
-                    <button type="button" class="btn btn-amber" id="btn-enviar-avaliacao" data-action="enviarRespostasAvaliacao">
+                    <button type="button" class="btn btn-amber" id="btn-enviar-avaliacao"
+                        data-action="enviarRespostasAvaliacao">
                         <i data-lucide="send"></i>
                         Enviar Respostas
                     </button>
@@ -2339,22 +2878,23 @@
                         <i data-lucide="redo"></i>
                         Reabrir Avaliação Expirada
                     </h3>
-                    <button type="button" data-action="fecharModalReabrirAvaliacao" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" data-action="fecharModalReabrirAvaliacao"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                         <i data-lucide="x" style="font-size: 22px;"></i>
                     </button>
                 </div>
-                
+
                 <p style="color: #6b7280; margin-bottom: 20px;">
                     Defina uma nova data limite para que os participantes possam responder esta avaliação.
                 </p>
-                
+
                 <div class="form-group">
                     <label class="form-label">Nova Data Limite de Resposta</label>
                     <input type="date" class="form-input" id="nova-data-limite-avaliacao" required>
                 </div>
-                
+
                 <input type="hidden" id="avaliacao-id-reabrir">
-                
+
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" data-action="fecharModalReabrirAvaliacao">
                         Cancelar
@@ -2377,59 +2917,61 @@
                         <i data-lucide="help-circle"></i>
                         Editar Pergunta
                     </h3>
-                    <button type="button" data-action="fecharModalEditarPergunta" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" data-action="fecharModalEditarPergunta"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                         <i data-lucide="x" style="font-size: 22px;"></i>
                     </button>
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label">Tipo de Pergunta</label>
                     <select class="form-select" id="pergunta-tipo" onchange="atualizarCamposPergunta()">
                         <option value="texto">Texto Livre</option>
                         <option value="multipla_escolha">Múltipla Escolha</option>
-</replace>
+                        </replace>
 
-    <!-- Scripts principais -->
-    <!-- Críticos -->
-    <script src="../js/modules/shared/icons.js"></script>
-    <script src="../js/modules/shared/state.js"></script>
-    <script src="../js/modules/shared/api.js"></script>
-    <script src="../js/modules/core/auth.js"></script>
-    <script src="../js/modules/shared/notifications-manager.js"></script>
-    <script src="../js/modules/shared/email-popup.js"></script>
-    <script src="../js/modules/shared/event-handlers.js"></script>
-    <script src="../js/modules/shared/inline-handlers.js"></script>
-    <script src="../js/modules/tabs/dashboard.js"></script>
-    <script src="../js/modules/core/app.js"></script>
-    <script src="../js/modules/shared/lucide-init.js"></script>
-    
-    <!-- Diferidos -->
-    <script src="../js/modules/shared/modal.js" defer></script>
-    <script src="../js/modules/shared/users.js" defer></script>
-    <script src="../js/modules/shared/notifications.js" defer></script>
-    <script src="../js/modules/tabs/feedbacks.js" defer></script>
-    <script src="../js/modules/tabs/recognitions.js" defer></script>
-    <script src="../js/modules/tabs/team.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
-    <script src="../js/modules/tabs/analytics.js" defer></script>
-    <script src="../js/modules/tabs/humor.js" defer></script>
-    <script src="../js/modules/tabs/objetivos.js" defer></script>
-    <script src="../js/modules/tabs/pesquisas.js" defer></script>
-    <script src="../js/modules/tabs/avaliacoes.js" defer></script>
-    <script src="../js/modules/tabs/historico.js" defer></script>
-    <script src="../js/modules/tabs/configuracoes.js" defer></script>
-    <script src="../js/modules/shared/feedback-chat.js" defer></script>
-    <script src="../js/modules/utils/cache-manager.js" defer></script>
-    <script src="../js/modules/utils/historico-config.js" defer></script>
-    <script src="../js/modules/historico/permissions.js" defer></script>
-    <script src="../js/modules/historico/filters.js" defer></script>
-    <script src="../js/modules/historico/renderer.js" defer></script>
-    <script src="../js/modules/historico/export.js" defer></script>
-    <script src="../js/historico-manager.js" defer></script>
-    <script src="../js/modules/avaliacoes/formatter.js" defer></script>
-    <script src="../js/modules/avaliacoes/renderer.js" defer></script>
-    <script src="../js/modules/avaliacoes/handlers.js" defer></script>
-    <script src="../js/modules/avaliacoes/loader.js" defer></script>
-    <script src="../js/modules/shared/xlsx-loader.js" defer></script>
+                        <!-- Scripts principais -->
+                        <!-- Críticos -->
+                        <script src="../js/modules/shared/icons.js"></script>
+                        <script src="../js/modules/shared/state.js"></script>
+                        <script src="../js/modules/shared/api.js"></script>
+                        <script src="../js/modules/core/auth.js"></script>
+                        <script src="../js/modules/shared/notifications-manager.js"></script>
+                        <script src="../js/modules/shared/email-popup.js"></script>
+                        <script src="../js/modules/shared/event-handlers.js"></script>
+                        <script src="../js/modules/shared/inline-handlers.js"></script>
+                        <script src="../js/modules/tabs/dashboard.js"></script>
+                        <script src="../js/modules/core/app.js"></script>
+                        <script src="../js/modules/shared/lucide-init.js"></script>
+
+                        <!-- Diferidos -->
+                        <script src="../js/modules/shared/modal.js" defer></script>
+                        <script src="../js/modules/shared/users.js" defer></script>
+                        <script src="../js/modules/shared/notifications.js" defer></script>
+                        <script src="../js/modules/tabs/feedbacks.js" defer></script>
+                        <script src="../js/modules/tabs/recognitions.js" defer></script>
+                        <script src="../js/modules/tabs/team.js" defer></script>
+                        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+                        <script src="../js/modules/tabs/analytics.js" defer></script>
+                        <script src="../js/modules/tabs/humor.js" defer></script>
+                        <script src="../js/modules/tabs/objetivos.js" defer></script>
+                        <script src="../js/modules/tabs/pesquisas.js" defer></script>
+                        <script src="../js/modules/tabs/avaliacoes.js" defer></script>
+                        <script src="../js/modules/tabs/historico.js" defer></script>
+                        <script src="../js/modules/tabs/configuracoes.js" defer></script>
+                        <script src="../js/modules/shared/feedback-chat.js" defer></script>
+                        <script src="../js/modules/utils/cache-manager.js" defer></script>
+                        <script src="../js/modules/utils/historico-config.js" defer></script>
+                        <script src="../js/modules/historico/permissions.js" defer></script>
+                        <script src="../js/modules/historico/filters.js" defer></script>
+                        <script src="../js/modules/historico/renderer.js" defer></script>
+                        <script src="../js/modules/historico/export.js" defer></script>
+                        <script src="../js/historico-manager.js" defer></script>
+                        <script src="../js/modules/avaliacoes/formatter.js" defer></script>
+                        <script src="../js/modules/avaliacoes/renderer.js" defer></script>
+                        <script src="../js/modules/avaliacoes/handlers.js" defer></script>
+                        <script src="../js/modules/avaliacoes/loader.js" defer></script>
+                        <script src="../js/modules/shared/xlsx-loader.js" defer></script>
 </body>
+
 </html>

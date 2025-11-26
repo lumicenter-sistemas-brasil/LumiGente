@@ -48,7 +48,8 @@ const Auth = {
                 'objetivos': 'objetivos',
                 'pesquisas': 'pesquisas',
                 'avaliacoes': 'avaliacoes',
-                'historico': 'historico'
+                'historico': 'historico',
+                'external-users': 'externalUsers'
             };
             
             document.querySelectorAll('.nav-item').forEach(item => {

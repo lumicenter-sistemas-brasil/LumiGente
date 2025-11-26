@@ -7,6 +7,9 @@
 
 .analytics-header-card {
     padding: 24px;
+    overflow: visible;
+    position: relative;
+    z-index: 50;
 }
 
 .analytics-toolbar {
@@ -88,7 +91,7 @@
     overflow-y: auto;
     padding: 4px 0;
     display: none;
-    z-index: 40;
+    z-index: 100;
 }
 
 .analytics-department-suggestions:not(.hidden) {

@@ -43,5 +43,24 @@ router.post('/:id/reabrir', requireFeatureAccess('avaliacoes'), avaliacaoControl
 // Endpoint para acionar manualmente a verificação e criação de novas avaliações
 router.post('/verificar', requireFeatureAccess('avaliacoes'), avaliacaoController.verificarAvaliacoes);
 
+// =================================================================
+// ROTAS PARA GERENCIAMENTO DE TEMPLATES DE PERGUNTAS (RH/T&D)
+// =================================================================
+
+// Busca todas as perguntas de um template específico
+router.get('/templates/:tipo/perguntas', requireFeatureAccess('avaliacoes'), avaliacaoController.getTemplatePerguntas);
+
+// Adiciona uma nova pergunta ao template
+router.post('/templates/:tipo/perguntas', requireFeatureAccess('avaliacoes'), avaliacaoController.addTemplatePergunta);
+
+// Reordena as perguntas do template
+router.put('/templates/:tipo/perguntas/reordenar', requireFeatureAccess('avaliacoes'), avaliacaoController.reordenarTemplatePerguntas);
+
+// Atualiza uma pergunta específica do template
+router.put('/templates/:tipo/perguntas/:id', requireFeatureAccess('avaliacoes'), avaliacaoController.updateTemplatePergunta);
+
+// Remove uma pergunta do template
+router.delete('/templates/:tipo/perguntas/:id', requireFeatureAccess('avaliacoes'), avaliacaoController.deleteTemplatePergunta);
+
 
 module.exports = router;

@@ -44,7 +44,7 @@ class SincronizadorDadosExternos {
         this.isRunning = false;
         console.log('⏸️ Sincronizador automático parado.');
     }
-    
+
     /**
      * Retorna o status atual do sincronizador.
      */
@@ -79,12 +79,9 @@ class SincronizadorDadosExternos {
         // Na nova arquitetura, getDatabasePool retorna a conexão para o mesmo servidor,
         // onde ambas as tabelas (Users e TAB_HIST_SRA) devem estar acessíveis.
         const pool = await getDatabasePool();
-        
-        try {
-            console.log('👥 Sincronizando funcionários...');
 
+        try {
             // 1. Busca os registros de funcionários mais relevantes da fonte externa (TAB_HIST_SRA)
-            console.log('   - Buscando funcionários priorizados da fonte de dados externa...');
             const funcionariosExternosResult = await pool.request().query(`
                 WITH FuncionarioPriorizado AS (
                     SELECT *,
@@ -105,21 +102,21 @@ class SincronizadorDadosExternos {
                 ORDER BY CPF;
             `);
             const funcionariosExternos = funcionariosExternosResult.recordset;
-            console.log(`   - ${funcionariosExternos.length} registros únicos de funcionários encontrados para processar.`);
 
             let criados = 0, atualizados = 0, erros = 0;
 
             // 2. Processa cada funcionário encontrado
             for (let i = 0; i < funcionariosExternos.length; i++) {
                 const func = funcionariosExternos[i];
-                if (i > 0 && i % 200 === 0) {
-                    console.log(`   - Processando ${i}/${funcionariosExternos.length}...`);
-                }
                 try {
-                    const userCheck = await pool.request().input('cpf', sql.VarChar, func.CPF).query('SELECT Id, Matricula, Departamento, NomeCompleto, Filial, IsActive FROM Users WHERE CPF = @cpf');
-                    
+                    const userCheck = await pool.request().input('cpf', sql.VarChar, func.CPF).query('SELECT Id, Matricula, Departamento, NomeCompleto, Filial, IsActive, IsExternal FROM Users WHERE CPF = @cpf');
+
                     if (userCheck.recordset.length > 0) { // Usuário já existe
                         const userAtual = userCheck.recordset[0];
+                        // Não atualiza usuários externos - eles são gerenciados separadamente
+                        if (userAtual.IsExternal === 1 || userAtual.IsExternal === true) {
+                            continue; // Pula usuários externos
+                        }
                         if (userAtual.Matricula !== func.MATRICULA || userAtual.NomeCompleto !== func.NOME || userAtual.Departamento !== func.DEPARTAMENTO || userAtual.Filial !== func.FILIAL || !userAtual.IsActive) {
                             await this.atualizarUsuario(pool, func);
                             atualizados++;
@@ -135,19 +132,16 @@ class SincronizadorDadosExternos {
             }
 
             // 3. Inativa usuários que estão na base da aplicação, mas não estão mais ativos na base externa
-            console.log('   - Verificando usuários para inativação...');
+            // IMPORTANTE: Não inativa usuários externos (IsExternal = 1)
             const inativacaoResult = await pool.request().query(`
                 UPDATE Users 
                 SET IsActive = 0, updated_at = GETDATE()
                 WHERE IsActive = 1
+                  AND (IsExternal = 0 OR IsExternal IS NULL)
                   AND CPF NOT IN (SELECT CPF FROM TAB_HIST_SRA WHERE STATUS_GERAL = 'ATIVO' AND CPF IS NOT NULL)
             `);
             const inativados = inativacaoResult.rowsAffected[0];
 
-            console.log('\n📈 Resultados da sincronização de funcionários:');
-            console.log(`   ✨ Novos: ${criados}`);
-            console.log(`   🔄 Atualizados: ${atualizados}`);
-            console.log(`   ⏸️ Inativados: ${inativados}`);
             if (erros > 0) console.log(`   ❌ Erros: ${erros}`);
 
         } catch (error) {

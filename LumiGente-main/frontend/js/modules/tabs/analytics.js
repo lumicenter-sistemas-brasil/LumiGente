@@ -231,13 +231,7 @@ const Analytics = {
                 name: entry.NomeCompleto || entry.nome || entry.UserName || 'Colaborador',
                 department: entry.DescricaoDepartamento || entry.descricaoDepartamento || entry.Departamento || entry.departamento || '',
                 points: Number(entry.total_pontos ?? entry.totalPoints ?? entry.TotalPoints ?? entry.score ?? 0)
-            }))
-            .filter(item => {
-                if (departmentFilter) {
-                    return normalize(item.department) === departmentFilter;
-                }
-                return true;
-            });
+            }));
 
         if (Number.isInteger(currentUserId) && currentUserId > 0) {
             leaderboard = leaderboard.filter(item => item.id !== currentUserId);
@@ -299,6 +293,32 @@ const Analytics = {
         if (!canvas) return;
 
         const context = canvas.getContext('2d');
+
+        this.prepareMoodImages();
+
+        const moodIconsPlugin = {
+            id: 'moodIcons',
+            afterDraw: (chart) => {
+                const ctx = chart.ctx;
+                const yAxis = chart.scales.y;
+
+                yAxis.ticks.forEach((tick, index) => {
+                    const value = tick.value;
+                    if (Number.isInteger(value) && value >= 1 && value <= 5) {
+                        const img = this.moodImages[value];
+                        if (img && img.complete && img.naturalWidth > 0) {
+                            const y = yAxis.getPixelForTick(index);
+                            // Draw icon to the left of the axis labels
+                            // Assuming label is "      (N)"
+                            const xPos = yAxis.right - 50;
+                            const size = 20;
+                            ctx.drawImage(img, xPos, y - (size / 2), size, size);
+                        }
+                    }
+                });
+            }
+        };
+
         this.trendChart = new Chart(context, {
             type: 'line',
             data: {
@@ -315,6 +335,7 @@ const Analytics = {
                     fill: true
                 }]
             },
+            plugins: [moodIconsPlugin],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -333,7 +354,11 @@ const Analytics = {
                         suggestedMax: 5,
                         ticks: {
                             stepSize: 1,
-                            callback: (value) => Number(value).toFixed(0)
+                            padding: 5,
+                            callback: (value) => {
+                                const val = Number(value);
+                                return `      (${val})`;
+                            }
                         }
                     },
                     x: {
@@ -648,6 +673,52 @@ const Analytics = {
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
             window.lucide.createIcons({ attrs: { 'stroke-width': 2 } });
         }
+    },
+
+    moodImages: {},
+
+    prepareMoodImages() {
+        if (Object.keys(this.moodImages).length > 0) return;
+
+        [1, 2, 3, 4, 5].forEach(score => {
+            const svg = this.getMoodIconSVG(score);
+            if (svg) {
+                const img = new Image();
+                img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+                this.moodImages[score] = img;
+            }
+        });
+    },
+
+    getMoodIconSVG(score) {
+        const s = parseInt(score, 10) || 0;
+        const colors = {
+            1: '#ef4444', // Muito Triste
+            2: '#f97316', // Triste
+            3: '#6b7280', // Neutro
+            4: '#10b981', // Feliz
+            5: '#22c55e'  // Muito Feliz
+        };
+
+        const color = colors[s] || '#9ca3af';
+
+        // Paths extracted from Lucide Icons
+        const paths = {
+            1: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>', // frown
+            2: '<circle cx="12" cy="12" r="10"/><line x1="8" y1="15" x2="16" y2="15"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>', // meh
+            3: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>', // smile
+            4: '<circle cx="12" cy="12" r="10"/><path d="M18 13a6 6 0 0 1-6 5 6 6 0 0 1-6-5h12Z"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>', // laugh
+            5: '<path d="M22 11v1a10 10 0 1 1-9-10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/><path d="M16 5h6"/><path d="M19 2v6"/>' // smile-plus
+        };
+
+        const path = paths[s];
+        if (!path) return null;
+
+        return `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                ${path}
+            </svg>
+        `.trim();
     }
 };
 
