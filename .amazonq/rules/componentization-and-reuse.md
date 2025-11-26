@@ -1,0 +1,1 @@
+Sempre transformar trechos reutilizáveis em componentes ou funções. Priorizar componentização tanto no frontend quanto no backend.

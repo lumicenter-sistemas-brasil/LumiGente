@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof openNewObjetivoModal === 'function') openNewObjetivoModal();
                 if (typeof closeQuickActionsDropdown === 'function') closeQuickActionsDropdown();
             },
-            
+
             // Feedback
             'switchFeedbackTab': () => typeof switchFeedbackTab === 'function' && switchFeedbackTab(param),
             'clearFeedbackFilters': () => typeof clearFeedbackFilters === 'function' && clearFeedbackFilters(),
@@ -35,27 +35,27 @@ document.addEventListener('DOMContentLoaded', () => {
             'closeFeedbackModal': () => typeof closeFeedbackModal === 'function' && closeFeedbackModal(),
             'submitFeedback': () => typeof submitFeedback === 'function' && submitFeedback(),
             'selectUser': () => typeof selectUser === 'function' && selectUser('', '', param),
-            
+
             // Recognition
             'clearRecognitionFilters': () => typeof clearRecognitionFilters === 'function' && clearRecognitionFilters(),
             'closeRecognitionModal': () => typeof closeRecognitionModal === 'function' && closeRecognitionModal(),
             'submitRecognition': () => typeof submitRecognition === 'function' && submitRecognition(),
-            
+
             // Team
             'selectTeamUser': () => typeof selectTeamUser === 'function' && selectTeamUser('', param),
             'clearTeamFilters': () => typeof clearTeamFilters === 'function' && clearTeamFilters(),
-            
+
             // Analytics
             'loadAnalytics': () => typeof loadAnalytics === 'function' && loadAnalytics(),
             'exportReport': () => typeof exportReport === 'function' && exportReport(param),
-            
+
             // Humor
             'submitHumor': () => typeof submitHumor === 'function' && submitHumor(),
-            
+
             // Objetivos
             'closeObjetivoModal': () => typeof closeObjetivoModal === 'function' && closeObjetivoModal(),
             'submitObjetivo': () => typeof submitObjetivo === 'function' && submitObjetivo(),
-            
+
             // Pesquisas
             'clearSurveyFilters': () => typeof clearSurveyFilters === 'function' && clearSurveyFilters(),
             'closePesquisaModal': () => typeof closePesquisaModal === 'function' && closePesquisaModal(),
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'closeResponderPesquisaModal': () => typeof closeResponderPesquisaModal === 'function' && closeResponderPesquisaModal(),
             'submitRespostaPesquisa': () => typeof submitRespostaPesquisa === 'function' && submitRespostaPesquisa(),
             'closeVerRespostasModal': () => typeof closeVerRespostasModal === 'function' && closeVerRespostasModal(),
-            
+
             // Avaliações
             'abrirModalEditarQuestionarios': () => typeof abrirModalEditarQuestionarios === 'function' && abrirModalEditarQuestionarios(),
             'toggleAvaliacoesView': () => typeof toggleAvaliacoesView === 'function' && toggleAvaliacoesView(param),
@@ -79,10 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
             'fecharModalEditarPergunta': () => typeof fecharModalEditarPergunta === 'function' && fecharModalEditarPergunta(),
             'adicionarOpcao': () => typeof adicionarOpcao === 'function' && adicionarOpcao(),
             'salvarPergunta': () => typeof salvarPergunta === 'function' && salvarPergunta(),
-            
+
             // Histórico
             'exportHistoricoData': () => typeof exportHistoricoData === 'function' && exportHistoricoData(param),
-            
+
             // Window actions
             'openWindow': () => window.open(param, '_blank', target.getAttribute('data-features') || '')
         };

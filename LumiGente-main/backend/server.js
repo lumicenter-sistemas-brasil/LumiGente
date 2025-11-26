@@ -68,6 +68,14 @@ async function startServer() {
         const syncInterval = parseInt(process.env.SYNC_INTERVAL_MINUTES) || 30;
         sincronizador.startAutoSync(syncInterval);
 
+        // Garantir que as tabelas de avaliações existam
+        try {
+            const { ensureAvaliacoesTablesExist } = require('./services/avaliacoesSetup');
+            await ensureAvaliacoesTablesExist();
+        } catch (error) {
+            console.error('⚠️ Erro ao verificar tabelas de avaliações:', error.message);
+        }
+
         // Agendar tarefas recorrentes
         scheduleJobs();
 

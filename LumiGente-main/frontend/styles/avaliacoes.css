@@ -352,3 +352,70 @@
 .badge-tipo-pergunta i {
     font-size: 12px;
 }
+
+/* ===== GERENCIAMENTO DE TEMPLATES (RH/T&D) ===== */
+
+/* Item de pergunta drag & drop */
+.pergunta-item {
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    gap: 12px;
+    transition: all 0.2s ease;
+    cursor: move;
+}
+
+.pergunta-item:hover {
+    border-color: #0d556d;
+    box-shadow: 0 4px 12px rgba(13, 85, 109, 0.1);
+}
+
+.pergunta-item.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+}
+
+.pergunta-drag-handle {
+    display: flex;
+    align-items: center;
+    cursor: grab;
+    padding: 4px;
+}
+
+.pergunta-drag-handle:active {
+    cursor: grabbing;
+}
+
+.pergunta-conteudo {
+    flex: 1;
+}
+
+/* Botões de ação de pergunta */
+.btn-icon {
+    background: #f3f4f6;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon:hover {
+    background: #e5e7eb;
+    transform: scale(1.1);
+}
+
+.btn-icon-danger {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.btn-icon-danger:hover {
+    background: #fca5a5;
+}

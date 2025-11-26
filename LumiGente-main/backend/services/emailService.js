@@ -361,7 +361,7 @@ exports.sendEmailChangeAlert = async (currentEmail, cancelToken, userName, newEm
             newEmail: newEmail,
             cancelUrl: cancelUrl
         });
-        
+
         await transporter.sendMail(mailOptions);
         console.log('✅ Alerta de alteração de email enviado com sucesso para:', currentEmail);
     } catch (error) {
@@ -527,9 +527,9 @@ exports.sendFeedbackNotificationEmail = async (email, userName, fromName, feedba
     if (!transporter) {
         throw new Error('Serviço de email não configurado');
     }
-    
+
     const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
-    
+
     const mailOptions = {
         from: `"LumiGente" <${process.env.EMAIL_USER}>`,
         to: email,
@@ -614,9 +614,9 @@ exports.sendRecognitionNotificationEmail = async (email, userName, fromName, bad
     if (!transporter) {
         throw new Error('Serviço de email não configurado');
     }
-    
+
     const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
-    
+
     const mailOptions = {
         from: `"LumiGente" <${process.env.EMAIL_USER}>`,
         to: email,
@@ -702,9 +702,9 @@ exports.sendObjetivoNotificationEmail = async (email, userName, creatorName, obj
     if (!transporter) {
         throw new Error('Serviço de email não configurado');
     }
-    
+
     const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
-    
+
     const mailOptions = {
         from: `"LumiGente" <${process.env.EMAIL_USER}>`,
         to: email,
@@ -1013,4 +1013,96 @@ exports.sendObjetivoConclusionRejectedEmail = async (email, userName, gestorName
     };
 
     await transporter.sendMail(mailOptions);
+};
+
+/**
+ * Envia email de confirmação de cadastro para usuário externo
+ */
+exports.sendExternalUserConfirmationEmail = async (email, cpf, userName) => {
+    if (!transporter) {
+        throw new Error('Serviço de email não configurado');
+    }
+
+    const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
+    const safeUserName = escapeHtml(userName || 'Usuário');
+
+    function formatarCPF(cpf) {
+        const cpfLimpo = String(cpf).replace(/[^\d]/g, '');
+        return cpfLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+
+    const safeCpf = escapeHtml(formatarCPF(cpf));
+
+    const mailOptions = {
+        from: `"LumiGente" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Bem-vindo ao LumiGente - Cadastro Confirmado',
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="padding:40px 30px 0;text-align:center;">
+                            <img src="cid:logo" alt="LumiGente" style="max-width:180px;height:auto;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <div style="text-align:center;margin-bottom:20px;">
+                                <div style="display:inline-block;background:#10b981;color:#fff;padding:8px 16px;border-radius:20px;font-weight:600;font-size:14px;">✓ Cadastro Confirmado</div>
+                            </div>
+                            <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">
+                                Olá, <strong>${safeUserName}</strong>!
+                            </p>
+                            <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                                Seu cadastro no LumiGente foi realizado com sucesso!
+                            </p>
+                            <div style="background:#ecfdf5;border-left:4px solid #10b981;padding:16px;margin:24px 0;border-radius:4px;">
+                                <p style="color:#047857;font-size:14px;margin:0 0 8px 0;"><strong>Seus dados de acesso:</strong></p>
+                                <p style="color:#065f46;font-size:14px;margin:0 0 4px 0;"><strong>CPF:</strong> ${safeCpf}</p>
+                                <p style="color:#065f46;font-size:14px;margin:0;"><strong>Email:</strong> ${escapeHtml(email)}</p>
+                            </div>
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="${appUrl}/pages/login.html" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Acessar o Sistema</a>
+                            </div>
+                            <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:20px 0 0 0;text-align:center;">
+                                Você pode alterar sua senha e email a qualquer momento nas configurações do sistema.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f9fafb;padding:30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="color:#6b7280;font-size:13px;margin:0 0 10px 0;">© ${new Date().getFullYear()} LumiGente - Sistema de Gestão de Pessoas</p>
+                            <p style="color:#9ca3af;font-size:12px;margin:0;">Este é um email automático, por favor não responda.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `,
+        attachments: [{
+            filename: 'logo.png',
+            path: __dirname + '/../assets/logo.png',
+            cid: 'logo'
+        }]
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log('✅ Email de confirmação de cadastro enviado para:', email);
+    } catch (error) {
+        console.error('❌ Erro ao enviar email de confirmação:', error.message);
+        throw error;
+    }
 };

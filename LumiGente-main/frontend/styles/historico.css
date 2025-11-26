@@ -769,3 +769,68 @@
     align-items: center;
     gap: 10px;
 }
+/* ===== GLOBAL VIEWPORT CONTAINMENT ===== */
+#historico-content {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+#historico-content * {
+    box-sizing: border-box;
+}
+
+/* ===== MOBILE RESPONSIVENESS ===== */
+@media (max-width: 768px) {
+    #historico-content {
+        width: 100%;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        padding: 0 12px;
+    }
+
+    #historico-content>*,
+    #historico-content * {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .filter-group,
+    .filter-group label,
+    .filter-group input,
+    .filter-group select,
+    .filter-group .form-input,
+    .filter-group .form-select {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .overview-filter-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .card,
+    .historico-section {
+        max-width: 100% !important;
+        width: 100%;
+        overflow-x: hidden;
+    }
+}
+
+/* ===== EXTRA SMALL SCREENS ===== */
+@media (max-width: 480px) {
+    #historico-content {
+        margin: 0;
+        padding: 0;
+    }
+
+    #historico-content .card {
+        margin: 12px;
+    }
+
+    #historico-content .historico-tabs {
+        padding: 0 12px;
+    }
+}

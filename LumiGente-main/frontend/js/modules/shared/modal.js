@@ -1,5 +1,6 @@
 // Modal Module - Gerenciamento de modais
-const Modal = {
+// Modal Module - Gerenciamento de modais
+window.Modal = {
     open(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) modal.classList.remove('hidden');

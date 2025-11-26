@@ -55,7 +55,73 @@ exports.loginUser = async (cpf, password) => {
 
     const pool = await getDatabasePool();
 
-    // 1. Busca o funcionário mais recente na base de dados externa
+    // 1. Primeiro, busca o usuário no sistema LumiGente para verificar se é externo
+    let userResult = await pool.request()
+        .input('cpfFormatado', sql.VarChar, cpfFormatado)
+        .input('cpfSemFormatacao', sql.VarChar, cpfSemFormatacao)
+        .query(`SELECT * FROM Users WHERE CPF = @cpfFormatado OR CPF = @cpfSemFormatacao`);
+
+    let user = userResult.recordset[0];
+
+    if (!user) {
+        throw new Error('Usuário não encontrado no sistema.');
+    }
+
+    // 2. Se for usuário externo, trata de forma diferente
+    if (user.IsExternal === 1 || user.IsExternal === true) {
+        // Verifica status do usuário externo
+        if (!user.IsActive) {
+            throw new Error('Usuário inativo. Entre em contato com o administrador.');
+        }
+        if (!user.PasswordHash) {
+            throw new Error('Senha não configurada. Por favor, complete o seu registro.');
+        }
+
+        // Compara a senha
+        const senhaValida = await bcrypt.compare(password, user.PasswordHash);
+        if (!senhaValida) {
+            throw new Error('Senha incorreta');
+        }
+
+        // Atualiza o último login
+        try {
+            await pool.request().input('userId', sql.Int, user.Id).query(`UPDATE Users SET LastLogin = GETDATE() WHERE Id = @userId`);
+        } catch (err) {
+            console.warn("Aviso: Coluna 'LastLogin' não encontrada. Continuando...");
+        }
+
+            // Retorna dados do usuário externo (sem hierarquia, matrícula, etc.)
+            console.log(`✅ Login (Usuário Externo): ${user.NomeCompleto || user.Email || 'Sem nome'}`);
+
+            // Calcular permissões para usuário externo
+            const { getAllPermissions } = require('../utils/permissionsHelper');
+            const externalUser = {
+                userId: user.Id,
+                userName: user.UserName || user.Email,
+                role: 'Usuário Externo',
+                nomeCompleto: user.NomeCompleto || user.Email || 'Usuário Externo',
+                nome: (user.NomeCompleto || user.Email || 'Usuário').split(' ')[0],
+                departamento: null,
+                descricaoDepartamento: null,
+                DescricaoDepartamento: null,
+                filial: null,
+                cpf: cpfFormatado,
+                matricula: null,
+                hierarchyLevel: 1,
+                hierarchyPath: null,
+                email: user.Email || null,
+                isExternal: true
+            };
+            const permissions = getAllPermissions(externalUser);
+
+            return {
+                ...externalUser,
+                _cachedPermissions: permissions
+            };
+    }
+
+    // 3. Se não for externo, continua com o fluxo normal de funcionário
+    // Busca o funcionário mais recente na base de dados externa
     const funcionarioResult = await pool.request()
         .input('cpf', sql.VarChar, cpfSemFormatacao)
         .query(`
@@ -74,7 +140,7 @@ exports.loginUser = async (cpf, password) => {
         throw new Error('CPF não encontrado na base de funcionários');
     }
 
-    // 2. Verifica se é um usuário especial ou se está ativo
+    // 4. Verifica se é um usuário especial ou se está ativo
     const specialCPFs = process.env.SPECIAL_USERS_CPF ? process.env.SPECIAL_USERS_CPF.split(',').map(c => c.trim()) : [];
     const isSpecialUser = specialCPFs.includes(cpfSemFormatacao);
 
@@ -82,19 +148,7 @@ exports.loginUser = async (cpf, password) => {
         throw new Error('Funcionário inativo no sistema');
     }
 
-    // 3. Busca o usuário no sistema LumiGente
-    let userResult = await pool.request()
-        .input('cpfFormatado', sql.VarChar, cpfFormatado)
-        .input('cpfSemFormatacao', sql.VarChar, cpfSemFormatacao)
-        .query(`SELECT * FROM Users WHERE CPF = @cpfFormatado OR CPF = @cpfSemFormatacao`);
-
-    let user = userResult.recordset[0];
-
-    if (!user) {
-        throw new Error('Usuário não encontrado no sistema.');
-    }
-
-    // 4. Verifica status do usuário no sistema LumiGente
+    // 5. Verifica status do usuário no sistema LumiGente
     if (user.FirstLogin === 1 || user.FirstLogin === true) {
         return { needsRegistration: true, error: 'Você ainda não possui registro. Crie uma conta primeiro.' };
     }
@@ -105,13 +159,13 @@ exports.loginUser = async (cpf, password) => {
         throw new Error('Senha não configurada. Por favor, complete o seu registro.');
     }
 
-    // 5. Compara a senha
+    // 6. Compara a senha
     const senhaValida = await bcrypt.compare(password, user.PasswordHash);
     if (!senhaValida) {
         throw new Error('Senha incorreta');
     }
 
-    // 6. Sincroniza dados do usuário (se necessário)
+    // 7. Sincroniza dados do usuário (se necessário)
     const { path: hierarchyPath, departamento: deptoHierarchy } = await hierarchyManager.getHierarchyInfo(funcionario.MATRICULA, funcionario.CPF);
     const departamentoCorreto = deptoHierarchy || funcionario.DEPARTAMENTO;
 
@@ -137,14 +191,14 @@ exports.loginUser = async (cpf, password) => {
         user.Filial = funcionario.FILIAL;
     }
 
-    // 7. Atualiza o último login
+    // 8. Atualiza o último login
     try {
         await pool.request().input('userId', sql.Int, user.Id).query(`UPDATE Users SET LastLogin = GETDATE() WHERE Id = @userId`);
     } catch (err) {
         console.warn("Aviso: Coluna 'LastLogin' não encontrada. Continuando...");
     }
 
-    // 8. Monta e retorna o objeto do usuário para a sessão
+    // 9. Monta e retorna o objeto do usuário para a sessão
     const hierarchyLevel = await calculateHierarchyLevel(user, pool);
     
     // Determinar role baseado em ser gestor real

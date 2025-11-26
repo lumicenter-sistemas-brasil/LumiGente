@@ -159,6 +159,33 @@ function getAllPermissions(user) {
         };
     }
     
+    // Verificar se é usuário externo
+    const isExternal = user.isExternal === true || user.isExternal === 1 || user.role === 'Usuário Externo';
+    
+    // Se for usuário externo, retornar permissões específicas
+    if (isExternal) {
+        return {
+            dashboard: true, // Dashboard normal
+            feedbacks: true, // Feedbacks normal
+            recognitions: true, // Reconhecimentos normal
+            humor: false, // Não tem acesso a humor
+            objetivos: true, // Objetivos (apenas criar para si próprio - controlado no frontend)
+            pesquisas: false, // Não tem acesso a pesquisas
+            avaliacoes: false, // Não tem acesso a avaliações
+            team: false, // Não tem acesso a equipe
+            analytics: false, // Não tem acesso a analytics
+            historico: false, // Não tem acesso a histórico
+            externalUsers: false, // Não pode gerenciar outros usuários externos
+            
+            isManager: false,
+            isFullAccess: false,
+            managerType: 'Usuário Externo',
+            canCreatePesquisas: false,
+            canCreateAvaliacoes: false,
+            canViewEmpresaHumor: false
+        };
+    }
+    
     // OTIMIZAÇÃO: Chamar checkHRTDPermissions apenas UMA vez e reutilizar o resultado
     const hrTdCheck = checkHRTDPermissions(user);
     const { isHR, isTD, isHRTD } = hrTdCheck;
@@ -179,6 +206,15 @@ function getAllPermissions(user) {
     else if (isHR) managerType = 'RH';
     else if (isTD) managerType = 'T&D';
  
+    // Verificar acesso a Usuários Externos
+    const departmentDesc = normalizeDepartment(user.descricaoDepartamento || user.DescricaoDepartamento);
+    const allowedDepartmentsForExternal = [
+        'DEPARTAMENTO TREINAM&DESENVOLV',
+        'SUPERVISAO RH'
+    ];
+    const canAccessExternalUsers = user.role === 'Administrador' || 
+        allowedDepartmentsForExternal.some(dept => departmentDesc === dept || departmentDesc.includes(dept));
+
     return {
         dashboard: true, // Todos têm acesso ao dashboard
         feedbacks: true, // Todos podem dar feedbacks
@@ -190,6 +226,7 @@ function getAllPermissions(user) {
         team: canAccessTeam,
         analytics: canAccessReports,
         historico: canAccessHistorico,
+        externalUsers: canAccessExternalUsers,
         
         isManager: manager,
         isFullAccess: fullAccess,

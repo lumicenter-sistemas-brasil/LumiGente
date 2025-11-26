@@ -811,40 +811,12 @@ class HistoricoManager {
 
     openFeedbackModal(feedbackId) {
         if (!feedbackId) return;
-        const feedback = this.overview.feedbacks.data.find(item => item.Id === feedbackId);
-        if (!feedback) return;
-
-        const overlay = document.getElementById('historico-feedback-modal');
-        const info = document.getElementById('historico-feedback-modal-info');
-        const body = document.getElementById('historico-feedback-modal-body');
-        const loading = document.getElementById('historico-feedback-modal-loading');
-
-        if (!overlay || !info || !body || !loading) return;
-
-        overlay.classList.remove('hidden');
-        body.innerHTML = '';
-        loading.style.display = 'flex';
-
-        info.innerHTML = `
-            <div><strong>Data:</strong> ${formatDateTime(feedback.created_at)}</div>
-            <div><strong>De:</strong> ${escapeHtml(feedback.from_name || '—')} (${escapeHtml(feedback.from_department || '-')})</div>
-            <div><strong>Para:</strong> ${escapeHtml(feedback.to_name || '—')} (${escapeHtml(feedback.to_department || '-')})</div>
-            <div><strong>Tipo/Categoria:</strong> ${escapeHtml(feedback.type || '—')} / ${escapeHtml(feedback.category || '—')}</div>
-            <div><strong>Mensagem original:</strong><br>${escapeHtml(feedback.message || '—')}</div>
-        `;
-
-        API.get(`/api/analytics/rh/feedbacks/${feedbackId}/mensagens`).then(messages => {
-            loading.style.display = 'none';
-            this.renderFeedbackMessages(messages || []);
-        }).catch(error => {
-            loading.style.display = 'none';
-            console.error('Erro ao carregar mensagens do feedback (visão RH):', error);
-            body.innerHTML = `<div class="historico-empty" style="display:flex; padding: 24px;">
-                <i data-lucide="alert-triangle"></i>
-                <h4>Não foi possível carregar a conversa</h4>
-            </div>`;
-            this.refreshIcons();
-        });
+        // Usar o FeedbackChat em modo histórico (somente leitura)
+        if (window.feedbackChat) {
+            window.feedbackChat.openChat(feedbackId, true); // true = modo histórico
+        } else {
+            console.error('FeedbackChat não está disponível');
+        }
     }
 
     renderFeedbackMessages(messages) {

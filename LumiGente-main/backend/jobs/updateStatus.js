@@ -55,34 +55,49 @@ async function updatePesquisaStatus() {
  * Atualiza o status dos objetivos com base em suas datas.
  * - 'Agendado' -> 'Ativo' quando a data de início é alcançada.
  * - 'Ativo' -> 'Expirado' quando a data de fim é ultrapassada.
+ * Executada diariamente à meia-noite.
  */
 async function updateObjetivoStatus() {
     try {
         const pool = await getDatabasePool();
+        const now = new Date();
+        const nowStr = now.toLocaleString('pt-BR');
+        let totalAtivados = 0;
+        let totalExpirados = 0;
 
-        // Ativar objetivos agendados
+        console.log(`🎯 [JOB] [${nowStr}] Iniciando verificação de status de objetivos...`);
+
+        // Ativar objetivos agendados quando a data de início é alcançada
         const ativarResult = await pool.request().query(`
             UPDATE Objetivos 
             SET status = 'Ativo', updated_at = GETDATE()
-            WHERE status = 'Agendado' AND data_inicio <= GETDATE()
+            WHERE status = 'Agendado' AND data_inicio IS NOT NULL AND data_inicio <= CAST(GETDATE() AS DATE)
         `);
         
-        if (ativarResult.rowsAffected[0] > 0) {
-            console.log(`🎯 [JOB] ${ativarResult.rowsAffected[0]} objetivo(s) foram ativados automaticamente.`);
+        totalAtivados = ativarResult.rowsAffected[0];
+        if (totalAtivados > 0) {
+            console.log(`   ✅ ${totalAtivados} objetivo(s) foram ativados automaticamente (Agendado -> Ativo).`);
         }
 
-        // Expirar objetivos ativos que passaram do prazo
+        // Expirar objetivos ativos quando a data de fim é ultrapassada
         const expirarResult = await pool.request().query(`
             UPDATE Objetivos 
             SET status = 'Expirado', updated_at = GETDATE()
-            WHERE status = 'Ativo' AND data_fim < GETDATE()
+            WHERE status = 'Ativo' AND data_fim IS NOT NULL AND data_fim < CAST(GETDATE() AS DATE)
         `);
 
-        if (expirarResult.rowsAffected[0] > 0) {
-            console.log(`🎯 [JOB] ${expirarResult.rowsAffected[0]} objetivo(s) foram marcados como expirados.`);
+        totalExpirados = expirarResult.rowsAffected[0];
+        if (totalExpirados > 0) {
+            console.log(`   ⏰ ${totalExpirados} objetivo(s) foram marcados como expirados (Ativo -> Expirado).`);
+        }
+
+        if (totalAtivados === 0 && totalExpirados === 0) {
+            console.log(`   ℹ️  Nenhuma alteração de status necessária.`);
+        } else {
+            console.log(`🎯 [JOB] [${nowStr}] Verificação de objetivos concluída: ${totalAtivados} ativado(s), ${totalExpirados} expirado(s).`);
         }
     } catch (error) {
-         // Ignora erro se a tabela 'Objetivos' não existir ainda
+        // Ignora erro se a tabela 'Objetivos' não existir ainda
         if (!error.message.toLowerCase().includes("invalid object name 'objetivos'")) {
             console.error('❌ [JOB] Erro ao atualizar status dos objetivos:', error);
         }

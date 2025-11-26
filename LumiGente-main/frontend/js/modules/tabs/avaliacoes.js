@@ -304,15 +304,31 @@ const Avaliacoes = {
     async checkPermissions() {
         try {
             const user = State.getUser();
-            const isHRTD = user && user.departamento && (
-                user.departamento.toUpperCase().includes('RH') ||
-                user.departamento.toUpperCase().includes('TREINAM&DESENVOLV') ||
-                user.departamento.toUpperCase().includes('ADM/RH/SESMT')
-            );
+            
+            // Usar descricaoDepartamento (minúscula) que contém o texto completo
+            const dept = (user?.descricaoDepartamento || user?.DescricaoDepartamento || '').toUpperCase();
+            const isHRTD = dept.includes('SUPERVISAO RH') ||
+                           dept.includes('DEPARTAMENTO TREINAM&DESENVOLV') ||
+                           dept.includes('TREINAMENTO') ||
+                           dept.includes('DESENVOLVIMENTO') ||
+                           dept.includes('T&D') ||
+                           dept.includes('RECURSOS HUMANOS') ||
+                           dept.includes('ADM/RH/SESMT');
+            
+            console.log('🔍 Verificação de permissões:', { 
+                descricaoDepartamento: user?.descricaoDepartamento,
+                dept, 
+                isHRTD
+            });
             
             const toggleButtons = document.getElementById('avaliacoes-toggle-buttons');
             if (toggleButtons) {
                 toggleButtons.style.display = isHRTD ? 'block' : 'none';
+            }
+
+            const btnEditarTemplates = document.getElementById('btn-editar-templates');
+            if (btnEditarTemplates) {
+                btnEditarTemplates.style.display = isHRTD ? 'inline-flex' : 'none';
             }
         } catch (error) {
             console.error('Erro ao verificar permissões:', error);

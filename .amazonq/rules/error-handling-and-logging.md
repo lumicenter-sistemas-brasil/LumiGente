@@ -1,0 +1,1 @@
+Implantar middlewares para capturar erros, padronizar respostas e logar exceções de forma segura.
