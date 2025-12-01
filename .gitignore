@@ -25,3 +25,6 @@ LumiGente-main/backend/node_modules/
 LumiGente-main/frontend/node_modules/
 LumiGente-main/frontend/dist/
 
+#rules
+.amazonq/
+rules/

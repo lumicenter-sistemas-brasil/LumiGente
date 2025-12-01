@@ -81,7 +81,8 @@ exports.getAllAvaliacoes = async (req, res) => {
                 a.Id, a.UserId, a.GestorId, a.Matricula, a.DataAdmissao, a.DataCriacao, 
                 a.DataLimiteResposta, a.StatusAvaliacao, a.RespostaColaboradorConcluida,
                 a.RespostaGestorConcluida, t.Nome as TipoAvaliacao, u.NomeCompleto,
-                u.Departamento, g.NomeCompleto as NomeGestor
+                COALESCE(u.DescricaoDepartamento, u.Departamento, 'Não informado') as Departamento, 
+                g.NomeCompleto as NomeGestor
             FROM Avaliacoes a
             LEFT JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
             INNER JOIN Users u ON a.UserId = u.Id
@@ -148,6 +149,8 @@ exports.responderAvaliacao = async (req, res) => {
         const user = req.session.user;
         const { avaliacaoId, respostas, tipoRespondente } = req.body;
 
+        console.log('📨 Recebendo resposta de avaliação:', { avaliacaoId, tipoRespondente, userId: user.userId, numRespostas: respostas?.length });
+
         if (!avaliacaoId || !respostas || !Array.isArray(respostas) || !tipoRespondente) {
             return res.status(400).json({ error: 'Dados de resposta inválidos' });
         }
@@ -157,6 +160,8 @@ exports.responderAvaliacao = async (req, res) => {
         // Validações de permissão e status da avaliação
         const avaliacao = await AvaliacoesManager.validarPermissaoResposta(pool, avaliacaoId, user.userId, tipoRespondente);
 
+        console.log('💾 Salvando', respostas.length, 'respostas...');
+        
         // Salvar cada resposta
         for (const resposta of respostas) {
             await AvaliacoesManager.salvarRespostaAvaliacao(pool, {
@@ -164,13 +169,16 @@ exports.responderAvaliacao = async (req, res) => {
                 perguntaId: resposta.perguntaId,
                 resposta: resposta.resposta,
                 respondidoPor: user.userId,
-                tipoRespondente,
-                //... outros campos de resposta
+                tipoRespondente
             });
         }
+        
+        console.log('✅ Respostas salvas. Marcando avaliação como concluída...');
 
         // Marcar a parte da avaliação como concluída
         await AvaliacoesManager.concluirAvaliacao(pool, avaliacaoId, tipoRespondente);
+        
+        console.log('✅ Avaliação marcada como concluída');
 
         res.json({ success: true, message: 'Respostas salvas com sucesso' });
     } catch (error) {
@@ -188,13 +196,12 @@ exports.getRespostasAvaliacao = async (req, res) => {
         const user = req.session.user;
         const { id } = req.params;
         const pool = await getDatabasePool();
-        const avaliacao = await AvaliacoesManager.getAvaliacao(pool, id);
+        const avaliacao = await AvaliacoesManager.getAvaliacao(id);
 
         if (!avaliacao) {
             return res.status(404).json({ error: 'Avaliação não encontrada' });
         }
 
-        // Verificar permissão
         const temPermissao = avaliacao.UserId === user.userId ||
                             avaliacao.GestorId === user.userId ||
                             verificarPermissaoAvaliacoesAdmin(user);
@@ -204,9 +211,9 @@ exports.getRespostasAvaliacao = async (req, res) => {
         }
 
         const [perguntas, minhasRespostas, respostasOutraParte] = await Promise.all([
-            AvaliacoesManager.buscarPerguntasAvaliacao(pool, id),
-            AvaliacoesManager.buscarRespostasPorUsuario(pool, id, user.userId),
-            AvaliacoesManager.buscarRespostasOutraParte(pool, id, user.userId)
+            AvaliacoesManager.buscarPerguntasAvaliacao(id),
+            AvaliacoesManager.buscarRespostasPorUsuario(id, user.userId),
+            AvaliacoesManager.buscarRespostasOutraParte(id, user.userId)
         ]);
         
         res.json({ perguntas, minhasRespostas, respostasOutraParte });
@@ -330,15 +337,16 @@ exports.getTemplatePerguntas = async (req, res) => {
             return res.status(400).json({ error: 'Tipo de template inválido' });
         }
 
-        const tipoId = tipo === '45' ? 1 : 2;
+        const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
+        const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
         const pool = await getDatabasePool();
         
         const result = await pool.request()
-            .input('tipoId', sql.Int, tipoId)
             .query(`
-                SELECT * FROM TemplatesPerguntasAvaliacao 
-                WHERE TipoAvaliacaoId = @tipoId 
-                ORDER BY Ordem ASC
+                SELECT q.*, 
+                    (SELECT COUNT(*) FROM ${tabelaOpcoes} o WHERE o.PerguntaId = q.Id) as NumOpcoes
+                FROM ${tabelaQuestionario} q
+                ORDER BY q.Ordem ASC
             `);
 
         res.json(result.recordset);
@@ -359,45 +367,62 @@ exports.addTemplatePergunta = async (req, res) => {
         }
 
         const { tipo } = req.params;
-        const { pergunta, tipoPergunta, obrigatoria, escalaMinima, escalaMaxima, escalaLabelMinima, escalaLabelMaxima } = req.body;
+        const { pergunta, tipoPergunta, obrigatoria, escalaMinima, escalaMaxima, escalaLabelMinima, escalaLabelMaxima, opcoes } = req.body;
+
+        console.log('📝 Dados recebidos:', { tipo, pergunta, tipoPergunta, obrigatoria, opcoes });
 
         if (!pergunta || !tipoPergunta) {
             return res.status(400).json({ error: 'Pergunta e tipo são obrigatórios' });
         }
 
-        const tipoId = tipo === '45' ? 1 : 2;
         const pool = await getDatabasePool();
+        const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
 
         // Buscar a última ordem
         const maxOrdem = await pool.request()
-            .input('tipoId', sql.Int, tipoId)
-            .query('SELECT ISNULL(MAX(Ordem), 0) as maxOrdem FROM TemplatesPerguntasAvaliacao WHERE TipoAvaliacaoId = @tipoId');
+            .query(`SELECT ISNULL(MAX(Ordem), 0) as maxOrdem FROM ${tabelaQuestionario}`);
         
         const novaOrdem = maxOrdem.recordset[0].maxOrdem + 1;
-
         const result = await pool.request()
-            .input('tipoId', sql.Int, tipoId)
             .input('pergunta', sql.NText, pergunta)
-            .input('tipoPergunta', sql.VarChar, tipoPergunta)
+            .input('tipoPergunta', sql.VarChar(50), tipoPergunta)
             .input('ordem', sql.Int, novaOrdem)
             .input('obrigatoria', sql.Bit, obrigatoria !== undefined ? obrigatoria : 1)
             .input('escalaMinima', sql.Int, escalaMinima || null)
             .input('escalaMaxima', sql.Int, escalaMaxima || null)
-            .input('escalaLabelMinima', sql.NVarChar, escalaLabelMinima || null)
-            .input('escalaLabelMaxima', sql.NVarChar, escalaLabelMaxima || null)
+            .input('escalaLabelMinima', sql.NVarChar(255), escalaLabelMinima || null)
+            .input('escalaLabelMaxima', sql.NVarChar(255), escalaLabelMaxima || null)
             .query(`
-                INSERT INTO TemplatesPerguntasAvaliacao 
-                (TipoAvaliacaoId, Pergunta, TipoPergunta, Ordem, Obrigatoria,
-                 EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima, Ativa, CriadoEm)
-                OUTPUT INSERTED.*
-                VALUES (@tipoId, @pergunta, @tipoPergunta, @ordem, @obrigatoria,
-                        @escalaMinima, @escalaMaxima, @escalaLabelMinima, @escalaLabelMaxima, 1, GETDATE())
+                INSERT INTO ${tabelaQuestionario}
+                (Pergunta, TipoPergunta, Ordem, Obrigatoria, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima)
+                OUTPUT INSERTED.Id
+                VALUES (@pergunta, @tipoPergunta, @ordem, @obrigatoria, @escalaMinima, @escalaMaxima, @escalaLabelMinima, @escalaLabelMaxima)
             `);
 
+        const perguntaId = result.recordset[0].Id;
+        console.log('✅ Pergunta criada com ID:', perguntaId);
+
+        // Salvar opções se for múltipla escolha
+        if (tipoPergunta === 'multipla_escolha' && opcoes && Array.isArray(opcoes) && opcoes.length > 0) {
+            const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
+            console.log('💾 Salvando', opcoes.length, 'opções na tabela', tabelaOpcoes);
+            
+            for (let i = 0; i < opcoes.length; i++) {
+                await pool.request()
+                    .input('perguntaId', sql.Int, perguntaId)
+                    .input('textoOpcao', sql.NVarChar(500), opcoes[i])
+                    .input('ordem', sql.Int, i + 1)
+                    .query(`INSERT INTO ${tabelaOpcoes} (PerguntaId, TextoOpcao, Ordem) VALUES (@perguntaId, @textoOpcao, @ordem)`);
+                console.log('  ✓ Opção', i + 1, 'salva:', opcoes[i]);
+            }
+        }
+
+        console.log('✅ Pergunta salva com sucesso!');
         res.json({ success: true, pergunta: result.recordset[0] });
     } catch (error) {
-        console.error('Erro ao adicionar pergunta ao template:', error);
-        res.status(500).json({ error: 'Erro ao adicionar pergunta' });
+        console.error('❌ Erro ao adicionar pergunta ao template:', error);
+        console.error('Stack:', error.stack);
+        res.status(500).json({ error: 'Erro ao adicionar pergunta: ' + error.message });
     }
 };
 
@@ -412,39 +437,55 @@ exports.updateTemplatePergunta = async (req, res) => {
         }
 
         const { tipo, id } = req.params;
-        const { pergunta, tipoPergunta, obrigatoria, escalaMinima, escalaMaxima, escalaLabelMinima, escalaLabelMaxima, ativa } = req.body;
+        const { pergunta, tipoPergunta, obrigatoria, escalaMinima, escalaMaxima, escalaLabelMinima, escalaLabelMaxima, opcoes } = req.body;
 
         if (!pergunta || !tipoPergunta) {
             return res.status(400).json({ error: 'Pergunta e tipo são obrigatórios' });
         }
 
         const pool = await getDatabasePool();
+        const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
 
         const result = await pool.request()
             .input('id', sql.Int, id)
             .input('pergunta', sql.NText, pergunta)
-            .input('tipoPergunta', sql.VarChar, tipoPergunta)
+            .input('tipoPergunta', sql.VarChar(50), tipoPergunta)
             .input('obrigatoria', sql.Bit, obrigatoria !== undefined ? obrigatoria : 1)
             .input('escalaMinima', sql.Int, escalaMinima || null)
             .input('escalaMaxima', sql.Int, escalaMaxima || null)
-            .input('escalaLabelMinima', sql.NVarChar, escalaLabelMinima || null)
-            .input('escalaLabelMaxima', sql.NVarChar, escalaLabelMaxima || null)
-            .input('ativa', sql.Bit, ativa !== undefined ? ativa : 1)
+            .input('escalaLabelMinima', sql.NVarChar(255), escalaLabelMinima || null)
+            .input('escalaLabelMaxima', sql.NVarChar(255), escalaLabelMaxima || null)
             .query(`
-                UPDATE TemplatesPerguntasAvaliacao 
+                UPDATE ${tabelaQuestionario}
                 SET Pergunta = @pergunta, 
                     TipoPergunta = @tipoPergunta, 
                     Obrigatoria = @obrigatoria,
                     EscalaMinima = @escalaMinima,
                     EscalaMaxima = @escalaMaxima,
                     EscalaLabelMinima = @escalaLabelMinima,
-                    EscalaLabelMaxima = @escalaLabelMaxima,
-                    Ativa = @ativa
+                    EscalaLabelMaxima = @escalaLabelMaxima
                 WHERE Id = @id
             `);
 
         if (result.rowsAffected[0] === 0) {
             return res.status(404).json({ error: 'Pergunta não encontrada' });
+        }
+
+        // Atualizar opções se for múltipla escolha
+        if (tipoPergunta === 'multipla_escolha' && opcoes && Array.isArray(opcoes) && opcoes.length > 0) {
+            const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
+            
+            await pool.request()
+                .input('perguntaId', sql.Int, id)
+                .query(`DELETE FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId`);
+            
+            for (let i = 0; i < opcoes.length; i++) {
+                await pool.request()
+                    .input('perguntaId', sql.Int, id)
+                    .input('textoOpcao', sql.NVarChar(500), opcoes[i])
+                    .input('ordem', sql.Int, i + 1)
+                    .query(`INSERT INTO ${tabelaOpcoes} (PerguntaId, TextoOpcao, Ordem) VALUES (@perguntaId, @textoOpcao, @ordem)`);
+            }
         }
 
         res.json({ success: true, message: 'Pergunta atualizada com sucesso' });
@@ -465,33 +506,90 @@ exports.deleteTemplatePergunta = async (req, res) => {
         }
 
         const { tipo, id } = req.params;
+        console.log('🗑️ Tentando excluir pergunta ID:', id, 'do tipo:', tipo);
+        
         const pool = await getDatabasePool();
+        const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
+        const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
+
+        // Verificar se existe
+        const check = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`SELECT Id FROM ${tabelaQuestionario} WHERE Id = @id`);
+        
+        console.log('Pergunta encontrada:', check.recordset.length > 0);
+        
+        await pool.request()
+            .input('perguntaId', sql.Int, id)
+            .query(`DELETE FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId`);
 
         const result = await pool.request()
             .input('id', sql.Int, id)
-            .query('DELETE FROM TemplatesPerguntasAvaliacao WHERE Id = @id');
+            .query(`DELETE FROM ${tabelaQuestionario} WHERE Id = @id`);
 
         if (result.rowsAffected[0] === 0) {
             return res.status(404).json({ error: 'Pergunta não encontrada' });
         }
 
-        // Reordenar as perguntas restantes
-        const tipoId = tipo === '45' ? 1 : 2;
         const perguntas = await pool.request()
-            .input('tipoId', sql.Int, tipoId)
-            .query('SELECT Id FROM TemplatesPerguntasAvaliacao WHERE TipoAvaliacaoId = @tipoId ORDER BY Ordem ASC');
+            .query(`SELECT Id FROM ${tabelaQuestionario} ORDER BY Ordem ASC`);
 
         for (let i = 0; i < perguntas.recordset.length; i++) {
             await pool.request()
                 .input('id', sql.Int, perguntas.recordset[i].Id)
                 .input('ordem', sql.Int, i + 1)
-                .query('UPDATE TemplatesPerguntasAvaliacao SET Ordem = @ordem WHERE Id = @id');
+                .query(`UPDATE ${tabelaQuestionario} SET Ordem = @ordem WHERE Id = @id`);
         }
 
         res.json({ success: true, message: 'Pergunta removida com sucesso' });
     } catch (error) {
         console.error('Erro ao remover pergunta do template:', error);
         res.status(500).json({ error: 'Erro ao remover pergunta' });
+    }
+};
+
+/**
+ * GET /api/avaliacoes/questionario/:tipo/perguntas/:id/opcoes - Busca opções de uma pergunta (Acesso público).
+ */
+exports.getOpcoesPerguntaPublico = async (req, res) => {
+    try {
+        const { tipo, id } = req.params;
+        const pool = await getDatabasePool();
+        const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
+
+        const result = await pool.request()
+            .input('perguntaId', sql.Int, id)
+            .query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId ORDER BY Ordem ASC`);
+
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Erro ao buscar opções da pergunta:', error);
+        res.status(500).json({ error: 'Erro ao buscar opções' });
+    }
+};
+
+/**
+ * GET /api/avaliacoes/templates/:tipo/perguntas/:id/opcoes - Busca opções de uma pergunta (Acesso restrito).
+ */
+exports.getOpcoesPergunta = async (req, res) => {
+    try {
+        const user = req.session.user;
+        if (!verificarPermissaoAvaliacoesAdmin(user)) {
+            return res.status(403).json({ error: 'Acesso negado.' });
+        }
+
+        const { tipo, id } = req.params;
+        const pool = await getDatabasePool();
+        const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
+
+        const result = await pool.request()
+            .input('perguntaId', sql.Int, id)
+            .query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId ORDER BY Ordem ASC`);
+
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Erro ao buscar opções da pergunta:', error);
+        res.status(500).json({ error: 'Erro ao buscar opções' });
     }
 };
 
@@ -506,19 +604,20 @@ exports.reordenarTemplatePerguntas = async (req, res) => {
         }
 
         const { tipo } = req.params;
-        const { perguntasIds } = req.body; // Array de IDs na nova ordem
+        const { perguntasIds } = req.body;
 
         if (!Array.isArray(perguntasIds) || perguntasIds.length === 0) {
             return res.status(400).json({ error: 'Array de IDs inválido' });
         }
 
         const pool = await getDatabasePool();
+        const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
 
         for (let i = 0; i < perguntasIds.length; i++) {
             await pool.request()
                 .input('id', sql.Int, perguntasIds[i])
                 .input('ordem', sql.Int, i + 1)
-                .query('UPDATE TemplatesPerguntasAvaliacao SET Ordem = @ordem WHERE Id = @id');
+                .query(`UPDATE ${tabelaQuestionario} SET Ordem = @ordem WHERE Id = @id`);
         }
 
         res.json({ success: true, message: 'Perguntas reordenadas com sucesso' });

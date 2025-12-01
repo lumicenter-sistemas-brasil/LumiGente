@@ -2,6 +2,7 @@ const sql = require('mssql');
 const { getDatabasePool } = require('../config/db');
 const { updateSurveyStatus } = require('../jobs/updateStatus');
 const { hasFullAccess, canCreateSurveys } = require('../utils/permissionsHelper');
+const { notifyNewSurvey } = require('../services/surveyNotificationService');
 
 // =================================================================
 // FUNÇÕES DE LÓGICA DE NEGÓCIO (Helpers)
@@ -391,6 +392,9 @@ exports.createPesquisa = async (req, res) => {
         
         const createdSurvey = await pool.request().input('surveyId', sql.Int, surveyId).query('SELECT * FROM vw_SurveysSummary WHERE Id = @surveyId');
         
+        // Enviar notificações assíncronas
+        notifyNewSurvey(surveyId).catch(err => console.error('Erro ao enviar notificações:', err));
+        
         res.status(201).json({ success: true, message: 'Pesquisa criada com sucesso', survey: createdSurvey.recordset[0] });
 
     } catch (error) {
@@ -691,7 +695,7 @@ exports.getMetaFiltros = async (req, res) => {
             SELECT DISTINCT 
                 DepartamentoUnico as departamento_unico,
                 UPPER(LTRIM(RTRIM(DescricaoDepartamento))) as nome,
-                UPPER(LTRIM(RTRIM(COALESCE(Unidade, Filial)))) as filial
+                UPPER(LTRIM(RTRIM(COALESCE(Unidade, Filial, 'SEM FILIAL')))) as filial
             FROM Users
             WHERE DepartamentoUnico IS NOT NULL
               AND IsActive = 1

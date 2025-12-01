@@ -21,12 +21,14 @@ const API = {
     },
 
     async post(url, data) {
+        console.log('📤 [API] POST Request:', url, data);
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify(data)
         });
+        console.log('📥 [API] POST Response status:', response.status);
         if (!response.ok) {
             let respData = null;
             try { respData = await response.json(); } catch (_) { /* ignore */ }

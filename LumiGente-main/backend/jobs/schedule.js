@@ -4,6 +4,7 @@ const { getDatabasePool } = require('../config/db');
 const { updatePesquisaStatus, updateObjetivoStatus } = require('./updateStatus'); // Funções de atualização
 const AvaliacoesManager = require('../services/avaliacoesManager');
 const oracleMonitor = require('../services/oracleMonitor');
+const { atualizarStatusAvaliacoes } = require('./avaliacoesStatusJob');
 
 /**
  * Função para verificar e criar avaliações de experiência automaticamente.
@@ -34,51 +35,13 @@ async function verificarAvaliacoesAutomaticamente() {
 }
 
 /**
- * Função para atualizar o status de avaliações (Agendada -> Pendente, Pendente -> Expirada).
+ * Função para atualizar o status de avaliações e enviar notificações.
  * Executada diariamente à meia-noite.
  */
 async function verificarStatusAvaliacoes() {
     try {
-        console.log('📅 [JOB] Executando verificação de status de avaliações (agendadas/pendentes/expiradas)...');
-        const pool = await getDatabasePool();
-
-        // PASSO 1: Mudar avaliações AGENDADAS para PENDENTE quando faltam 10 dias ou menos para o prazo
-        const resultAgendadas = await pool.request().query(`
-            UPDATE Avaliacoes 
-            SET StatusAvaliacao = 'Pendente', AtualizadoEm = GETDATE()
-            WHERE StatusAvaliacao = 'Agendada' 
-            AND TipoAvaliacaoId = 1 
-            AND DATEDIFF(DAY, DataAdmissao, GETDATE()) >= 35
-            
-            UPDATE Avaliacoes 
-            SET StatusAvaliacao = 'Pendente', AtualizadoEm = GETDATE()
-            WHERE StatusAvaliacao = 'Agendada' 
-            AND TipoAvaliacaoId = 2 
-            AND DATEDIFF(DAY, DataAdmissao, GETDATE()) >= 80
-        `);
-        if (resultAgendadas.rowsAffected[0] > 0 || resultAgendadas.rowsAffected[1] > 0) {
-            const total = (resultAgendadas.rowsAffected[0] || 0) + (resultAgendadas.rowsAffected[1] || 0);
-            console.log(`   -> ${total} avaliação(ões) ativadas (Agendada -> Pendente).`);
-        }
-
-        // PASSO 2: Marcar avaliações PENDENTES como EXPIRADAS quando passa o prazo
-        const resultExpiradas = await pool.request().query(`
-            UPDATE Avaliacoes 
-            SET StatusAvaliacao = 'Expirada', AtualizadoEm = GETDATE()
-            WHERE StatusAvaliacao = 'Pendente' 
-            AND DataLimiteResposta IS NOT NULL 
-            AND CAST(DataLimiteResposta AS DATE) < CAST(GETDATE() AS DATE)
-        `);
-        if (resultExpiradas.rowsAffected[0] > 0) {
-            console.log(`   -> ${resultExpiradas.rowsAffected[0]} avaliação(ões) marcadas como expiradas.`);
-        }
-
-        const totalAgendadas = (resultAgendadas.rowsAffected[0] || 0) + (resultAgendadas.rowsAffected[1] || 0);
-        const totalExpiradas = resultExpiradas.rowsAffected[0] || 0;
-        
-        if (totalAgendadas === 0 && totalExpiradas === 0) {
-            console.log('   -> Nenhuma alteração de status necessária.');
-        }
+        console.log('📅 [JOB] Executando verificação de status de avaliações com notificações...');
+        await atualizarStatusAvaliacoes();
     } catch (error) {
         // Ignora erro se a tabela não existir ainda
         if (!error.message.toLowerCase().includes("invalid object name 'avaliacoes'")) {

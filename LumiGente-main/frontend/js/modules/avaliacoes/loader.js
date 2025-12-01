@@ -65,17 +65,10 @@ function carregarRespostasAvaliacao(avaliacaoId) {
 }
 
 function trocarAbaAvaliacao(aba) {
-    document.querySelectorAll('.avaliacao-tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelector(`[data-avaliacao-tab="${aba}"]`)?.classList.add('active');
-    
-    if (aba === 'responder') {
-        document.getElementById('aba-responder-avaliacao').classList.remove('hidden');
-        document.getElementById('aba-visualizar-respostas').classList.add('hidden');
-        document.getElementById('btn-enviar-avaliacao').style.display = 'inline-flex';
-    } else {
-        document.getElementById('aba-responder-avaliacao').classList.add('hidden');
-        document.getElementById('aba-visualizar-respostas').classList.remove('hidden');
-        document.getElementById('btn-enviar-avaliacao').style.display = 'none';
-        carregarRespostasAvaliacao(avaliacaoAtual.Id);
+    if (Avaliacoes && typeof Avaliacoes.switchTab === 'function') {
+        Avaliacoes.switchTab(aba);
+        if (aba === 'visualizar' && Avaliacoes.state?.avaliacaoAtual?.Id) {
+            carregarRespostasAvaliacao(Avaliacoes.state.avaliacaoAtual.Id);
+        }
     }
 }

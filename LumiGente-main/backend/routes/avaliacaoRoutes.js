@@ -19,6 +19,9 @@ router.post('/responder', avaliacaoController.responderAvaliacao);
 // Busca o questionário padrão para um tipo de avaliação (45 ou 90 dias)
 router.get('/questionario/:tipo', avaliacaoController.getQuestionarioPadrao);
 
+// Busca opções de uma pergunta (acesso público para responder avaliações)
+router.get('/questionario/:tipo/perguntas/:id/opcoes', avaliacaoController.getOpcoesPerguntaPublico);
+
 // Busca os detalhes e respostas de uma avaliação específica que o usuário tem acesso
 router.get('/:id/respostas', avaliacaoController.getRespostasAvaliacao);
 
@@ -49,6 +52,9 @@ router.post('/verificar', requireFeatureAccess('avaliacoes'), avaliacaoControlle
 
 // Busca todas as perguntas de um template específico
 router.get('/templates/:tipo/perguntas', requireFeatureAccess('avaliacoes'), avaliacaoController.getTemplatePerguntas);
+
+// Busca opções de uma pergunta específica
+router.get('/templates/:tipo/perguntas/:id/opcoes', requireFeatureAccess('avaliacoes'), avaliacaoController.getOpcoesPergunta);
 
 // Adiciona uma nova pergunta ao template
 router.post('/templates/:tipo/perguntas', requireFeatureAccess('avaliacoes'), avaliacaoController.addTemplatePergunta);
