@@ -1,1 +1,0 @@
-Todo código deve passar por revisão simulada pelo Amazon Q antes de finalizar. Verifique se segue performance, segurança e clareza.

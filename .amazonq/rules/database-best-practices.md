@@ -1,1 +1,0 @@
-Queries otimizadas, uso de índices, consultas parametrizadas e normalização adequada. Nunca usar SELECT *. Validar tudo no backend.

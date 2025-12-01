@@ -1,1 +1,0 @@
-Estruturar o backend em módulos (ex: autenticação, produtos, pedidos etc.), seguindo padrão MVC e separando rotas, controladores e serviços.

@@ -1,1 +1,0 @@
-Aplique sempre a abordagem mais otimizada para performance, evitando loops aninhados, re-renderizações desnecessárias e consultas ineficientes. Use técnicas como memoização, cache, lazy loading e paginação.
