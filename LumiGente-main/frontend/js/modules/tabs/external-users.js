@@ -3,7 +3,7 @@ const ExternalUsers = {
     users: [],
     currentEditId: null,
     initialized: false,
-    currentFilter: 'active', // 'active', 'inactive', 'all'
+    currentFilter: 'all', // 'active', 'inactive', 'all'
 
     async load() {
         await this.loadUsers();
@@ -46,6 +46,8 @@ const ExternalUsers = {
                         this.openEditModal(userId);
                     } else if (action === 'delete-user' && userId) {
                         this.openDeleteModal(userId);
+                    } else if (action === 'activate-user' && userId) {
+                        this.openActivateModal(userId);
                     }
                 }
             };
@@ -77,6 +79,8 @@ const ExternalUsers = {
                         this.openEditModal(userId);
                     } else if (action === 'delete-user' && userId) {
                         this.openDeleteModal(userId);
+                    } else if (action === 'activate-user' && userId) {
+                        this.openActivateModal(userId);
                     }
                 }
             };
@@ -100,13 +104,15 @@ const ExternalUsers = {
             });
         }
 
-        // Fechar modais ao clicar fora
-        const modals = ['external-users-create-modal', 'external-users-edit-modal', 'external-users-delete-modal', 'external-users-activate-modal'];
-        modals.forEach(modalId => {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
+        // Não permitir fechar modais clicando fora
+
+        // Fechar modais com ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modals = ['external-users-create-modal', 'external-users-edit-modal', 'external-users-delete-modal', 'external-users-activate-modal'];
+                modals.forEach(modalId => {
+                    const modal = document.getElementById(modalId);
+                    if (modal && !modal.classList.contains('hidden')) {
                         this.closeModal(modalId);
                     }
                 });
@@ -182,23 +188,6 @@ const ExternalUsers = {
                 </td>
             </tr>
         `).join('');
-        
-        // Configurar event listeners para os botões da tabela usando event delegation
-        tbody.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-action]');
-            if (!btn) return;
-            
-            const action = btn.dataset.action;
-            const userId = parseInt(btn.dataset.userId);
-            
-            if (action === 'edit-user' && userId) {
-                this.openEditModal(userId);
-            } else if (action === 'delete-user' && userId) {
-                this.openDeleteModal(userId);
-            } else if (action === 'activate-user' && userId) {
-                this.openActivateModal(userId);
-            }
-        });
     },
 
     openCreateModal() {
@@ -359,7 +348,8 @@ const ExternalUsers = {
                 nomeCompleto: nome,
                 email,
                 senha,
-                isActive
+                isActive,
+                RoleId: 2
             });
 
             this.showToast(response.message || 'Usuário externo cadastrado com sucesso', 'success');

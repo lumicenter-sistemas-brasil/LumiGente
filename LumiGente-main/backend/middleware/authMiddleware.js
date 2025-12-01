@@ -142,13 +142,18 @@ exports.requireSurveyResultsAccess = (req, res, next) => {
 exports.requireExternalUserAccess = (req, res, next) => {
     const user = req.session.user;
 
+    console.log('🔐 [EXTERNAL-USERS] Verificando acesso para:', user?.nomeCompleto || 'Usuário desconhecido');
+    console.log('   Departamento:', user?.descricaoDepartamento || user?.DescricaoDepartamento || 'N/A');
+    console.log('   Role:', user?.role || 'N/A');
+
     if (!user) {
+        console.log('❌ [EXTERNAL-USERS] Usuário não autenticado');
         return res.status(401).json({ error: 'Usuário não autenticado' });
     }
 
     // Administradores sempre têm acesso
     if (user.role === 'Administrador') {
-        console.log('✅ Acesso liberado: Administrador');
+        console.log('✅ [EXTERNAL-USERS] Acesso liberado: Administrador');
         return next();
     }
 
@@ -162,14 +167,14 @@ exports.requireExternalUserAccess = (req, res, next) => {
     const hasAccess = allowedDepartments.some(dept => departmentDesc === dept || departmentDesc.includes(dept));
 
     if (!hasAccess) {
-        console.log('❌ ACESSO NEGADO - Usuários Externos:', user.nomeCompleto, '-', departmentDesc);
+        console.log('❌ [EXTERNAL-USERS] ACESSO NEGADO:', user.nomeCompleto, '-', departmentDesc);
         return res.status(403).json({
             error: 'Acesso negado. Apenas usuários do DEPARTAMENTO TREINAM&DESENVOLV ou SUPERVISAO RH podem acessar esta funcionalidade.',
             userDepartment: departmentDesc
         });
     }
 
-    console.log('✅ ACESSO LIBERADO - Usuários Externos:', user.nomeCompleto, '-', departmentDesc);
+    console.log('✅ [EXTERNAL-USERS] ACESSO LIBERADO:', user.nomeCompleto, '-', departmentDesc);
     next();
 };
 

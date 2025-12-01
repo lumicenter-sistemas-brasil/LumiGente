@@ -35,49 +35,7 @@ async function ensureAvaliacoesTablesExist() {
             END
         `);
 
-        // 2. Tabela TemplatesPerguntasAvaliacao (questionários padrão TEMPLATES)
-        const templatesTableCheck = await pool.request().query(`
-            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TemplatesPerguntasAvaliacao'
-        `);
-
-        if (templatesTableCheck.recordset[0].existe === 0) {
-            await pool.request().query(`
-                CREATE TABLE TemplatesPerguntasAvaliacao (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
-                    TipoAvaliacaoId INT NOT NULL,
-                    Pergunta NTEXT NOT NULL,
-                    TipoPergunta VARCHAR(50) NOT NULL DEFAULT 'texto',
-                    Ordem INT NOT NULL,
-                    Obrigatoria BIT DEFAULT 1,
-                    EscalaMinima INT NULL,
-                    EscalaMaxima INT NULL,
-                    EscalaLabelMinima NVARCHAR(100) NULL,
-                    EscalaLabelMaxima NVARCHAR(100) NULL,
-                    Ativa BIT DEFAULT 1,
-                    CriadoEm DATETIME DEFAULT GETDATE(),
-                    FOREIGN KEY (TipoAvaliacaoId) REFERENCES TiposAvaliacao(Id)
-                );
-                
-                -- Inserir perguntas padrão para avaliação de 45 dias
-                INSERT INTO TemplatesPerguntasAvaliacao (TipoAvaliacaoId, Pergunta, TipoPergunta, Ordem, Obrigatoria, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima) VALUES
-                (1, 'Como você avalia seu processo de integração na empresa?', 'escala', 1, 1, 1, 5, 'Muito Insatisfeito', 'Muito Satisfeito'),
-                (1, 'Você se sente preparado para executar suas atividades?', 'escala', 2, 1, 1, 5, 'Nada Preparado', 'Totalmente Preparado'),
-                (1, 'O ambiente de trabalho atende suas expectativas?', 'escala', 3, 1, 1, 5, 'Muito Abaixo', 'Muito Acima'),
-                (1, 'Você recebeu o suporte necessário da sua liderança?', 'escala', 4, 1, 1, 5, 'Nenhum Suporte', 'Suporte Total'),
-                (1, 'Tem alguma sugestão ou comentário sobre seus primeiros dias?', 'texto', 5, 0, NULL, NULL, NULL, NULL);
-                
-                -- Inserir perguntas padrão para avaliação de 90 dias
-                INSERT INTO TemplatesPerguntasAvaliacao (TipoAvaliacaoId, Pergunta, TipoPergunta, Ordem, Obrigatoria, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima) VALUES
-                (2, 'Como você avalia sua adaptação à empresa após 90 dias?', 'escala', 1, 1, 1, 5, 'Muito Mal Adaptado', 'Muito Bem Adaptado'),
-                (2, 'Você compreende claramente suas responsabilidades e objetivos?', 'escala', 2, 1, 1, 5, 'Não Compreendo', 'Compreendo Totalmente'),
-                (2, 'Como você avalia o relacionamento com sua equipe?', 'escala', 3, 1, 1, 5, 'Muito Ruim', 'Excelente'),
-                (2, 'A empresa atendeu suas expectativas iniciais?', 'escala', 4, 1, 1, 5, 'Muito Abaixo', 'Muito Acima'),
-                (2, 'Você se vê continuando na empresa a longo prazo?', 'escala', 5, 1, 1, 5, 'Definitivamente Não', 'Definitivamente Sim'),
-                (2, 'Quais pontos você gostaria de destacar (positivos ou de melhoria)?', 'texto', 6, 0, NULL, NULL, NULL, NULL);
-            `);
-        }
-
-        // 3. Tabela Avaliacoes (instâncias de avaliações) - Verificar se já existe
+        // 2. Tabela Avaliacoes (instâncias de avaliações) - Verificar se já existe
         const avaliacoesTableCheck = await pool.request().query(`
             SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Avaliacoes'
         `);
@@ -106,7 +64,48 @@ async function ensureAvaliacoesTablesExist() {
             `);
         }
 
-        // 5. Tabela RespostasAvaliacoes (respostas dos participantes)
+        // 4. Tabela PerguntasAvaliacao (snapshot das perguntas)
+        const perguntasAvaliacaoCheck = await pool.request().query(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'PerguntasAvaliacao'
+        `);
+
+        if (perguntasAvaliacaoCheck.recordset[0].existe === 0) {
+            await pool.request().query(`
+                CREATE TABLE PerguntasAvaliacao (
+                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    AvaliacaoId INT NOT NULL,
+                    Pergunta NTEXT NOT NULL,
+                    TipoPergunta VARCHAR(50) NOT NULL DEFAULT 'texto',
+                    Ordem INT NOT NULL,
+                    Obrigatoria BIT DEFAULT 1,
+                    EscalaMinima INT NULL,
+                    EscalaMaxima INT NULL,
+                    EscalaLabelMinima NVARCHAR(100) NULL,
+                    EscalaLabelMaxima NVARCHAR(100) NULL,
+                    CriadoEm DATETIME DEFAULT GETDATE(),
+                    FOREIGN KEY (AvaliacaoId) REFERENCES Avaliacoes(Id) ON DELETE CASCADE
+                );
+            `);
+        }
+
+        // 5. Tabela OpcoesPerguntasAvaliacao (snapshot das opções)
+        const opcoesAvaliacaoCheck = await pool.request().query(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'OpcoesPerguntasAvaliacao'
+        `);
+
+        if (opcoesAvaliacaoCheck.recordset[0].existe === 0) {
+            await pool.request().query(`
+                CREATE TABLE OpcoesPerguntasAvaliacao (
+                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    PerguntaId INT NOT NULL,
+                    TextoOpcao NVARCHAR(500) NOT NULL,
+                    Ordem INT NOT NULL,
+                    FOREIGN KEY (PerguntaId) REFERENCES PerguntasAvaliacao(Id) ON DELETE CASCADE
+                );
+            `);
+        }
+
+        // 6. Tabela RespostasAvaliacoes (respostas dos participantes)
         const respostasTableCheck = await pool.request().query(`
             SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'RespostasAvaliacoes'
         `);
@@ -122,7 +121,7 @@ async function ensureAvaliacoesTablesExist() {
                     TipoRespondente NVARCHAR(50) NOT NULL,
                     created_at DATETIME DEFAULT GETDATE(),
                     FOREIGN KEY (AvaliacaoId) REFERENCES Avaliacoes(Id) ON DELETE CASCADE,
-                    FOREIGN KEY (PerguntaId) REFERENCES PerguntasSalvasAvaliacao(Id),
+                    FOREIGN KEY (PerguntaId) REFERENCES PerguntasAvaliacao(Id),
                     FOREIGN KEY (RespondidoPor) REFERENCES Users(Id)
                 );
             `);

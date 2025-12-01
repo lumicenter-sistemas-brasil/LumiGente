@@ -92,7 +92,7 @@ const sanitizeInput = (req, res, next) => {
         if (typeof obj === 'string') {
             return obj
                 .replace(/[<>]/g, '')           // XSS
-                .replace(/['"`;]/g, '')         // SQL Injection
+                .replace(/[';`]/g, '')          // SQL Injection
                 .replace(/[`|&$]/g, '')         // Command Injection  
                 .replace(/\.\.\/|\.\.\\/g, '') // Path Traversal
                 .trim();

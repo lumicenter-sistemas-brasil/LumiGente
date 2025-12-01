@@ -65,20 +65,94 @@ document.addEventListener('DOMContentLoaded', () => {
             'closeVerRespostasModal': () => typeof closeVerRespostasModal === 'function' && closeVerRespostasModal(),
 
             // Avaliações
-            'abrirModalEditarQuestionarios': () => typeof abrirModalEditarQuestionarios === 'function' && abrirModalEditarQuestionarios(),
+            'abrirModalEditarQuestionarios': () => {
+                if (typeof AvaliacoesTemplates !== 'undefined' && typeof AvaliacoesTemplates.abrirModalEdicao === 'function') {
+                    AvaliacoesTemplates.abrirModalEdicao();
+                }
+            },
             'toggleAvaliacoesView': () => typeof toggleAvaliacoesView === 'function' && toggleAvaliacoesView(param),
-            'fecharModalEditarQuestionarios': () => typeof fecharModalEditarQuestionarios === 'function' && fecharModalEditarQuestionarios(),
-            'selecionarTemplateEdicao': () => typeof selecionarTemplateEdicao === 'function' && selecionarTemplateEdicao(param),
-            'adicionarNovaPergunta': () => typeof adicionarNovaPergunta === 'function' && adicionarNovaPergunta(),
-            'salvarQuestionario': () => typeof salvarQuestionario === 'function' && salvarQuestionario(),
-            'fecharModalResponderAvaliacao': () => typeof fecharModalResponderAvaliacao === 'function' && fecharModalResponderAvaliacao(),
+            'fecharModalEditarQuestionarios': () => {
+                if (typeof AvaliacoesTemplates !== 'undefined' && typeof AvaliacoesTemplates.fecharModalEdicao === 'function') {
+                    AvaliacoesTemplates.fecharModalEdicao();
+                }
+            },
+            'selecionarTemplateEdicao': () => {
+                if (typeof AvaliacoesTemplates !== 'undefined' && typeof AvaliacoesTemplates.selecionarTemplate === 'function') {
+                    AvaliacoesTemplates.selecionarTemplate(param);
+                }
+            },
+            'adicionarNovaPergunta': () => {
+                if (typeof AvaliacoesTemplates !== 'undefined' && typeof AvaliacoesTemplates.abrirModalNovaPergunta === 'function') {
+                    AvaliacoesTemplates.abrirModalNovaPergunta();
+                }
+            },
+            'salvarQuestionario': () => {
+                if (typeof AvaliacoesTemplates !== 'undefined' && typeof AvaliacoesTemplates.salvarAlteracoes === 'function') {
+                    AvaliacoesTemplates.salvarAlteracoes();
+                }
+            },
+            'fecharModalResponderAvaliacao': () => {
+                if (typeof Avaliacoes !== 'undefined' && typeof Avaliacoes.closeModal === 'function') {
+                    Avaliacoes.closeModal();
+                } else if (typeof fecharModalResponderAvaliacao === 'function') {
+                    fecharModalResponderAvaliacao();
+                }
+            },
             'trocarAbaAvaliacao': () => typeof trocarAbaAvaliacao === 'function' && trocarAbaAvaliacao(param),
             'enviarRespostasAvaliacao': () => typeof enviarRespostasAvaliacao === 'function' && enviarRespostasAvaliacao(),
             'fecharModalReabrirAvaliacao': () => typeof fecharModalReabrirAvaliacao === 'function' && fecharModalReabrirAvaliacao(),
             'reabrirAvaliacao': () => typeof reabrirAvaliacao === 'function' && reabrirAvaliacao(),
-            'fecharModalEditarPergunta': () => typeof fecharModalEditarPergunta === 'function' && fecharModalEditarPergunta(),
-            'adicionarOpcao': () => typeof adicionarOpcao === 'function' && adicionarOpcao(),
-            'salvarPergunta': () => typeof salvarPergunta === 'function' && salvarPergunta(),
+            'fecharModalEditarPergunta': () => {
+                const modal = document.getElementById('editar-pergunta-modal');
+                if (modal) modal.classList.add('hidden');
+            },
+            'adicionarOpcao': () => {
+                const container = document.getElementById('opcoes-multipla-escolha');
+                if (!container) return;
+                const count = container.querySelectorAll('.opcao-item').length + 1;
+                const div = document.createElement('div');
+                div.className = 'opcao-item';
+                div.innerHTML = `
+                    <input type="text" class="form-input" placeholder="Opção ${count}" />
+                    <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">
+                        <i data-lucide="x"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+                if (window.lucide) window.lucide.createIcons();
+            },
+            'salvarPergunta': async () => {
+                const templateAtivo = document.querySelector('.btn-template-selector.active');
+                const tipo = templateAtivo ? templateAtivo.dataset.template : '45';
+                const perguntaId = document.getElementById('pergunta-id-edicao').value;
+                
+                const dados = {
+                    pergunta: document.getElementById('pergunta-texto').value,
+                    tipoPergunta: document.getElementById('pergunta-tipo').value,
+                    obrigatoria: document.getElementById('pergunta-obrigatoria').checked ? 1 : 0
+                };
+                
+                if (dados.tipoPergunta === 'escala') {
+                    dados.escalaMinima = parseInt(document.getElementById('escala-minima').value) || 1;
+                    dados.escalaMaxima = parseInt(document.getElementById('escala-maxima').value) || 5;
+                    dados.escalaLabelMinima = document.getElementById('escala-label-min').value;
+                    dados.escalaLabelMaxima = document.getElementById('escala-label-max').value;
+                }
+                
+                try {
+                    if (perguntaId) {
+                        await API.put(`/api/avaliacoes/templates/${tipo}/perguntas/${perguntaId}`, dados);
+                    } else {
+                        await API.post(`/api/avaliacoes/templates/${tipo}/perguntas`, dados);
+                    }
+                    
+                    document.getElementById('editar-pergunta-modal').classList.add('hidden');
+                    document.querySelector('[data-action="selecionarTemplateEdicao"][data-param="' + tipo + '"]').click();
+                } catch (error) {
+                    console.error('Erro ao salvar pergunta:', error);
+                    alert('Erro ao salvar pergunta');
+                }
+            },
 
             // Histórico
             'exportHistoricoData': () => typeof exportHistoricoData === 'function' && exportHistoricoData(param),
@@ -99,4 +173,76 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof loadHistoricoData === 'function') loadHistoricoData();
         }
     });
+    
+    // Setup drag and drop for questions
+    window.setupDragAndDrop = function() {
+        const container = document.getElementById('lista-perguntas-edicao');
+        if (!container) return;
+        
+        let draggedElement = null;
+        let autoScrollInterval = null;
+        
+        container.addEventListener('dragstart', (e) => {
+            if (e.target.classList.contains('pergunta-item')) {
+                draggedElement = e.target;
+                e.target.style.opacity = '0.5';
+            }
+        });
+        
+        container.addEventListener('dragend', (e) => {
+            if (e.target.classList.contains('pergunta-item')) {
+                e.target.style.opacity = '1';
+            }
+            if (autoScrollInterval) {
+                clearInterval(autoScrollInterval);
+                autoScrollInterval = null;
+            }
+        });
+        
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            
+            const rect = container.getBoundingClientRect();
+            const scrollZone = 50;
+            const scrollSpeed = 10;
+            
+            if (autoScrollInterval) {
+                clearInterval(autoScrollInterval);
+                autoScrollInterval = null;
+            }
+            
+            if (e.clientY < rect.top + scrollZone) {
+                autoScrollInterval = setInterval(() => {
+                    container.scrollTop -= scrollSpeed;
+                }, 50);
+            } else if (e.clientY > rect.bottom - scrollZone) {
+                autoScrollInterval = setInterval(() => {
+                    container.scrollTop += scrollSpeed;
+                }, 50);
+            }
+            
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement == null) {
+                container.appendChild(draggedElement);
+            } else {
+                container.insertBefore(draggedElement, afterElement);
+            }
+        });
+        
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.pergunta-item:not(.dragging)')];
+            
+            return draggableElements.reduce((closest, child) => {
+                if (child === draggedElement) return closest;
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+    };
 });

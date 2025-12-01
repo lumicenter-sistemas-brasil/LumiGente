@@ -167,10 +167,14 @@ exports.createExternalUser = async (req, res) => {
             .input('userName', sql.VarChar, userName)
             .input('isActive', sql.Bit, isActive !== false)
             .input('isExternal', sql.Bit, 1)
+            .input('departamento', sql.VarChar, 'Usuarios Externos')
+            .input('descricaoDepartamento', sql.VarChar, 'USUARIOS EXTERNOS')
+            .input('filial', sql.VarChar, 'SEM FILIAL')
+            .input('roleId', sql.Int, 2)
             .query(`
-                INSERT INTO Users (CPF, nome, NomeCompleto, Email, PasswordHash, UserName, IsActive, IsExternal, created_at, updated_at)
+                INSERT INTO Users (CPF, nome, NomeCompleto, Email, PasswordHash, UserName, IsActive, IsExternal, Departamento, DescricaoDepartamento, Filial, RoleId, created_at, updated_at)
                 OUTPUT INSERTED.Id, INSERTED.CPF, INSERTED.Email, INSERTED.NomeCompleto, INSERTED.IsActive
-                VALUES (@cpf, @nome, @nomeCompleto, @email, @passwordHash, @userName, @isActive, @isExternal, GETDATE(), GETDATE())
+                VALUES (@cpf, @nome, @nomeCompleto, @email, @passwordHash, @userName, @isActive, @isExternal, @departamento, @descricaoDepartamento, @filial, @roleId, GETDATE(), GETDATE())
             `);
         
         const newUser = insertResult.recordset[0];
@@ -200,13 +204,18 @@ exports.createExternalUser = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Erro ao criar usuário externo:', error);
+        console.error('Detalhes do erro:', error.message);
+        console.error('Número do erro SQL:', error.number);
         
         // Verificar se é erro de constraint única
         if (error.number === 2627 || error.message.includes('UNIQUE')) {
             return res.status(400).json({ error: 'CPF ou email já cadastrado' });
         }
         
-        res.status(500).json({ error: 'Erro ao criar usuário externo' });
+        res.status(500).json({ 
+            error: 'Erro ao criar usuário externo',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 };
 

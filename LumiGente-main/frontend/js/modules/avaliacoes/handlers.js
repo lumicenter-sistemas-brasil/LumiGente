@@ -44,8 +44,17 @@ const AvaliacoesHandlers = {
     },
 
     async enviarRespostas(avaliacaoAtual, currentUser) {
+        console.log('📤 Enviando respostas - avaliacaoAtual:', avaliacaoAtual, 'currentUser:', currentUser);
+        
         if (!avaliacaoAtual) {
-            alert('Erro: Avaliação não encontrada');
+            console.error('❌ avaliacaoAtual não definido');
+            alert('Erro: Avaliação não encontrada. Por favor, recarregue a página.');
+            return;
+        }
+        
+        if (!currentUser) {
+            console.error('❌ currentUser não definido');
+            alert('Erro: Usuário não identificado. Por favor, faça login novamente.');
             return;
         }
         
@@ -151,8 +160,9 @@ function selecionarSimNao(elemento, perguntaId, valor) {
     AvaliacoesHandlers.selecionarSimNao(elemento, perguntaId, valor);
 }
 
-function enviarRespostasAvaliacao() {
-    AvaliacoesHandlers.enviarRespostas(window.avaliacaoAtual, window.currentUser);
-}
+// Função movida para avaliacoes.js - não sobrescrever
+// function enviarRespostasAvaliacao() {
+//     AvaliacoesHandlers.enviarRespostas(window.avaliacaoAtual, window.currentUser);
+// }
 
 window.respostasAvaliacao = AvaliacoesHandlers.respostasAvaliacao;

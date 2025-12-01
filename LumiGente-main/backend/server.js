@@ -24,8 +24,18 @@ app.use(cors({
     credentials: true,
     origin: process.env.CORS_ORIGIN || '*'
 }));
+
+// Log ANTES de qualquer processamento
+app.use((req, res, next) => {
+    if (req.method === 'POST' && req.url.includes('/external-users')) {
+        console.log('🔴 [SERVER-RAW] Requisição POST recebida:', req.method, req.url);
+    }
+    next();
+});
+
 app.use(express.json({ limit: process.env.BODY_PARSER_LIMIT || '10mb' }));
-app.use(sanitizeInput); // Sanitizar inputs
+// Sanitize desabilitado globalmente - aplicar por rota se necessário
+// app.use(sanitizeInput);
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: process.env.SESSION_RESAVE === 'true',
@@ -48,6 +58,12 @@ app.use('/api', apiLimiter);
 
 // Carregar todas as rotas da aplicação
 app.use('/api', allRoutes);
+
+// Rota de teste
+app.post('/api/test', (req, res) => {
+    console.log('✅ [TEST] Rota de teste funcionando!');
+    res.json({ success: true, message: 'Teste OK' });
+});
 
 // Rota principal que redireciona para o login ou para a aplicação
 app.get('/', (req, res) => {
@@ -78,6 +94,11 @@ async function startServer() {
 
         // Agendar tarefas recorrentes
         scheduleJobs();
+        
+        // Iniciar job de notificações de pesquisas
+        const { startSurveyNotificationJob, ensureSurveyNotificationLogExists } = require('./jobs/surveyNotificationJob');
+        await ensureSurveyNotificationLogExists();
+        startSurveyNotificationJob();
 
         app.listen(PORT, () => {
             console.log(`📱 Acesse: http://localhost:${PORT}`);

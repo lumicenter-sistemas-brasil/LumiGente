@@ -261,6 +261,16 @@
                     </svg>
                     Avaliações
                 </button>
+                <button class="nav-item" data-tab="external-users" id="external-users-tab" style="display: none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    Usuários Externos
+                </button>
                 <button class="nav-item" data-tab="historico" id="historico-tab">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
@@ -1262,42 +1272,28 @@
 
                 <!-- Avaliações -->
                 <div id="avaliacoes-content" class="tab-content hidden">
-                    <div class="card">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <div>
-                                <h3 style="margin: 0;">
-                                    <i data-lucide="clipboard-check" style="color: #3b82f6;"></i>
-                                    Avaliações
-                                </h3>
-                                <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 14px;">Sistema de Avaliações - O
-                                    conteúdo será personalizado de acordo com seu setor e permissões.</p>
-                            </div>
+                    <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 1rem;">
+                        <!-- Botão Editar Templates - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
+                        <button class="btn btn-amber" id="btn-editar-templates"
+                            data-action="abrirModalEditarQuestionarios" style="display: none;">
+                            <i data-lucide="edit"></i>
+                            Editar Templates
+                        </button>
 
-                            <div style="display: flex; gap: 12px; align-items: center;">
-                                <!-- Botão Editar Templates - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
-                                <button class="btn btn-amber" id="btn-editar-templates"
-                                    data-action="abrirModalEditarQuestionarios" style="display: none;">
-                                    <i data-lucide="edit"></i>
-                                    Editar Templates
+                        <!-- Botões de alternância - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
+                        <div id="avaliacoes-toggle-buttons" style="display: none;">
+                            <div class="btn-group"
+                                style="display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 8px;">
+                                <button class="btn-toggle active" data-view="minhas" data-action="toggleAvaliacoesView"
+                                    data-param="minhas">
+                                    <i data-lucide="user"></i>
+                                    Minhas Avaliações
                                 </button>
-
-                                <!-- Botões de alternância - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
-                                <div id="avaliacoes-toggle-buttons" style="display: none;">
-                                    <div class="btn-group"
-                                        style="display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 8px;">
-                                        <button class="btn-toggle active" data-view="minhas"
-                                            data-action="toggleAvaliacoesView" data-param="minhas">
-                                            <i data-lucide="user"></i>
-                                            Minhas Avaliações
-                                        </button>
-                                        <button class="btn-toggle" data-view="todas" data-action="toggleAvaliacoesView"
-                                            data-param="todas">
-                                            <i data-lucide="list"></i>
-                                            Todas as Avaliações
-                                        </button>
-                                    </div>
-                                </div>
+                                <button class="btn-toggle" data-view="todas" data-action="toggleAvaliacoesView"
+                                    data-param="todas">
+                                    <i data-lucide="list"></i>
+                                    Todas as Avaliações
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1330,6 +1326,65 @@
                                     <p style="color: #9ca3af;">Lista completa de todas as avaliações da empresa.</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usuários Externos -->
+                <div id="external-users-content" class="tab-content hidden">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="margin: 0;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                    <circle cx="9" cy="7" r="4" />
+                                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                </svg>
+                                Usuários Externos
+                            </h3>
+                            <button class="btn btn-amber" id="external-users-add-btn">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                Novo Usuário Externo
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+                            <button class="filter-btn" data-filter="active" onclick="ExternalUsers.setFilter('active')" style="padding: 8px 16px; border: none; background: #f3f4f6; color: #6b7280; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s ease;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>
+                                Ativos
+                            </button>
+                            <button class="filter-btn" data-filter="inactive" onclick="ExternalUsers.setFilter('inactive')" style="padding: 8px 16px; border: none; background: #f3f4f6; color: #6b7280; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s ease;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                                Inativos
+                            </button>
+                            <button class="filter-btn" data-filter="all" onclick="ExternalUsers.setFilter('all')" style="padding: 8px 16px; border: none; background: #dbeafe; color: #1e40af; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s ease;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                Todos
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>CPF</th>
+                                        <th>Email</th>
+                                        <th>Nome</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="external-users-table-body">
+                                    <tr>
+                                        <td colspan="5" style="text-align: center; padding: 2rem;">
+                                            <div class="spinner"></div>
+                                            Carregando...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -1617,12 +1672,8 @@
                                     <h3><i data-lucide="goal"></i> Objetivos</h3>
                                     <p>Visualize e filtre todos os objetivos cadastrados no sistema.</p>
                                 </div>
-                                <button type="button" class="btn btn-secondary" id="overview-objetivos-refresh">
-                                    <i data-lucide="refresh-cw"></i>
-                                    Atualizar
-                                </button>
                             </div>
-                            <div class="overview-filter-row">
+                            <div class="historico-filters-container">
                                 <div class="form-group">
                                     <label>Pesquisar</label>
                                     <input type="text" class="form-input" id="overview-objetivos-search"
@@ -1654,11 +1705,18 @@
                                     <input type="date" class="form-input" id="overview-objetivos-date-end">
                                 </div>
                                 <div class="form-group historico-actions-group">
-                                    <label style="opacity: 0">Ações</label>
-                                    <button type="button" class="btn-clear-filters" id="overview-objetivos-clear">
-                                        <i data-lucide="x-circle"></i>
-                                        Limpar
-                                    </button>
+                                    <label style="opacity: 0;">Ações</label>
+                                    <div class="historico-actions-buttons">
+                                        <button type="button" class="btn btn-secondary btn-sm"
+                                            id="overview-objetivos-refresh">
+                                            <i data-lucide="refresh-cw"></i>
+                                            Atualizar
+                                        </button>
+                                        <button type="button" class="btn-clear-filters" id="overview-objetivos-clear">
+                                            <i data-lucide="x-circle"></i>
+                                            Limpar
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="historico-table-container">
@@ -1694,10 +1752,6 @@
                                     <p>Acompanhe todos os feedbacks enviados no sistema e visualize as conversas
                                         completas.</p>
                                 </div>
-                                <button type="button" class="btn btn-secondary" id="overview-feedbacks-refresh">
-                                    <i data-lucide="refresh-cw"></i>
-                                    Atualizar
-                                </button>
                             </div>
                             <div class="overview-filter-row">
                                 <div class="form-group">
@@ -1745,10 +1799,17 @@
                                 </div>
                                 <div class="form-group historico-actions-group">
                                     <label style="opacity: 0">Ações</label>
-                                    <button type="button" class="btn-clear-filters" id="overview-feedbacks-clear">
-                                        <i data-lucide="x-circle"></i>
-                                        Limpar
-                                    </button>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button type="button" class="btn btn-secondary btn-sm"
+                                            id="overview-feedbacks-refresh">
+                                            <i data-lucide="refresh-cw"></i>
+                                            Atualizar
+                                        </button>
+                                        <button type="button" class="btn-clear-filters" id="overview-feedbacks-clear">
+                                            <i data-lucide="x-circle"></i>
+                                            Limpar
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="historico-table-container">
@@ -1784,10 +1845,6 @@
                                     <h3><i data-lucide="medal"></i> Reconhecimentos</h3>
                                     <p>Consulte todos os reconhecimentos enviados entre os colaboradores.</p>
                                 </div>
-                                <button type="button" class="btn btn-secondary" id="overview-recognitions-refresh">
-                                    <i data-lucide="refresh-cw"></i>
-                                    Atualizar
-                                </button>
                             </div>
                             <div class="overview-filter-row">
                                 <div class="form-group">
@@ -1816,10 +1873,18 @@
                                 </div>
                                 <div class="form-group historico-actions-group">
                                     <label style="opacity: 0">Ações</label>
-                                    <button type="button" class="btn-clear-filters" id="overview-recognitions-clear">
-                                        <i data-lucide="x-circle"></i>
-                                        Limpar
-                                    </button>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button type="button" class="btn btn-secondary btn-sm"
+                                            id="overview-recognitions-refresh">
+                                            <i data-lucide="refresh-cw"></i>
+                                            Atualizar
+                                        </button>
+                                        <button type="button" class="btn-clear-filters"
+                                            id="overview-recognitions-clear">
+                                            <i data-lucide="x-circle"></i>
+                                            Limpar
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="historico-table-container">
@@ -1853,10 +1918,6 @@
                                     <h3><i data-lucide="smile"></i> Humor do Dia</h3>
                                     <p>Acompanhe as respostas de humor registradas pelos colaboradores.</p>
                                 </div>
-                                <button type="button" class="btn btn-secondary" id="overview-humor-refresh">
-                                    <i data-lucide="refresh-cw"></i>
-                                    Atualizar
-                                </button>
                             </div>
                             <div class="overview-filter-row">
                                 <div class="form-group">
@@ -1890,10 +1951,17 @@
                                 </div>
                                 <div class="form-group historico-actions-group">
                                     <label style="opacity: 0">Ações</label>
-                                    <button type="button" class="btn-clear-filters" id="overview-humor-clear">
-                                        <i data-lucide="x-circle"></i>
-                                        Limpar
-                                    </button>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button type="button" class="btn btn-secondary btn-sm"
+                                            id="overview-humor-refresh">
+                                            <i data-lucide="refresh-cw"></i>
+                                            Atualizar
+                                        </button>
+                                        <button type="button" class="btn-clear-filters" id="overview-humor-clear">
+                                            <i data-lucide="x-circle"></i>
+                                            Limpar
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="historico-table-container">
@@ -2787,10 +2855,7 @@
                 </div>
 
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" data-action="fecharModalEditarQuestionarios">
-                        Cancelar
-                    </button>
-                    <button type="button" class="btn btn-amber" data-action="salvarQuestionario">
+                    <button type="button" class="btn btn-amber" onclick="AvaliacoesTemplates.salvarAlteracoes()">
                         <i data-lucide="save"></i>
                         Salvar Alterações
                     </button>
@@ -2856,11 +2921,8 @@
                 </div>
 
                 <div class="modal-actions" id="acoes-avaliacao">
-                    <button type="button" class="btn btn-secondary" data-action="fecharModalResponderAvaliacao">
-                        Fechar
-                    </button>
                     <button type="button" class="btn btn-amber" id="btn-enviar-avaliacao"
-                        data-action="enviarRespostasAvaliacao">
+                        onclick="enviarRespostasAvaliacao()">
                         <i data-lucide="send"></i>
                         Enviar Respostas
                     </button>
@@ -2908,70 +2970,224 @@
         </div>
     </div>
 
-    <!-- Modal de Edição de Pergunta Individual -->
-    <div id="editar-pergunta-modal" class="modal-overlay hidden">
+    <!-- Modal de Confirmação de Descartar Alterações -->
+    <div id="confirmar-descartar-alteracoes-modal" class="modal-overlay hidden">
+        <div class="modal modal-confirmacao">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>
+                        <i data-lucide="alert-triangle"></i>
+                        Descartar Alterações
+                    </h3>
+                </div>
+                <div style="padding: 24px; text-align: center;">
+                    <p style="color: #6b7280; font-size: 15px; margin: 0;">
+                        Existem alterações não salvas. Deseja realmente descartar todas as alterações?
+                    </p>
+                </div>
+                <div class="modal-actions" style="display: flex; gap: 12px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="AvaliacoesTemplates.cancelarDescarte()">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" style="flex: 1;" onclick="AvaliacoesTemplates.confirmarDescarte()">
+                        <i data-lucide="trash-2"></i>
+                        Descartar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão de Pergunta -->
+    <div id="confirmar-exclusao-pergunta-modal" class="modal-overlay hidden">
+        <div class="modal modal-confirmacao">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>
+                        <i data-lucide="alert-triangle"></i>
+                        Confirmar Exclusão
+                    </h3>
+                </div>
+                <div style="padding: 24px; text-align: center;">
+                    <p style="color: #6b7280; font-size: 15px; margin: 0;">
+                        Tem certeza que deseja excluir esta pergunta? Esta ação não poderá ser desfeita após salvar as alterações.
+                    </p>
+                </div>
+                <div class="modal-actions" style="display: flex; gap: 12px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="AvaliacoesTemplates.cancelarExclusaoPergunta()">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" style="flex: 1;" onclick="AvaliacoesTemplates.confirmarExclusaoPergunta()">
+                        <i data-lucide="trash-2"></i>
+                        Excluir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Nova/Editar Pergunta -->
+    <div id="modal-pergunta-avaliacao" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-content">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h3 style="margin: 0;" id="titulo-modal-pergunta">
                         <i data-lucide="help-circle"></i>
-                        Editar Pergunta
+                        Nova Pergunta
                     </h3>
-                    <button type="button" data-action="fecharModalEditarPergunta"
+                    <button type="button" onclick="AvaliacoesTemplates.fecharModalPergunta()"
                         style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                         <i data-lucide="x" style="font-size: 22px;"></i>
                     </button>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Tipo de Pergunta</label>
-                    <select class="form-select" id="pergunta-tipo" onchange="atualizarCamposPergunta()">
-                        <option value="texto">Texto Livre</option>
-                        <option value="multipla_escolha">Múltipla Escolha</option>
-                        </replace>
+                    <label class="form-label">Texto da Pergunta *</label>
+                    <textarea class="form-textarea" id="input-pergunta-texto" placeholder="Digite a pergunta..."
+                        rows="3"></textarea>
+                </div>
 
-                        <!-- Scripts principais -->
-                        <!-- Críticos -->
-                        <script src="../js/modules/shared/icons.js"></script>
-                        <script src="../js/modules/shared/state.js"></script>
-                        <script src="../js/modules/shared/api.js"></script>
-                        <script src="../js/modules/core/auth.js"></script>
-                        <script src="../js/modules/shared/notifications-manager.js"></script>
-                        <script src="../js/modules/shared/email-popup.js"></script>
-                        <script src="../js/modules/shared/event-handlers.js"></script>
-                        <script src="../js/modules/shared/inline-handlers.js"></script>
-                        <script src="../js/modules/tabs/dashboard.js"></script>
-                        <script src="../js/modules/core/app.js"></script>
-                        <script src="../js/modules/shared/lucide-init.js"></script>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Pergunta *</label>
+                        <select class="form-select" id="input-tipo-pergunta"
+                            onchange="AvaliacoesTemplates.toggleCamposEscala()">
+                            <option value="texto">Texto Livre</option>
+                            <option value="multipla_escolha">Múltipla Escolha</option>
+                            <option value="escala">Escala</option>
+                            <option value="sim_nao">Sim/Não</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Obrigatória</label>
+                        <select class="form-select" id="input-obrigatoria">
+                            <option value="true">Sim</option>
+                            <option value="false">Não</option>
+                        </select>
+                    </div>
+                </div>
 
-                        <!-- Diferidos -->
-                        <script src="../js/modules/shared/modal.js" defer></script>
-                        <script src="../js/modules/shared/users.js" defer></script>
-                        <script src="../js/modules/shared/notifications.js" defer></script>
-                        <script src="../js/modules/tabs/feedbacks.js" defer></script>
-                        <script src="../js/modules/tabs/recognitions.js" defer></script>
-                        <script src="../js/modules/tabs/team.js" defer></script>
-                        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
-                        <script src="../js/modules/tabs/analytics.js" defer></script>
-                        <script src="../js/modules/tabs/humor.js" defer></script>
-                        <script src="../js/modules/tabs/objetivos.js" defer></script>
-                        <script src="../js/modules/tabs/pesquisas.js" defer></script>
-                        <script src="../js/modules/tabs/avaliacoes.js" defer></script>
-                        <script src="../js/modules/tabs/historico.js" defer></script>
-                        <script src="../js/modules/tabs/configuracoes.js" defer></script>
-                        <script src="../js/modules/shared/feedback-chat.js" defer></script>
-                        <script src="../js/modules/utils/cache-manager.js" defer></script>
-                        <script src="../js/modules/utils/historico-config.js" defer></script>
-                        <script src="../js/modules/historico/permissions.js" defer></script>
-                        <script src="../js/modules/historico/filters.js" defer></script>
-                        <script src="../js/modules/historico/renderer.js" defer></script>
-                        <script src="../js/modules/historico/export.js" defer></script>
-                        <script src="../js/historico-manager.js" defer></script>
-                        <script src="../js/modules/avaliacoes/formatter.js" defer></script>
-                        <script src="../js/modules/avaliacoes/renderer.js" defer></script>
-                        <script src="../js/modules/avaliacoes/handlers.js" defer></script>
-                        <script src="../js/modules/avaliacoes/loader.js" defer></script>
-                        <script src="../js/modules/shared/xlsx-loader.js" defer></script>
+                <!-- Campos específicos para Múltipla Escolha -->
+                <div id="campos-multipla-escolha" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Opções de Resposta</label>
+                        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                            <input type="text" class="form-input" id="nova-opcao-input" placeholder="Digite uma opção..." style="flex: 1;">
+                            <button type="button" class="btn btn-secondary" onclick="AvaliacoesTemplates.adicionarOpcao()">
+                                <i data-lucide="plus"></i>
+                                Adicionar
+                            </button>
+                        </div>
+                        <div id="lista-opcoes-multipla" style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Opções serão renderizadas aqui -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campos específicos para Escala -->
+                <div id="campos-escala" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Valor Mínimo</label>
+                            <input type="number" class="form-input" id="input-escala-minima" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Valor Máximo</label>
+                            <input type="number" class="form-input" id="input-escala-maxima" value="5" min="2">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Label Mínimo (opcional)</label>
+                            <input type="text" class="form-input" id="input-escala-label-minima"
+                                placeholder="Ex: Discordo totalmente">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Label Máximo (opcional)</label>
+                            <input type="text" class="form-input" id="input-escala-label-maxima"
+                                placeholder="Ex: Concordo totalmente">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="AvaliacoesTemplates.fecharModalPergunta()">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-amber" onclick="AvaliacoesTemplates.salvarPergunta()">
+                        <i data-lucide="save"></i>
+                        Salvar Pergunta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modais de Usuários Externos -->
+    <div id="external-users-create-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> Novo Usuário Externo</h3>
+                    <button type="button" onclick="ExternalUsers.closeModal('external-users-create-modal')" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';" onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button>
+                </div>
+                <div class="form-group"><label class="form-label">CPF *</label><input type="text" class="form-input" id="create-cpf" placeholder="000.000.000-00" maxlength="14"><span id="create-cpf-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Nome Completo *</label><input type="text" class="form-input" id="create-nome" placeholder="Digite o nome completo"><span id="create-nome-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input" id="create-email" placeholder="email@exemplo.com"><span id="create-email-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Senha *</label><input type="password" class="form-input" id="create-senha" placeholder="Mínimo 6 caracteres"><span id="create-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" id="create-is-active" checked style="width: 18px; height: 18px; cursor: pointer;"><span>Usuário ativo</span></label></div>
+                <div class="modal-actions"><button type="button" class="btn btn-amber" id="create-submit-btn" onclick="ExternalUsers.handleCreate()" style="width: 100%;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg> Cadastrar</button></div>
+            </div>
+        </div>
+    </div>
+    <div id="external-users-edit-modal" class="modal-overlay hidden"><div class="modal"><div class="modal-content"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h3 style="margin: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editar Usuário Externo</h3><button type="button" onclick="ExternalUsers.closeModal('external-users-edit-modal')" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';" onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button></div><div class="form-group"><label class="form-label">Nome Completo *</label><input type="text" class="form-input" id="edit-nome" placeholder="Digite o nome completo"><span id="edit-nome-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div><div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input" id="edit-email" placeholder="email@exemplo.com"><span id="edit-email-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div><div class="form-group"><label class="form-label">Nova Senha (deixe em branco para manter)</label><input type="password" class="form-input" id="edit-senha" placeholder="Mínimo 6 caracteres"><span id="edit-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div><div class="modal-actions"><button type="button" class="btn btn-amber" id="edit-submit-btn" onclick="ExternalUsers.handleEdit()" style="width: 100%;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg> Salvar</button></div></div></div></div>
+    <div id="external-users-delete-modal" class="modal-overlay hidden"><div class="modal"><div class="modal-content"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h3 style="margin: 0; color: #dc2626;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Desativar Usuário</h3><button type="button" onclick="ExternalUsers.closeModal('external-users-delete-modal')" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';" onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button></div><p id="delete-message" style="color: #6b7280; margin-bottom: 20px;"></p><div class="modal-actions"><button type="button" class="btn btn-danger" id="delete-confirm-btn" onclick="ExternalUsers.handleDelete()" style="width: 100%;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Desativar</button></div></div></div></div>
+    <div id="external-users-activate-modal" class="modal-overlay hidden"><div class="modal"><div class="modal-content"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h3 style="margin: 0; color: #10b981;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Reativar Usuário</h3><button type="button" onclick="ExternalUsers.closeModal('external-users-activate-modal')" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';" onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button></div><p id="activate-message" style="color: #6b7280; margin-bottom: 20px;"></p><div class="modal-actions"><button type="button" class="btn btn-success" id="activate-confirm-btn" onclick="ExternalUsers.handleActivate()" style="width: 100%;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Reativar</button></div></div></div></div>
+
+    <!-- Scripts principais -->
+    <!-- Críticos -->
+    <script src="../js/modules/shared/icons.js"></script>
+    <script src="../js/modules/shared/state.js"></script>
+    <script src="../js/modules/shared/api.js"></script>
+    <script src="../js/modules/core/auth.js"></script>
+    <script src="../js/modules/shared/notifications-manager.js"></script>
+    <script src="../js/modules/shared/email-popup.js"></script>
+    <script src="../js/modules/shared/event-handlers.js"></script>
+    <script src="../js/modules/shared/inline-handlers.js"></script>
+    <script src="../js/modules/tabs/dashboard.js"></script>
+    <script src="../js/modules/core/app.js"></script>
+    <script src="../js/modules/shared/lucide-init.js"></script>
+
+    <!-- Diferidos -->
+    <script src="../js/modules/shared/modal.js" defer></script>
+    <script src="../js/modules/shared/users.js" defer></script>
+    <script src="../js/modules/shared/notifications.js" defer></script>
+    <script src="../js/modules/tabs/feedbacks.js" defer></script>
+    <script src="../js/modules/tabs/recognitions.js" defer></script>
+    <script src="../js/modules/tabs/team.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+    <script src="../js/modules/tabs/analytics.js" defer></script>
+    <script src="../js/modules/tabs/humor.js" defer></script>
+    <script src="../js/modules/tabs/objetivos.js" defer></script>
+    <script src="../js/modules/tabs/pesquisas.js" defer></script>
+    <script src="../js/modules/tabs/avaliacoes.js" defer></script>
+    <script src="../js/modules/tabs/external-users.js" defer></script>
+    <script src="../js/modules/tabs/historico.js" defer></script>
+    <script src="../js/modules/tabs/configuracoes.js" defer></script>
+    <script src="../js/modules/shared/feedback-chat.js" defer></script>
+    <script src="../js/modules/utils/cache-manager.js" defer></script>
+    <script src="../js/modules/utils/historico-config.js" defer></script>
+    <script src="../js/modules/historico/permissions.js" defer></script>
+    <script src="../js/modules/historico/filters.js" defer></script>
+    <script src="../js/modules/historico/renderer.js" defer></script>
+    <script src="../js/modules/historico/export.js" defer></script>
+    <script src="../js/historico-manager.js" defer></script>
+    <script src="../js/modules/avaliacoes/formatter.js" defer></script>
+    <script src="../js/modules/avaliacoes/renderer.js" defer></script>
+    <script src="../js/modules/avaliacoes/handlers.js" defer></script>
+    <script src="../js/modules/avaliacoes/loader.js" defer></script>
+    <script src="../js/modules/tabs/avaliacoes-templates.js" defer></script>
+    <script src="../js/modules/shared/xlsx-loader.js" defer></script>
 </body>
 
 </html>

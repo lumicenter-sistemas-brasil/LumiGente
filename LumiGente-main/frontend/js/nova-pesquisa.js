@@ -60,6 +60,7 @@ class NovaPesquisa {
         if (!this.filtros.departamentos || this.filtros.departamentos.length === 0) return;
 
         this.allDepartamentos = this.filtros.departamentos;
+        console.log('Departamentos carregados:', this.allDepartamentos);
         this.filterDepartamentos('');
     }
 
@@ -68,12 +69,17 @@ class NovaPesquisa {
         select.innerHTML = '<option value="">Selecione um departamento...</option>';
         
         let departamentosFiltrados = this.allDepartamentos;
-        if (filialCodigo) {
-            departamentosFiltrados = this.allDepartamentos.filter(d => d.filial === filialCodigo);
+        if (filialCodigo && filialCodigo.trim() !== '') {
+            // Quando há filtro de filial, mostrar apenas dessa filial + departamentos sem filial
+            departamentosFiltrados = this.allDepartamentos.filter(d => 
+                d.filial === filialCodigo || d.filial === 'SEM FILIAL' || !d.filial
+            );
         }
         
+        console.log('Departamentos filtrados:', departamentosFiltrados);
+        
         const options = departamentosFiltrados.map(d => 
-            `<option value="${d.departamento_unico}" data-nome="${d.nome}" data-filial="${d.filial}">${d.nome} (${d.filial})</option>`
+            `<option value="${d.departamento_unico}" data-nome="${d.nome}" data-filial="${d.filial || 'SEM FILIAL'}">${d.nome}${d.filial && d.filial !== 'SEM FILIAL' ? ' (' + d.filial + ')' : ''}</option>`
         ).join('');
         
         select.innerHTML += options;
@@ -179,7 +185,7 @@ class NovaPesquisa {
                 </button>
             </div>
         `;
-        
+
         container.insertAdjacentHTML('beforeend', optionHtml);
     }
 

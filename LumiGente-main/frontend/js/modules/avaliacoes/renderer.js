@@ -123,8 +123,11 @@ const AvaliacoesRenderer = {
         const container = document.getElementById('respostas-avaliacao');
         const { minhasRespostas, respostasOutraParte, perguntas } = dados;
         
-        const eParticipante = avaliacaoAtual.UserId === currentUser.userId || 
-                             avaliacaoAtual.GestorId === currentUser.userId;
+        const avaliacaoAtual = Avaliacoes?.state?.avaliacaoAtual;
+        const currentUser = State?.getUser();
+        const eParticipante = avaliacaoAtual && currentUser && 
+                             (avaliacaoAtual.UserId === currentUser.userId || 
+                              avaliacaoAtual.GestorId === currentUser.userId);
         const jaRespondeu = minhasRespostas && minhasRespostas.length > 0;
         
         if (eParticipante && !jaRespondeu) {

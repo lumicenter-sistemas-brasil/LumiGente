@@ -83,4 +83,34 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof Configuracoes !== 'undefined') Configuracoes.cancelReset();
         });
     }
+
+    // Delegação de eventos para botões com data-action
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
+
+        const action = target.getAttribute('data-action');
+        const param = target.getAttribute('data-param');
+
+        // Avaliações - Templates
+        if (action === 'abrirModalEditarQuestionarios' && typeof AvaliacoesTemplates !== 'undefined') {
+            AvaliacoesTemplates.abrirModalEdicao();
+        }
+        if (action === 'fecharModalEditarQuestionarios' && typeof AvaliacoesTemplates !== 'undefined') {
+            AvaliacoesTemplates.fecharModalEdicao();
+        }
+        if (action === 'selecionarTemplateEdicao' && typeof AvaliacoesTemplates !== 'undefined') {
+            AvaliacoesTemplates.selecionarTemplate(param);
+        }
+        if (action === 'adicionarNovaPergunta' && typeof AvaliacoesTemplates !== 'undefined') {
+            AvaliacoesTemplates.abrirModalNovaPergunta();
+        }
+        if (action === 'fecharModalEditarPergunta' && typeof AvaliacoesTemplates !== 'undefined') {
+            AvaliacoesTemplates.fecharModalPergunta();
+        }
+        if (action === 'salvarQuestionario' && typeof AvaliacoesTemplates !== 'undefined') {
+            alert('As alterações foram salvas automaticamente ao editar cada pergunta.');
+            AvaliacoesTemplates.fecharModalEdicao();
+        }
+    });
 });

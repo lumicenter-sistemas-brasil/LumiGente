@@ -314,6 +314,7 @@
     position: relative;
     width: 100%;
     max-width: 100%;
+    box-sizing: border-box;
 }
 
 .tab-content {
@@ -421,6 +422,22 @@
 .sidebar-overlay.show {
     display: block;
     opacity: 1;
+}
+
+/* Telas médias menores (até 832px) */
+@media (max-width: 832px) {
+    .content {
+        padding: 16px;
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
+    
+    .tab-content {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
 }
 
 /* Mobile e telas pequenas (até 768px) */

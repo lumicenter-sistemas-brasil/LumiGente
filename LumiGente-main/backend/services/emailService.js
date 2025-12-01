@@ -1106,3 +1106,360 @@ exports.sendExternalUserConfirmationEmail = async (email, cpf, userName) => {
         throw error;
     }
 };
+
+
+/**
+ * Envia email quando avaliação muda de Agendada para Pendente
+ */
+exports.sendAvaliacaoAbertaEmail = async (email, userName, tipoAvaliacao, dataLimite) => {
+    if (!transporter) {
+        throw new Error('Serviço de email não configurado');
+    }
+
+    const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
+    const safeUserName = escapeHtml(userName);
+    const safeTipo = escapeHtml(tipoAvaliacao);
+    const safeDataLimite = escapeHtml(dataLimite);
+
+    const mailOptions = {
+        from: `"LumiGente" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `Avaliação de ${safeTipo} Disponível - LumiGente`,
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="padding:40px 30px 0;text-align:center;">
+                            <img src="cid:logo" alt="LumiGente" style="max-width:180px;height:auto;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <div style="text-align:center;margin-bottom:20px;">
+                                <div style="display:inline-block;background:#3b82f6;color:#fff;padding:8px 16px;border-radius:20px;font-weight:600;font-size:14px;">📋 Avaliação Disponível</div>
+                            </div>
+                            <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">
+                                Olá, <strong>${safeUserName}</strong>!
+                            </p>
+                            <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                                Sua avaliação de <strong>${safeTipo}</strong> está disponível para resposta no LumiGente.
+                            </p>
+                            <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:16px;margin:24px 0;border-radius:4px;">
+                                <p style="color:#1e40af;font-size:14px;margin:0 0 8px 0;"><strong>Prazo para resposta:</strong></p>
+                                <p style="color:#1e3a8a;font-size:16px;font-weight:600;margin:0;">${safeDataLimite}</p>
+                            </div>
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="${appUrl}/pages/index.html" style="display:inline-block;background:#3b82f6;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Responder Avaliação</a>
+                            </div>
+                            <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:20px 0 0 0;text-align:center;">
+                                Acesse o sistema para responder sua avaliação dentro do prazo.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f9fafb;padding:30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="color:#6b7280;font-size:13px;margin:0 0 10px 0;">© ${new Date().getFullYear()} LumiGente - Sistema de Gestão de Pessoas</p>
+                            <p style="color:#9ca3af;font-size:12px;margin:0;">Este é um email automático, por favor não responda.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `,
+        attachments: [{
+            filename: 'logo.png',
+            path: __dirname + '/../assets/logo.png',
+            cid: 'logo'
+        }]
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log('✅ Email de avaliação aberta enviado para:', email);
+    } catch (error) {
+        console.error('❌ Erro ao enviar email de avaliação aberta:', error.message);
+        throw error;
+    }
+};
+
+/**
+ * Envia email de lembrete 3 dias antes da avaliação expirar
+ */
+exports.sendAvaliacaoLembreteEmail = async (email, userName, tipoAvaliacao, dataLimite) => {
+    if (!transporter) {
+        throw new Error('Serviço de email não configurado');
+    }
+
+    const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
+    const safeUserName = escapeHtml(userName);
+    const safeTipo = escapeHtml(tipoAvaliacao);
+    const safeDataLimite = escapeHtml(dataLimite);
+
+    const mailOptions = {
+        from: `"LumiGente" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `⏰ Lembrete: Avaliação de ${safeTipo} Expira em Breve - LumiGente`,
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="padding:40px 30px 0;text-align:center;">
+                            <img src="cid:logo" alt="LumiGente" style="max-width:180px;height:auto;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <div style="text-align:center;margin-bottom:20px;">
+                                <div style="display:inline-block;background:#f59e0b;color:#fff;padding:8px 16px;border-radius:20px;font-weight:600;font-size:14px;">⏰ Lembrete de Avaliação</div>
+                            </div>
+                            <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">
+                                Olá, <strong>${safeUserName}</strong>!
+                            </p>
+                            <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                                Sua avaliação de <strong>${safeTipo}</strong> ainda não foi respondida e o prazo está próximo do vencimento.
+                            </p>
+                            <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;margin:24px 0;border-radius:4px;">
+                                <p style="color:#92400e;font-size:14px;font-weight:600;margin:0 0 8px 0;">⚠️ Prazo de resposta:</p>
+                                <p style="color:#78350f;font-size:16px;font-weight:600;margin:0;">${safeDataLimite}</p>
+                                <p style="color:#92400e;font-size:13px;margin:8px 0 0 0;">Faltam apenas 3 dias!</p>
+                            </div>
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="${appUrl}/pages/index.html" style="display:inline-block;background:#f59e0b;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Responder Agora</a>
+                            </div>
+                            <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:20px 0 0 0;text-align:center;">
+                                Não perca o prazo! Acesse o sistema e responda sua avaliação.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f9fafb;padding:30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="color:#6b7280;font-size:13px;margin:0 0 10px 0;">© ${new Date().getFullYear()} LumiGente - Sistema de Gestão de Pessoas</p>
+                            <p style="color:#9ca3af;font-size:12px;margin:0;">Este é um email automático, por favor não responda.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `,
+        attachments: [{
+            filename: 'logo.png',
+            path: __dirname + '/../assets/logo.png',
+            cid: 'logo'
+        }]
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log('✅ Email de lembrete de avaliação enviado para:', email);
+    } catch (error) {
+        console.error('❌ Erro ao enviar email de lembrete:', error.message);
+        throw error;
+    }
+};
+
+/**
+ * Envia email quando avaliação expira
+ */
+exports.sendAvaliacaoExpiradaEmail = async (email, userName, tipoAvaliacao) => {
+    if (!transporter) {
+        throw new Error('Serviço de email não configurado');
+    }
+
+    const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
+    const safeUserName = escapeHtml(userName);
+    const safeTipo = escapeHtml(tipoAvaliacao);
+
+    const mailOptions = {
+        from: `"LumiGente" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `Avaliação de ${safeTipo} Expirada - LumiGente`,
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="padding:40px 30px 0;text-align:center;">
+                            <img src="cid:logo" alt="LumiGente" style="max-width:180px;height:auto;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <div style="text-align:center;margin-bottom:20px;">
+                                <div style="display:inline-block;background:#ef4444;color:#fff;padding:8px 16px;border-radius:20px;font-weight:600;font-size:14px;">❌ Avaliação Expirada</div>
+                            </div>
+                            <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">
+                                Olá, <strong>${safeUserName}</strong>.
+                            </p>
+                            <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                                O prazo para responder sua avaliação de <strong>${safeTipo}</strong> expirou.
+                            </p>
+                            <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:16px;margin:24px 0;border-radius:4px;">
+                                <p style="color:#b91c1c;font-size:14px;line-height:1.6;margin:0;">
+                                    A avaliação não foi respondida dentro do prazo estabelecido. Entre em contato com o RH caso precise de mais informações.
+                                </p>
+                            </div>
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="${appUrl}/pages/index.html" style="display:inline-block;background:#6b7280;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Acessar Sistema</a>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f9fafb;padding:30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="color:#6b7280;font-size:13px;margin:0 0 10px 0;">© ${new Date().getFullYear()} LumiGente - Sistema de Gestão de Pessoas</p>
+                            <p style="color:#9ca3af;font-size:12px;margin:0;">Este é um email automático, por favor não responda.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `,
+        attachments: [{
+            filename: 'logo.png',
+            path: __dirname + '/../assets/logo.png',
+            cid: 'logo'
+        }]
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log('✅ Email de avaliação expirada enviado para:', email);
+    } catch (error) {
+        console.error('❌ Erro ao enviar email de avaliação expirada:', error.message);
+        throw error;
+    }
+};
+
+/**
+ * Envia email de notificação de pesquisa
+ */
+exports.sendSurveyNotificationEmail = async (email, userName, surveyTitle, surveyDescription, notificationType) => {
+    if (!transporter) {
+        throw new Error('Serviço de email não configurado');
+    }
+
+    const appUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
+    const safeUserName = escapeHtml(userName);
+    const safeTitle = escapeHtml(surveyTitle);
+    const safeDescription = surveyDescription ? escapeHtml(surveyDescription) : '';
+
+    let subject, badge, badgeColor, message;
+
+    if (notificationType === 'nova') {
+        subject = `Nova Pesquisa Disponível - LumiGente`;
+        badge = '📋 Nova Pesquisa';
+        badgeColor = '#3b82f6';
+        message = `Uma nova pesquisa está disponível para você responder no LumiGente.`;
+    } else if (notificationType === 'encerrando') {
+        subject = `⏰ Pesquisa Encerrando em Breve - LumiGente`;
+        badge = '⏰ Encerrando em Breve';
+        badgeColor = '#f59e0b';
+        message = `A pesquisa <strong>${safeTitle}</strong> encerra em breve. Não perca a oportunidade de participar!`;
+    }
+
+    const mailOptions = {
+        from: `"LumiGente" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: subject,
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="padding:40px 30px 0;text-align:center;">
+                            <img src="cid:logo" alt="LumiGente" style="max-width:180px;height:auto;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <div style="text-align:center;margin-bottom:20px;">
+                                <div style="display:inline-block;background:${badgeColor};color:#fff;padding:8px 16px;border-radius:20px;font-weight:600;font-size:14px;">${badge}</div>
+                            </div>
+                            <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">
+                                Olá, <strong>${safeUserName}</strong>!
+                            </p>
+                            <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
+                                ${message}
+                            </p>
+                            <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:16px;margin:24px 0;border-radius:4px;">
+                                <p style="color:#1e40af;font-size:16px;font-weight:600;margin:0 0 8px 0;">${safeTitle}</p>
+                                ${safeDescription ? `<p style="color:#1e3a8a;font-size:14px;margin:0;">${safeDescription}</p>` : ''}
+                            </div>
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="${appUrl}/pages/index.html" style="display:inline-block;background:${badgeColor};color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Responder Pesquisa</a>
+                            </div>
+                            <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:20px 0 0 0;text-align:center;">
+                                Acesse o sistema para participar da pesquisa.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f9fafb;padding:30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="color:#6b7280;font-size:13px;margin:0 0 10px 0;">© ${new Date().getFullYear()} LumiGente - Sistema de Gestão de Pessoas</p>
+                            <p style="color:#9ca3af;font-size:12px;margin:0;">Este é um email automático, por favor não responda.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `,
+        attachments: [{
+            filename: 'logo.png',
+            path: __dirname + '/../assets/logo.png',
+            cid: 'logo'
+        }]
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log('✅ Email de pesquisa enviado para:', email);
+    } catch (error) {
+        console.error('❌ Erro ao enviar email de pesquisa:', error.message);
+        throw error;
+    }
+};

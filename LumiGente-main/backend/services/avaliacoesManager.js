@@ -64,9 +64,9 @@ class AvaliacoesManager {
             for (const func of novosFuncionarios.recordset) {
                 const diasNaEmpresa = func.DiasNaEmpresa;
 
-                // Tentar buscar gestor atualizado (pois removemos o JOIN da query principal)
+                // Tentar buscar gestor atualizado
                 try {
-                    const gestorId = await this.buscarGestor(pool, func.Matricula);
+                    const gestorId = await this.buscarGestor(pool, func.Id);
                     if (gestorId) {
                         func.GestorId = gestorId;
                     }
@@ -74,23 +74,22 @@ class AvaliacoesManager {
                     console.warn(`⚠️ Não foi possível buscar gestor para ${func.NomeCompleto}: ${err.message}`);
                 }
 
-                // Verificar se deve criar avaliação de 45 dias
-                // Cria quando estiver entre 35 dias (10 antes) e 45 dias
-                if (diasNaEmpresa >= 35 && diasNaEmpresa <= 50) {
-                    const avaliacao45existente = await pool.request()
-                        .input('userId', sql.Int, func.Id)
-                        .input('tipoId', sql.Int, 1)
-                        .query('SELECT Id FROM Avaliacoes WHERE UserId = @userId AND TipoAvaliacaoId = @tipoId');
+                // Criar avaliações para colaboradores com menos de 90 dias
+                if (diasNaEmpresa < 90) {
+                    // Se tem menos de 45 dias, cria ambas as avaliações
+                    if (diasNaEmpresa < 45) {
+                        const avaliacao45existente = await pool.request()
+                            .input('userId', sql.Int, func.Id)
+                            .input('tipoId', sql.Int, 1)
+                            .query('SELECT Id FROM Avaliacoes WHERE UserId = @userId AND TipoAvaliacaoId = @tipoId');
 
-                    if (avaliacao45existente.recordset.length === 0) {
-                        await this.criarAvaliacao(func, 1);
-                        criadas45++;
+                        if (avaliacao45existente.recordset.length === 0) {
+                            await this.criarAvaliacao(func, 1);
+                            criadas45++;
+                        }
                     }
-                }
-
-                // Verificar se deve criar avaliação de 90 dias
-                // Cria quando estiver entre 80 dias (10 antes) e 90 dias
-                if (diasNaEmpresa >= 80 && diasNaEmpresa <= 100) {
+                    
+                    // Sempre cria avaliação de 90 dias para quem tem menos de 90 dias
                     const avaliacao90existente = await pool.request()
                         .input('userId', sql.Int, func.Id)
                         .input('tipoId', sql.Int, 2)
@@ -116,20 +115,26 @@ class AvaliacoesManager {
 
     /**
      * Cria uma nova entrada de avaliação para um funcionário.
-     * Abre 10 dias antes e fecha no dia exato (45 ou 90 dias).
+     * Abre 10 dias antes e expira no dia exato (45 ou 90 dias).
      */
     static async criarAvaliacao(funcionario, tipoAvaliacaoId) {
         const pool = await getDatabasePool();
         const diasPrazo = tipoAvaliacaoId === 1 ? 45 : 90;
         const diasAntecipacao = 10;
 
-        // Data de abertura: 10 dias antes do prazo
-        const dataAbertura = new Date(funcionario.DataAdmissao);
-        dataAbertura.setDate(dataAbertura.getDate() + diasPrazo - diasAntecipacao);
-
-        // Data limite: no dia exato do prazo
+        // Data limite (expiração): no dia exato que completa 45 ou 90 dias
         const dataLimite = new Date(funcionario.DataAdmissao);
         dataLimite.setDate(dataLimite.getDate() + diasPrazo);
+        
+        // Data de abertura: 10 dias antes da data limite
+        const dataAbertura = new Date(dataLimite);
+        dataAbertura.setDate(dataAbertura.getDate() - diasAntecipacao);
+
+        // Determinar status inicial: Pendente se já passou da data de abertura, senão Agendada
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        dataAbertura.setHours(0, 0, 0, 0);
+        const statusInicial = hoje >= dataAbertura ? 'Pendente' : 'Agendada';
 
         // Criar a avaliação
         const insertResult = await pool.request()
@@ -139,25 +144,24 @@ class AvaliacoesManager {
             .input('dataAdmissao', sql.Date, funcionario.DataAdmissao)
             .input('tipoId', sql.Int, tipoAvaliacaoId)
             .input('dataLimite', sql.Date, dataLimite)
+            .input('status', sql.VarChar, statusInicial)
             .query(`
                 INSERT INTO Avaliacoes (UserId, GestorId, Matricula, DataAdmissao, TipoAvaliacaoId, DataLimiteResposta, StatusAvaliacao, DataCriacao)
                 OUTPUT INSERTED.Id
-                VALUES (@userId, @gestorId, @matricula, @dataAdmissao, @tipoId, @dataLimite, 'Agendada', GETDATE())
+                VALUES (@userId, @gestorId, @matricula, @dataAdmissao, @tipoId, @dataLimite, @status, GETDATE())
             `);
 
         const avaliacaoId = insertResult.recordset[0].Id;
 
-        // Copiar as perguntas do template padrão para a avaliação (snapshot)
+        // Copiar perguntas do template padrão para criar snapshot da avaliação
+        const tabelaQuestionario = tipoAvaliacaoId === 1 ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
+        const tabelaOpcoes = tipoAvaliacaoId === 1 ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
+        
         const perguntas = await pool.request()
-            .input('tipoId', sql.Int, tipoAvaliacaoId)
-            .query(`
-                SELECT * FROM TemplatesPerguntasAvaliacao 
-                WHERE TipoAvaliacaoId = @tipoId AND Ativa = 1
-                ORDER BY Ordem
-            `);
+            .query(`SELECT * FROM ${tabelaQuestionario} ORDER BY Ordem`);
 
         for (const pergunta of perguntas.recordset) {
-            await pool.request()
+            const insertPergunta = await pool.request()
                 .input('avaliacaoId', sql.Int, avaliacaoId)
                 .input('pergunta', sql.NText, pergunta.Pergunta)
                 .input('tipoPergunta', sql.VarChar, pergunta.TipoPergunta)
@@ -171,9 +175,26 @@ class AvaliacoesManager {
                     INSERT INTO PerguntasAvaliacao 
                     (AvaliacaoId, Pergunta, TipoPergunta, Ordem, Obrigatoria, 
                      EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima, CriadoEm)
+                    OUTPUT INSERTED.Id
                     VALUES (@avaliacaoId, @pergunta, @tipoPergunta, @ordem, @obrigatoria,
                             @escalaMinima, @escalaMaxima, @escalaLabelMinima, @escalaLabelMaxima, GETDATE())
                 `);
+
+            const perguntaAvaliacaoId = insertPergunta.recordset[0].Id;
+
+            if (pergunta.TipoPergunta === 'multipla_escolha') {
+                const opcoes = await pool.request()
+                    .input('perguntaId', sql.Int, pergunta.Id)
+                    .query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId ORDER BY Ordem`);
+
+                for (const opcao of opcoes.recordset) {
+                    await pool.request()
+                        .input('perguntaAvaliacaoId', sql.Int, perguntaAvaliacaoId)
+                        .input('textoOpcao', sql.NVarChar, opcao.TextoOpcao)
+                        .input('ordem', sql.Int, opcao.Ordem)
+                        .query(`INSERT INTO OpcoesPerguntasAvaliacao (PerguntaAvaliacaoId, TextoOpcao, Ordem) VALUES (@perguntaAvaliacaoId, @textoOpcao, @ordem)`);
+                }
+            }
         }
 
         console.log(`-> Avaliação de ${diasPrazo} dias criada para: ${funcionario.NomeCompleto} (Fecha em: ${dataLimite.toLocaleDateString('pt-BR')})`);
@@ -183,25 +204,23 @@ class AvaliacoesManager {
      * Busca as avaliações associadas a um usuário (como avaliado ou avaliador).
      */
     static async buscarAvaliacoesUsuario(pool, userId, temPermissaoAdmin) {
-        let query = `
-            SELECT a.*, t.Nome as TipoAvaliacao, u.NomeCompleto, g.NomeCompleto as NomeGestor
+        const query = `
+            SELECT a.*, t.Nome as TipoAvaliacao, u.NomeCompleto, u.DescricaoDepartamento, g.NomeCompleto as NomeGestor
             FROM Avaliacoes a
             JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
             JOIN Users u ON a.UserId = u.Id
             LEFT JOIN Users g ON a.GestorId = g.Id
+            WHERE a.UserId = @userId OR a.GestorId = @userId
+            ORDER BY 
+                CASE a.StatusAvaliacao 
+                    WHEN 'Pendente' THEN 1 
+                    WHEN 'Agendada' THEN 2 
+                    WHEN 'Concluída' THEN 3 
+                    WHEN 'Expirada' THEN 4 
+                    ELSE 5 
+                END, 
+                a.DataLimiteResposta ASC
         `;
-        if (!temPermissaoAdmin) {
-            query += ` WHERE a.UserId = @userId OR a.GestorId = @userId`;
-        }
-        query += ` ORDER BY 
-            CASE a.StatusAvaliacao 
-                WHEN 'Pendente' THEN 1 
-                WHEN 'Agendada' THEN 2 
-                WHEN 'Concluída' THEN 3 
-                WHEN 'Expirada' THEN 4 
-                ELSE 5 
-            END, 
-            a.DataLimiteResposta ASC`;
 
         const result = await pool.request()
             .input('userId', sql.Int, userId)
@@ -224,12 +243,36 @@ class AvaliacoesManager {
     /**
      * Valida se um usuário pode responder a uma avaliação e retorna os dados da avaliação.
      */
-    static async validarPermissaoResposta(avaliacaoId, userId, tipoRespondente) {
-        const avaliacao = await this.getAvaliacao(avaliacaoId);
+    static async validarPermissaoResposta(pool, avaliacaoId, userId, tipoRespondente) {
+        console.log('🔍 Validando permissão - avaliacaoId:', avaliacaoId, 'userId:', userId, 'tipo:', tipoRespondente);
+        
+        const result = await pool.request()
+            .input('id', sql.Int, avaliacaoId)
+            .query('SELECT * FROM Avaliacoes WHERE Id = @id');
+        
+        const avaliacao = result.recordset[0];
+        console.log('📋 Avaliação encontrada:', avaliacao ? 'Sim' : 'Não');
 
         if (!avaliacao) {
             const err = new Error('Avaliação não encontrada');
             err.statusCode = 404;
+            throw err;
+        }
+        
+        if (tipoRespondente === 'colaborador' && avaliacao.RespostaColaboradorConcluida) {
+            const err = new Error('Você já respondeu esta avaliação.');
+            err.statusCode = 400;
+            throw err;
+        }
+        if (tipoRespondente === 'gestor' && avaliacao.RespostaGestorConcluida) {
+            const err = new Error('Você já respondeu esta avaliação.');
+            err.statusCode = 400;
+            throw err;
+        }
+        
+        if (avaliacao.StatusAvaliacao === 'Concluida' || avaliacao.StatusAvaliacao === 'Concluída') {
+            const err = new Error('Esta avaliação já foi concluída e não pode ser alterada.');
+            err.statusCode = 400;
             throw err;
         }
         if (avaliacao.StatusAvaliacao !== 'Pendente') {
@@ -243,17 +286,11 @@ class AvaliacoesManager {
             throw err;
         }
 
-        if (tipoRespondente === 'Colaborador' && avaliacao.UserId !== userId) {
+        if (tipoRespondente === 'colaborador' && avaliacao.UserId !== userId) {
             throw new Error('Permissão negada para responder como colaborador.');
         }
-        if (tipoRespondente === 'Gestor' && avaliacao.GestorId !== userId) {
+        if (tipoRespondente === 'gestor' && avaliacao.GestorId !== userId) {
             throw new Error('Permissão negada para responder como gestor.');
-        }
-        if (tipoRespondente === 'Colaborador' && avaliacao.RespostaColaboradorConcluida) {
-            throw new Error('Você já concluiu esta avaliação.');
-        }
-        if (tipoRespondente === 'Gestor' && avaliacao.RespostaGestorConcluida) {
-            throw new Error('Você já concluiu esta avaliação como gestor.');
         }
 
         return avaliacao;
@@ -264,10 +301,25 @@ class AvaliacoesManager {
      */
     static async buscarPerguntasAvaliacao(avaliacaoId) {
         const pool = await getDatabasePool();
-        const result = await pool.request()
+        
+        // Buscar perguntas do snapshot da avaliação
+        const perguntas = await pool.request()
             .input('avaliacaoId', sql.Int, avaliacaoId)
-            .query('SELECT * FROM PerguntasSalvasAvaliacao WHERE AvaliacaoId = @avaliacaoId ORDER BY Ordem');
-        return result.recordset;
+            .query('SELECT * FROM PerguntasAvaliacao WHERE AvaliacaoId = @avaliacaoId ORDER BY Ordem');
+        
+        // Para cada pergunta, buscar suas opções se for múltipla escolha
+        for (const pergunta of perguntas.recordset) {
+            if (pergunta.TipoPergunta === 'multipla_escolha') {
+                const opcoes = await pool.request()
+                    .input('perguntaId', sql.Int, pergunta.Id)
+                    .query('SELECT * FROM OpcoesPerguntasAvaliacao WHERE PerguntaAvaliacaoId = @perguntaId ORDER BY Ordem');
+                pergunta.Opcoes = opcoes.recordset;
+            } else {
+                pergunta.Opcoes = [];
+            }
+        }
+        
+        return perguntas.recordset;
     }
 
     /**
@@ -297,29 +349,47 @@ class AvaliacoesManager {
     /**
      * Salva uma resposta individual de uma avaliação no banco de dados.
      */
-    static async salvarRespostaAvaliacao(respostaData) {
-        const pool = await getDatabasePool();
+    static async salvarRespostaAvaliacao(pool, respostaData) {
         const { avaliacaoId, perguntaId, resposta, respondidoPor, tipoRespondente } = respostaData;
+        
+        // Buscar tipo da avaliação e texto da pergunta
+        const avaliacaoResult = await pool.request()
+            .input('id', sql.Int, avaliacaoId)
+            .query('SELECT TipoAvaliacaoId FROM Avaliacoes WHERE Id = @id');
+        
+        const tipoQuestionario = avaliacaoResult.recordset[0].TipoAvaliacaoId === 1 ? '45' : '90';
+        
+        // Buscar texto e tipo da pergunta
+        const perguntaResult = await pool.request()
+            .input('perguntaId', sql.Int, perguntaId)
+            .query('SELECT Pergunta, TipoPergunta FROM PerguntasAvaliacao WHERE Id = @perguntaId');
+        
+        const textoPergunta = perguntaResult.recordset[0]?.Pergunta || '';
+        const tipoPergunta = perguntaResult.recordset[0]?.TipoPergunta || 'texto';
 
         await pool.request()
             .input('avaliacaoId', sql.Int, avaliacaoId)
             .input('perguntaId', sql.Int, perguntaId)
+            .input('pergunta', sql.NText, textoPergunta)
+            .input('tipoPergunta', sql.VarChar, tipoPergunta)
             .input('resposta', sql.NText, resposta)
             .input('respondidoPor', sql.Int, respondidoPor)
             .input('tipoRespondente', sql.NVarChar, tipoRespondente)
+            .input('tipoQuestionario', sql.VarChar, tipoQuestionario)
             .query(`
-                INSERT INTO RespostasAvaliacoes (AvaliacaoId, PerguntaId, Resposta, RespondidoPor, TipoRespondente)
-                VALUES (@avaliacaoId, @perguntaId, @resposta, @respondidoPor, @tipoRespondente)
+                INSERT INTO RespostasAvaliacoes (AvaliacaoId, PerguntaId, Pergunta, TipoPergunta, Resposta, RespondidoPor, TipoRespondente, TipoQuestionario)
+                VALUES (@avaliacaoId, @perguntaId, @pergunta, @tipoPergunta, @resposta, @respondidoPor, @tipoRespondente, @tipoQuestionario)
             `);
     }
 
     /**
      * Marca a parte de uma avaliação (do colaborador ou do gestor) como concluída.
      */
-    static async concluirAvaliacao(avaliacaoId, tipoRespondente) {
-        const pool = await getDatabasePool();
-        let campoData = tipoRespondente === 'Colaborador' ? 'DataRespostaColaborador' : 'DataRespostaGestor';
-        let campoConcluida = tipoRespondente === 'Colaborador' ? 'RespostaColaboradorConcluida' : 'RespostaGestorConcluida';
+    static async concluirAvaliacao(pool, avaliacaoId, tipoRespondente) {
+        console.log('📝 Concluindo avaliação', avaliacaoId, 'para', tipoRespondente);
+        
+        let campoData = tipoRespondente === 'colaborador' ? 'DataRespostaColaborador' : 'DataRespostaGestor';
+        let campoConcluida = tipoRespondente === 'colaborador' ? 'RespostaColaboradorConcluida' : 'RespostaGestorConcluida';
 
         await pool.request()
             .input('id', sql.Int, avaliacaoId)
@@ -328,83 +398,53 @@ class AvaliacoesManager {
                 SET ${campoConcluida} = 1, ${campoData} = GETDATE()
                 WHERE Id = @id
             `);
-
+        
+        console.log('✅ Campo', campoConcluida, 'marcado como concluído');
+        
         const checkCompletion = await pool.request().input('id', sql.Int, avaliacaoId).query('SELECT RespostaColaboradorConcluida, RespostaGestorConcluida FROM Avaliacoes WHERE Id = @id');
+        
         if (checkCompletion.recordset[0].RespostaColaboradorConcluida && checkCompletion.recordset[0].RespostaGestorConcluida) {
-            await pool.request().input('id', sql.Int, avaliacaoId).query(`UPDATE Avaliacoes SET StatusAvaliacao = 'Concluída' WHERE Id = @id`);
+            await pool.request().input('id', sql.Int, avaliacaoId).query(`UPDATE Avaliacoes SET StatusAvaliacao = 'Concluida' WHERE Id = @id`);
+            console.log('✅ Ambas as partes responderam - Status alterado para Concluida');
         }
     }
 
     /**
      * Busca o questionário template padrão (45 ou 90 dias) para exibição.
      */
-    static async buscarQuestionarioPadrao(tipo) { // tipo '45' ou '90'
-        const pool = await getDatabasePool();
-        const tipoId = tipo === '45' ? 1 : 2;
+    static async buscarQuestionarioPadrao(pool, tipo) { // tipo '45' ou '90'
+        const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
+        const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
 
-        const result = await pool.request()
-            .input('tipoId', sql.Int, tipoId)
-            .query(`
-                SELECT * FROM TemplatesPerguntasAvaliacao 
-                WHERE TipoAvaliacaoId = @tipoId AND Ativa = 1
-                ORDER BY Ordem
-            `);
-        return result.recordset;
+        const perguntas = await pool.request()
+            .query(`SELECT * FROM ${tabelaQuestionario} ORDER BY Ordem`);
+        
+        for (const pergunta of perguntas.recordset) {
+            if (pergunta.TipoPergunta === 'multipla_escolha') {
+                const opcoes = await pool.request()
+                    .input('perguntaId', sql.Int, pergunta.Id)
+                    .query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId ORDER BY Ordem`);
+                pergunta.Opcoes = opcoes.recordset;
+            }
+        }
+        
+        return perguntas.recordset;
     }
 
     /**
      * Atualiza as perguntas de um questionário template padrão.
+     * Não usado mais - templates são gerenciados via CRUD nas tabelas QuestionarioPadrao45/90
      */
-    static async atualizarQuestionarioPadrao(tipo, perguntas) {
-        const pool = await getDatabasePool();
-        const tipoId = tipo === '45' ? 1 : 2;
-
-        const transaction = new sql.Transaction(pool);
-        try {
-            await transaction.begin();
-
-            // Remove perguntas antigas do template
-            await new sql.Request(transaction)
-                .input('tipoId', sql.Int, tipoId)
-                .query('DELETE FROM TemplatesPerguntasAvaliacao WHERE TipoAvaliacaoId = @tipoId');
-
-            // Insere novas perguntas
-            for (let i = 0; i < perguntas.length; i++) {
-                const p = perguntas[i];
-                await new sql.Request(transaction)
-                    .input('tipoId', sql.Int, tipoId)
-                    .input('pergunta', sql.NText, p.Pergunta)
-                    .input('tipoPergunta', sql.VarChar, p.TipoPergunta || 'texto')
-                    .input('ordem', sql.Int, i + 1)
-                    .input('obrigatoria', sql.Bit, p.Obrigatoria !== undefined ? p.Obrigatoria : 1)
-                    .input('escalaMinima', sql.Int, p.EscalaMinima || null)
-                    .input('escalaMaxima', sql.Int, p.EscalaMaxima || null)
-                    .input('escalaLabelMinima', sql.NVarChar, p.EscalaLabelMinima || null)
-                    .input('escalaLabelMaxima', sql.NVarChar, p.EscalaLabelMaxima || null)
-                    .query(`
-                        INSERT INTO TemplatesPerguntasAvaliacao 
-                        (TipoAvaliacaoId, Pergunta, TipoPergunta, Ordem, Obrigatoria,
-                         EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima, Ativa)
-                        VALUES (@tipoId, @pergunta, @tipoPergunta, @ordem, @obrigatoria,
-                                @escalaMinima, @escalaMaxima, @escalaLabelMinima, @escalaLabelMaxima, 1)
-                    `);
-            }
-
-            await transaction.commit();
-            console.log(`✅ Template de questionário ${tipo} dias atualizado com sucesso`);
-            return { success: true };
-        } catch (error) {
-            await transaction.rollback();
-            console.error('❌ Erro ao atualizar questionário template:', error);
-            throw error;
-        }
+    static async atualizarQuestionarioPadrao(pool, tipo, perguntas) {
+        // Método mantido para compatibilidade, mas não deve ser usado
+        console.warn('⚠️ Método atualizarQuestionarioPadrao não deve ser usado. Use o CRUD de templates.');
+        return { success: false, message: 'Use o CRUD de templates para gerenciar questionários' };
     }
 
     /**
      * Reabre uma avaliação que foi expirada.
      */
-    static async reabrirAvaliacao(avaliacaoId, novaDataLimite) {
-        const pool = await getDatabasePool();
+    static async reabrirAvaliacao(pool, avaliacaoId, novaDataLimite) {
         await pool.request()
             .input('id', sql.Int, avaliacaoId)
             .input('novaData', sql.DateTime, novaDataLimite)
@@ -416,26 +456,60 @@ class AvaliacoesManager {
     }
 
     /**
-     * Busca o ID do gestor para uma matrícula específica.
-     * Tenta acessar a view HIERARQUIA_CC (Oracle). Se falhar, retorna null.
+     * Busca o ID do gestor direto usando DEPARTAMENTO e hierarchyPath.
      */
-    static async buscarGestor(pool, matricula) {
+    static async buscarGestor(pool, userId) {
         try {
-            const result = await pool.request()
-                .input('matricula', sql.VarChar, matricula)
-                .query(`
-                    SELECT TOP 1 u.Id 
-                    FROM HIERARQUIA_CC h
-                    JOIN Users u ON u.CPF = h.CPF_RESPONSAVEL AND u.IsActive = 1
-                    WHERE h.RESPONSAVEL_ATUAL = @matricula
-                `);
-
-            if (result.recordset.length > 0) {
-                return result.recordset[0].Id;
+            const userResult = await pool.request()
+                .input('userId', sql.Int, userId)
+                .query('SELECT Id, NomeCompleto, DEPARTAMENTO, hierarchyPath FROM Users WHERE Id = @userId AND IsActive = 1');
+            
+            if (userResult.recordset.length === 0) {
+                console.log(`❌ Usuário ${userId} não encontrado`);
+                return null;
             }
+            
+            const user = userResult.recordset[0];
+            console.log(`🔍 Buscando gestor para: ${user.NomeCompleto} (ID: ${userId})`);
+            console.log(`   DEPARTAMENTO: ${user.DEPARTAMENTO}`);
+            console.log(`   hierarchyPath: ${user.hierarchyPath}`);
+            
+            if (!user.DEPARTAMENTO || !user.hierarchyPath) {
+                console.log(`⚠️ DEPARTAMENTO ou hierarchyPath ausente`);
+                return null;
+            }
+            
+            const departamento = user.DEPARTAMENTO;
+            const hierarchyPath = user.hierarchyPath;
+            const pathParts = hierarchyPath.split(' > ').map(p => p.trim());
+            
+            console.log(`   Path dividido:`, pathParts);
+            
+            const deptIndex = pathParts.indexOf(departamento);
+            console.log(`   Índice do departamento no path: ${deptIndex}`);
+            
+            if (deptIndex <= 0) {
+                console.log(`⚠️ Departamento não encontrado no path ou é o primeiro (sem gestor acima)`);
+                return null;
+            }
+            
+            const gestorDepartamento = pathParts[deptIndex - 1];
+            console.log(`   Departamento do gestor: ${gestorDepartamento}`);
+            
+            const gestorResult = await pool.request()
+                .input('gestorDept', sql.VarChar, gestorDepartamento)
+                .query('SELECT Id, NomeCompleto FROM Users WHERE DEPARTAMENTO = @gestorDept AND IsActive = 1');
+            
+            if (gestorResult.recordset.length > 0) {
+                const gestor = gestorResult.recordset[0];
+                console.log(`✅ Gestor encontrado: ${gestor.NomeCompleto} (ID: ${gestor.Id})`);
+                return gestor.Id;
+            }
+            
+            console.log(`❌ Nenhum usuário encontrado com DEPARTAMENTO = ${gestorDepartamento}`);
             return null;
         } catch (error) {
-            // Silencia erro de conexão Oracle aqui para não quebrar o fluxo principal
+            console.error(`❌ Erro ao buscar gestor para userId ${userId}:`, error.message);
             return null;
         }
     }
