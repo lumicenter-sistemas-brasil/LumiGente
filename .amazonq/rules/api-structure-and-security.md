@@ -1,1 +1,0 @@
-APIs bem estruturadas e documentadas. Use JWT ou OAuth, HTTPS, rate limiting e versionamento. Retorne apenas os dados necessários.

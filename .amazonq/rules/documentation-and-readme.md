@@ -1,1 +1,0 @@
-Atualizar README.md com estrutura, dependências e convenções APENAS quando eu pedir

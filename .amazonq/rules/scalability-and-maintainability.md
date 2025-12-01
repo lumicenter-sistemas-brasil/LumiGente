@@ -1,1 +1,0 @@
-Código sempre modular, documentado e pronto para escalar. Utilize Design Patterns quando fizer sentido e pense em crescimento de usuários, dados e requisições.

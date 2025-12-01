@@ -1,1 +1,0 @@
-Todo código deve seguir princípios de Clean Code: nomes descritivos, funções curtas e coesas, sem repetições. Remova código morto, console.logs e imports não usados. Priorize legibilidade e padronização.
