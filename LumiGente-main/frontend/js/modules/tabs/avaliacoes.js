@@ -2518,6 +2518,10 @@ window.Avaliacoes = {
                         </h4>
                         <div style="display: flex; flex-direction: column; gap: 16px;">
                             <div>
+                                <label class="form-label" style="color: #065f46;">Título do PDI</label>
+                                <input type="text" id="pdi-titulo" class="form-input" placeholder="Digite o título do PDI..." required style="width: 100%; background: white;">
+                            </div>
+                            <div>
                                 <label class="form-label" style="color: #065f46;">Objetivos de Desenvolvimento</label>
                                 <textarea id="pdi-objetivos" class="form-textarea" rows="4" placeholder="Defina os objetivos de desenvolvimento do colaborador..." required style="width: 100%; background: white;"></textarea>
                             </div>
@@ -2544,6 +2548,7 @@ window.Avaliacoes = {
         if (!this.state.avaliacaoAtual) return;
 
         const feedbackGestor = document.getElementById('feedback-gestor')?.value.trim();
+        const pdiTitulo = document.getElementById('pdi-titulo')?.value.trim();
         const pdiObjetivos = document.getElementById('pdi-objetivos')?.value.trim();
         const pdiAcoes = document.getElementById('pdi-acoes')?.value.trim();
         const pdiPrazo = document.getElementById('pdi-prazo')?.value;
@@ -2555,7 +2560,7 @@ window.Avaliacoes = {
             return;
         }
 
-        if (!pdiObjetivos || !pdiAcoes || !pdiPrazo) {
+        if (!pdiTitulo || !pdiObjetivos || !pdiAcoes || !pdiPrazo) {
             if (window.EmailPopup && typeof window.EmailPopup.showToast === 'function') {
                 window.EmailPopup.showToast('Todos os campos do PDI são obrigatórios', 'error');
             }
@@ -2566,6 +2571,7 @@ window.Avaliacoes = {
             await API.post(`/api/avaliacoes/desempenho/${this.state.avaliacaoAtual.Id}/feedback-pdi`, {
                 feedbackGestor,
                 pdi: {
+                    titulo: pdiTitulo,
                     objetivos: pdiObjetivos,
                     acoes: pdiAcoes,
                     prazoRevisao: pdiPrazo

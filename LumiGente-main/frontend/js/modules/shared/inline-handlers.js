@@ -55,6 +55,53 @@ document.addEventListener('DOMContentLoaded', () => {
             // Objetivos
             'closeObjetivoModal': () => typeof closeObjetivoModal === 'function' && closeObjetivoModal(),
             'submitObjetivo': () => typeof submitObjetivo === 'function' && submitObjetivo(),
+            'closeDeleteObjetivoModal': () => {
+                if (window.Objetivos && typeof Objetivos.closeDeleteModal === 'function') {
+                    Objetivos.closeDeleteModal();
+                }
+            },
+            'cancelDeleteObjetivo': () => {
+                if (window.Objetivos && typeof Objetivos.closeDeleteModal === 'function') {
+                    Objetivos.closeDeleteModal();
+                }
+            },
+            'confirmDeleteObjetivo': () => {
+                if (window.Objetivos && typeof Objetivos.confirmDelete === 'function') {
+                    Objetivos.confirmDelete();
+                }
+            },
+            
+            // PDIs
+            'closePDIDetalhesModal': () => {
+                if (window.PDIs && typeof PDIs.closeDetalhesModal === 'function') {
+                    PDIs.closeDetalhesModal();
+                }
+            },
+            'closePDICheckinModal': () => {
+                if (window.PDIs && typeof PDIs.closeCheckinModal === 'function') {
+                    PDIs.closeCheckinModal();
+                }
+            },
+            'cancelPDICheckin': () => {
+                if (window.PDIs && typeof PDIs.closeCheckinModal === 'function') {
+                    PDIs.closeCheckinModal();
+                }
+            },
+            'submitPDICheckin': () => {
+                if (window.PDIs && typeof PDIs.submitCheckin === 'function') {
+                    PDIs.submitCheckin();
+                }
+            },
+            'closePDIApprovalModal': () => {
+                if (window.PDIs && typeof PDIs.closeApprovalModal === 'function') {
+                    PDIs.closeApprovalModal();
+                }
+            },
+            'confirmApprovePDI': () => {
+                if (window.PDIs && typeof PDIs.confirmApprove === 'function') {
+                    PDIs.confirmApprove();
+                }
+            },
 
             // Pesquisas
             'clearSurveyFilters': () => typeof clearSurveyFilters === 'function' && clearSurveyFilters(),

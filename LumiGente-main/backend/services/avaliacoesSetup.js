@@ -146,6 +146,33 @@ async function ensureAvaliacoesTablesExist() {
             END
         `);
 
+        // Migração: Renomear PrazoRevisao para PrazoConclusao na tabela PDIs
+        try {
+            const prazoRevisaoCheck = await pool.request().query(`
+                SELECT COUNT(*) as existe
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoRevisao'
+            `);
+
+            const prazoConclusaoCheck = await pool.request().query(`
+                SELECT COUNT(*) as existe
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
+            `);
+
+            if (prazoRevisaoCheck.recordset[0].existe > 0 && prazoConclusaoCheck.recordset[0].existe === 0) {
+                await pool.request().query(`
+                    EXEC sp_rename 'PDIs.PrazoRevisao', 'PrazoConclusao', 'COLUMN';
+                `);
+                console.log('  -> Coluna PrazoRevisao renomeada para PrazoConclusao na tabela PDIs');
+            } else if (prazoConclusaoCheck.recordset[0].existe > 0) {
+                console.log('  -> Coluna PrazoConclusao já existe na tabela PDIs');
+            }
+        } catch (error) {
+            // Se a tabela PDIs não existir ainda, apenas logar o erro sem quebrar
+            console.log('  -> Aviso: Não foi possível verificar/renomear coluna PrazoRevisao:', error.message);
+        }
+
         return true;
 
     } catch (error) {

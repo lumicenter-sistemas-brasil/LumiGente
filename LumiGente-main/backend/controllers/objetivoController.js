@@ -1302,13 +1302,23 @@ exports.getMeusPDIs = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
         
+        // Buscar PDIs com FeedbackGestor da tabela FeedbacksAvaliacaoDesempenho
         const result = await pool.request()
             .input('userId', sql.Int, userId)
             .query(`
-                SELECT p.*, 
-                       u.NomeCompleto as ColaboradorNome, 
-                       u.Departamento as ColaboradorDepartamento,
-                       g.NomeCompleto as GestorNome
+                SELECT 
+                    p.*, 
+                    u.NomeCompleto as ColaboradorNome, 
+                    u.Departamento as ColaboradorDepartamento,
+                    g.NomeCompleto as GestorNome,
+                    (SELECT TOP 1 f.FeedbackGestor 
+                     FROM FeedbacksAvaliacaoDesempenho f 
+                     WHERE f.AvaliacaoId = p.AvaliacaoId 
+                       AND f.FeedbackGestor IS NOT NULL 
+                       AND LTRIM(RTRIM(f.FeedbackGestor)) != ''
+                     ORDER BY 
+                       CASE WHEN f.DataCriacao IS NOT NULL THEN f.DataCriacao ELSE '1900-01-01' END DESC,
+                       f.Id DESC) as FeedbackGestor
                 FROM PDIs p
                 LEFT JOIN Users u ON p.UserId = u.Id
                 LEFT JOIN Users g ON p.GestorId = g.Id
@@ -1329,10 +1339,39 @@ exports.getPDIById = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
         
+        // Buscar PDI com FeedbackGestor da tabela FeedbacksAvaliacaoDesempenho
+        // Primeiro buscar o PDI básico
+        // Verificar qual coluna existe (PrazoConclusao ou PrazoRevisao)
+        const colunaCheck = await pool.request().query(`
+            SELECT COUNT(*) as existe
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
+        `);
+        const usarPrazoConclusao = colunaCheck.recordset[0].existe > 0;
+        
+        // Construir query dinamicamente baseado na coluna que existe
+        // Se usarPrazoConclusao, não incluir PrazoRevisao no p.* para evitar conflito
+        const colunaPrazoSelect = usarPrazoConclusao 
+            ? 'p.PrazoConclusao as PrazoConclusao' 
+            : 'p.PrazoRevisao as PrazoConclusao';
+        
+        // Se estivermos usando PrazoConclusao, excluir PrazoRevisao do p.*
+        const excludeColumns = usarPrazoConclusao ? '' : '';
+        
         const result = await pool.request()
             .input('id', sql.Int, id)
             .query(`
-                SELECT p.*, u.NomeCompleto as colaborador_nome, g.NomeCompleto as gestor_nome
+                SELECT 
+                    p.Id,
+                    p.UserId,
+                    p.GestorId,
+                    p.AvaliacaoId,
+                    p.Titulo,
+                    p.Status,
+                    p.Progresso,
+                    ${usarPrazoConclusao ? 'p.PrazoConclusao as PrazoConclusao' : 'p.PrazoRevisao as PrazoConclusao'},
+                    u.NomeCompleto as ColaboradorNome,
+                    g.NomeCompleto as GestorNome
                 FROM PDIs p
                 LEFT JOIN Users u ON p.UserId = u.Id
                 LEFT JOIN Users g ON p.GestorId = g.Id
@@ -1344,6 +1383,26 @@ exports.getPDIById = async (req, res) => {
         }
         
         const pdi = result.recordset[0];
+        
+        // Buscar FeedbackGestor da tabela FeedbacksAvaliacaoDesempenho
+        if (pdi.AvaliacaoId) {
+            const feedbackResult = await pool.request()
+                .input('avaliacaoId', sql.Int, pdi.AvaliacaoId)
+                .query(`
+                    SELECT TOP 1 FeedbackGestor 
+                    FROM FeedbacksAvaliacaoDesempenho 
+                    WHERE AvaliacaoId = @avaliacaoId 
+                      AND FeedbackGestor IS NOT NULL 
+                      AND LTRIM(RTRIM(FeedbackGestor)) != ''
+                    ORDER BY 
+                      CASE WHEN DataCriacao IS NOT NULL THEN DataCriacao ELSE '1900-01-01' END DESC,
+                      Id DESC
+                `);
+            
+            if (feedbackResult.recordset.length > 0 && feedbackResult.recordset[0].FeedbackGestor) {
+                pdi.FeedbackGestor = feedbackResult.recordset[0].FeedbackGestor;
+            }
+        }
         
         // Verificar permissão
         if (pdi.UserId !== userId && pdi.GestorId !== userId && !hasFullAccess(req.session.user)) {
@@ -1392,13 +1451,25 @@ exports.createCheckinPDI = async (req, res) => {
             .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
         
         let novoStatus = pdi.Status;
-        if (progresso >= 100) {
+        const pdiTitulo = pdi.Titulo || 'PDI';
+        const needsApproval = progresso >= 100;
+        
+        if (needsApproval) {
             novoStatus = 'Aguardando Validação';
             await pool.request()
                 .input('id', sql.Int, id)
                 .input('progresso', sql.Decimal(5, 2), progresso)
                 .input('status', sql.NVarChar, novoStatus)
                 .query(`UPDATE PDIs SET Progresso = @progresso, Status = @status WHERE Id = @id`);
+            
+            // Registrar mensagem do sistema para solicitação de aprovação
+            const pendingMessage = '[SISTEMA] Check-in de 100% enviado para aprovação do gestor.';
+            await pool.request()
+                .input('pdiId', sql.Int, id)
+                .input('userId', sql.Int, userId)
+                .input('progresso', sql.Decimal(5, 2), progresso)
+                .input('observacoes', sql.NText, pendingMessage)
+                .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
         } else {
             await pool.request()
                 .input('id', sql.Int, id)
@@ -1406,9 +1477,45 @@ exports.createCheckinPDI = async (req, res) => {
                 .query(`UPDATE PDIs SET Progresso = @progresso WHERE Id = @id`);
         }
         
+        // Notificações relacionadas ao check-in
+        try {
+            await ensureNotificationsTableExists();
+            
+            const [actorInfo, gestorInfo] = await Promise.all([
+                getUserBasicInfo(pool, userId),
+                getUserBasicInfo(pool, pdi.GestorId)
+            ]);
+            
+            const actorName = (actorInfo && actorInfo.NomeCompleto) || req.session.user?.nomeCompleto || req.session.user?.NomeCompleto || req.session.user?.nome || 'Um colaborador';
+            
+            // Se chegou a 100%, notificar o gestor para aprovação
+            if (needsApproval && pdi.GestorId && pdi.GestorId !== userId) {
+                const checkinMessage = `${actorName} registrou 100% no PDI "${pdiTitulo}" e solicitou aprovação de conclusão.`;
+                await createNotification(pdi.GestorId, 'pdi_checkin', checkinMessage, Number(id));
+                
+                // Enviar email se disponível
+                if (gestorInfo && gestorInfo.Email) {
+                    (async () => {
+                        await emailService.sendObjetivoApprovalRequestEmail(
+                            gestorInfo.Email,
+                            gestorInfo.NomeCompleto || 'Gestor',
+                            actorName,
+                            pdiTitulo
+                        );
+                    })().catch(err => console.error('⚠️ Erro ao enviar email de solicitação de aprovação de PDI:', err.message));
+                }
+            } else if (!needsApproval && pdi.GestorId && pdi.GestorId !== userId) {
+                // Check-in normal: notificar o gestor
+                const checkinMessage = `${actorName} registrou um check-in de ${progresso}% no PDI "${pdiTitulo}".`;
+                await createNotification(pdi.GestorId, 'pdi_checkin', checkinMessage, Number(id));
+            }
+        } catch (notifyError) {
+            console.error('⚠️ Erro ao processar notificações de PDI:', notifyError.message || notifyError);
+        }
+        
         res.json({ 
             success: true, 
-            message: progresso >= 100 ? 'Check-in registrado. Aguardando validação do gestor' : 'Check-in registrado com sucesso',
+            message: needsApproval ? 'Check-in registrado. Aguardando validação do gestor' : 'Check-in registrado com sucesso',
             status: novoStatus
         });
     } catch (error) {
@@ -1425,7 +1532,14 @@ exports.getCheckinsPDI = async (req, res) => {
         const result = await pool.request()
             .input('pdiId', sql.Int, id)
             .query(`
-                SELECT pc.*, u.NomeCompleto as user_name
+                SELECT 
+                    pc.Id,
+                    pc.PDIId,
+                    pc.UserId,
+                    pc.Progresso as progresso,
+                    pc.Observacoes as observacoes,
+                    pc.DataCheckin as created_at,
+                    u.NomeCompleto as user_name
                 FROM PDICheckins pc
                 JOIN Users u ON pc.UserId = u.Id
                 WHERE pc.PDIId = @pdiId
@@ -1447,13 +1561,15 @@ exports.approvePDI = async (req, res) => {
         
         const pdiResult = await pool.request()
             .input('id', sql.Int, id)
-            .query(`SELECT GestorId, Titulo FROM PDIs WHERE Id = @id`);
+            .query(`SELECT UserId, GestorId, Titulo FROM PDIs WHERE Id = @id`);
         
         if (pdiResult.recordset.length === 0) {
             return res.status(404).json({ error: 'PDI não encontrado' });
         }
         
         const pdi = pdiResult.recordset[0];
+        const pdiTitulo = pdi.Titulo || 'PDI';
+        const colaboradorId = pdi.UserId;
         
         if (pdi.GestorId !== userId && !hasFullAccess(req.session.user)) {
             return res.status(403).json({ error: 'Apenas o gestor pode aprovar' });
@@ -1462,6 +1578,34 @@ exports.approvePDI = async (req, res) => {
         await pool.request()
             .input('id', sql.Int, id)
             .query(`UPDATE PDIs SET Status = 'Concluído', Progresso = 100 WHERE Id = @id`);
+        
+        // Registrar aprovação como check-in do sistema
+        await pool.request()
+            .input('pdiId', sql.Int, id)
+            .input('userId', sql.Int, userId)
+            .input('progresso', sql.Decimal(5, 2), 100)
+            .input('observacoes', sql.NText, '[SISTEMA] Conclusão aprovada pelo gestor.')
+            .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
+        
+        // Notificações relacionadas à aprovação
+        try {
+            await ensureNotificationsTableExists();
+            
+            const [approverInfo, colaboradorInfo] = await Promise.all([
+                getUserBasicInfo(pool, userId),
+                getUserBasicInfo(pool, colaboradorId)
+            ]);
+            
+            const approverName = (approverInfo && approverInfo.NomeCompleto) || req.session.user?.nomeCompleto || req.session.user?.NomeCompleto || req.session.user?.nome || 'Gestor';
+            
+            // Notificar o colaborador sobre a aprovação
+            if (colaboradorId && colaboradorId !== userId) {
+                const approvalMessage = `${approverName} aprovou a conclusão do PDI "${pdiTitulo}".`;
+                await createNotification(colaboradorId, 'pdi_aprovado', approvalMessage, Number(id));
+            }
+        } catch (notifyError) {
+            console.error('⚠️ Erro ao processar notificações de aprovação de PDI:', notifyError.message || notifyError);
+        }
         
         res.json({ success: true, message: 'PDI aprovado e concluído' });
     } catch (error) {
@@ -1484,13 +1628,15 @@ exports.rejectPDI = async (req, res) => {
         
         const pdiResult = await pool.request()
             .input('id', sql.Int, id)
-            .query(`SELECT GestorId, Titulo FROM PDIs WHERE Id = @id`);
+            .query(`SELECT UserId, GestorId, Titulo FROM PDIs WHERE Id = @id`);
         
         if (pdiResult.recordset.length === 0) {
             return res.status(404).json({ error: 'PDI não encontrado' });
         }
         
         const pdi = pdiResult.recordset[0];
+        const pdiTitulo = pdi.Titulo || 'PDI';
+        const colaboradorId = pdi.UserId;
         
         if (pdi.GestorId !== userId && !hasFullAccess(req.session.user)) {
             return res.status(403).json({ error: 'Apenas o gestor pode rejeitar' });
@@ -1507,6 +1653,7 @@ exports.rejectPDI = async (req, res) => {
             `);
         
         const progressoAnterior = ultimoCheckinResult.recordset.length > 0 ? ultimoCheckinResult.recordset[0].Progresso : 0;
+        const motivoLimpo = motivo.trim();
         
         await pool.request()
             .input('id', sql.Int, id)
@@ -1518,8 +1665,29 @@ exports.rejectPDI = async (req, res) => {
             .input('pdiId', sql.Int, id)
             .input('userId', sql.Int, userId)
             .input('progresso', sql.Decimal(5, 2), progressoAnterior)
-            .input('observacoes', sql.NText, `[SISTEMA] Rejeitado pelo gestor. Motivo: ${motivo.trim()}`)
+            .input('observacoes', sql.NText, `[SISTEMA] Rejeitado pelo gestor. Motivo: ${motivoLimpo}`)
             .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
+        
+        // Notificações relacionadas à rejeição
+        try {
+            await ensureNotificationsTableExists();
+            
+            const [approverInfo, colaboradorInfo] = await Promise.all([
+                getUserBasicInfo(pool, userId),
+                getUserBasicInfo(pool, colaboradorId)
+            ]);
+            
+            const approverName = (approverInfo && approverInfo.NomeCompleto) || req.session.user?.nomeCompleto || req.session.user?.NomeCompleto || req.session.user?.nome || 'Gestor';
+            const motivoLimitado = motivoLimpo.length > 250 ? `${motivoLimpo.slice(0, 247)}...` : motivoLimpo;
+            
+            // Notificar o colaborador sobre a rejeição
+            if (colaboradorId && colaboradorId !== userId) {
+                const rejectionNotification = `${approverName} rejeitou a conclusão do PDI "${pdiTitulo}". Motivo: ${motivoLimitado}`;
+                await createNotification(colaboradorId, 'pdi_rejeitado', rejectionNotification, Number(id));
+            }
+        } catch (notifyError) {
+            console.error('⚠️ Erro ao processar notificações de rejeição de PDI:', notifyError.message || notifyError);
+        }
         
         res.json({ 
             success: true, 

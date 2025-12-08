@@ -445,16 +445,25 @@ class AvaliacoesDesempenhoManager {
                 .query(`INSERT INTO FeedbacksAvaliacaoDesempenho (AvaliacaoId, FeedbackGestor, GestorId) VALUES (@avaliacaoId, @feedback, @gestorId)`);
 
             // Criar PDI
+            // Verificar qual coluna existe (PrazoConclusao ou PrazoRevisao)
+            const colunaCheck = await transaction.request().query(`
+                SELECT COUNT(*) as existe
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
+            `);
+            const usarPrazoConclusao = colunaCheck.recordset[0].existe > 0;
+            const colunaPrazo = usarPrazoConclusao ? 'PrazoConclusao' : 'PrazoRevisao';
+            
             const pdiResult = await transaction.request()
                 .input('userId', sql.Int, avaliacao.UserId)
                 .input('gestorId', sql.Int, avaliacao.GestorId)
                 .input('avaliacaoId', sql.Int, avaliacaoId)
-                .input('titulo', sql.NVarChar, `PDI - Avaliação ${avaliacaoId}`)
+                .input('titulo', sql.NVarChar, pdi.titulo || `PDI - Avaliação ${avaliacaoId}`)
                 .input('objetivos', sql.NText, pdi.objetivos)
                 .input('acoes', sql.NText, pdi.acoes)
-                .input('prazo', sql.Date, pdi.prazoRevisao)
+                .input('prazo', sql.Date, pdi.prazoRevisao || pdi.prazoConclusao)
                 .query(`
-                    INSERT INTO PDIs (UserId, GestorId, AvaliacaoId, Titulo, Objetivos, Acoes, PrazoRevisao, Status, Progresso)
+                    INSERT INTO PDIs (UserId, GestorId, AvaliacaoId, Titulo, Objetivos, Acoes, ${colunaPrazo}, Status, Progresso)
                     OUTPUT INSERTED.Id
                     VALUES (@userId, @gestorId, @avaliacaoId, @titulo, @objetivos, @acoes, @prazo, 'Ativo', 0)
                 `);

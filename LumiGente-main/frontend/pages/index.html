@@ -1161,7 +1161,7 @@
                             <div
                                 style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                                 <h3 style="margin: 0;">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981"
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d"
                                         stroke-width="2">
                                         <circle cx="12" cy="12" r="10" />
                                         <circle cx="12" cy="12" r="6" />
@@ -1242,7 +1242,7 @@
                             <div
                                 style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                                 <h3 style="margin: 0;">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6"
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d"
                                         stroke-width="2" style="margin-right: 8px;">
                                         <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
                                         <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
@@ -1250,10 +1250,55 @@
                                     Meus PDIs
                                 </h3>
                             </div>
-                            <div class="objetivos-list" id="objetivos-pdis-list">
-                                <div class="loading">
-                                    <div class="spinner"></div>Carregando PDIs...
+
+                            <button class="filters-toggle-btn" onclick="togglePDIsFilters()">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                                </svg>
+                                Filtros
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+
+                            <div class="filters-container collapsed" id="pdis-filters-container">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Buscar por Nome</label>
+                                        <input type="text" class="form-input" id="pdis-search"
+                                            placeholder="Buscar PDIs..." oninput="Objetivos.loadPDIs()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Buscar por Status</label>
+                                        <select class="form-select" id="pdis-status-filter"
+                                            onchange="Objetivos.loadPDIs()">
+                                            <option value="">Todos os status</option>
+                                            <option value="Ativo">Ativo</option>
+                                            <option value="Aguardando Validação">Aguardando Validação</option>
+                                            <option value="Concluído">Concluído</option>
+                                            <option value="Expirado">Expirado</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                                        <button class="btn btn-secondary" onclick="clearPDIsFilters()">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
+                                            Limpar Filtros
+                                        </button>
+                                    </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="objetivos-list" id="objetivos-pdis-list">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando PDIs...
                             </div>
                         </div>
                     </div>
@@ -2664,7 +2709,7 @@
             <div class="modal-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0;" id="objetivo-modal-title">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2"
                             style="margin-right: 8px;">
                             <circle cx="12" cy="12" r="10"></circle>
                             <circle cx="12" cy="12" r="6"></circle>
@@ -2799,6 +2844,190 @@
                     </button>
                     <button type="button" class="btn btn-danger" style="flex: 1;" data-action="confirmRejection">
                         Rejeitar Objetivo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão de Objetivo -->
+    <div id="objetivo-delete-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="alert-triangle" style="width: 20px; height: 20px; color: #ef4444;"></i>
+                        Confirmar Exclusão
+                    </h3>
+                    <button type="button" data-action="closeDeleteObjetivoModal"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center">
+                        <i data-lucide="x" style="width: 24px; height: 24px;"></i>
+                    </button>
+                </div>
+                <div style="padding: 0 1rem 1rem 1rem; text-align: center;">
+                    <p style="color: #6b7280; font-size: 15px; line-height: 1.6; margin: 0;">
+                        Tem certeza que deseja excluir este objetivo? Esta ação não poderá ser desfeita.
+                    </p>
+                </div>
+                <div class="modal-actions" style="display: flex; gap: 12px;">
+                    <button type="button" class="btn btn-danger" style="flex: 1;" data-action="confirmDeleteObjetivo">
+                        <i data-lucide="trash-2" style="width: 18px; height: 18px; margin-right: 4px;"></i>
+                        Excluir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Aprovar PDI -->
+    <div id="pdi-approve-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="check-circle" style="width: 20px; height: 20px; color: #0d556d;"></i>
+                        Confirmar Aprovação
+                    </h3>
+                    <button type="button" data-action="closePDIApprovalModal"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center">
+                        <i data-lucide="x" style="width: 24px; height: 24px;"></i>
+                    </button>
+                </div>
+                <div style="padding: 0 1rem 1rem 1rem; text-align: center;">
+                    <p style="color: #6b7280; font-size: 15px; line-height: 1.6; margin: 0;">
+                        Deseja aprovar este PDI? Esta ação marcará o PDI como concluído.
+                    </p>
+                </div>
+                <div class="modal-actions" style="display: flex; gap: 12px;">
+                    <button type="button" class="btn btn-success" style="flex: 1;" data-action="confirmApprovePDI">
+                        <i data-lucide="check-circle" style="width: 18px; height: 18px; margin-right: 4px;"></i>
+                        Aprovar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Rejeitar PDI -->
+    <div id="pdi-reject-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                        Rejeitar PDI
+                    </h3>
+                    <button type="button" class="modal-close" data-action="closePDIRejectionModal"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="pdi-reject-reason">Motivo da Rejeição</label>
+                    <textarea class="form-textarea" id="pdi-reject-reason" maxlength="500"
+                        placeholder="Descreva o motivo da rejeição..." required></textarea>
+                </div>
+                <div class="modal-actions" style="display: flex; gap: 12px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" data-action="cancelPDIRejection">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" style="flex: 1;" data-action="confirmPDIRejection">
+                        Rejeitar PDI
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalhes PDI -->
+    <div id="pdi-detalhes-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2"
+                            style="margin-right: 8px;">
+                            <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                            <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+                        </svg>
+                        Detalhes do PDI
+                    </h3>
+                    <button type="button" data-action="closePDIDetalhesModal"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div id="pdi-detalhes-content">
+                    <div class="loading">
+                        <div class="spinner"></div>Carregando detalhes...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Check-in PDI -->
+    <div id="pdi-checkin-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2"
+                            style="margin-right: 8px;">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        Check-in do PDI
+                    </h3>
+                    <button type="button" data-action="closePDICheckinModal"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; transition: all 0.3s ease; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Progresso Atual (%)</label>
+                    <input type="number" class="form-input" id="pdi-checkin-progresso" min="0" max="100"
+                        placeholder="Digite o progresso atual (0-100)" required>
+                    <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+                        Informe o progresso atual do PDI em porcentagem
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Observações (opcional)</label>
+                    <textarea class="form-textarea" id="pdi-checkin-observacoes" rows="4"
+                        placeholder="Adicione observações sobre o progresso..." maxlength="500"></textarea>
+                    <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+                        Máximo de 500 caracteres
+                    </small>
+                </div>
+                <input type="hidden" id="pdi-checkin-id">
+                <div class="modal-actions" style="display: flex; gap: 12px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" data-action="cancelPDICheckin">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-amber" style="flex: 1;" data-action="submitPDICheckin">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" style="margin-right: 4px;">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        Registrar Check-in
                     </button>
                 </div>
             </div>

@@ -87,7 +87,6 @@
 
 .btn-success:hover {
     background: linear-gradient(135deg, #0a4555, #082e39);
-    transform: translateY(-1px);
 }
 
 .btn-info {

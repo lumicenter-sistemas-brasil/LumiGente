@@ -330,6 +330,17 @@ exports.getAllPDIs = async (req, res) => {
         const pool = await getDatabasePool();
         const { search, dateStart, dateEnd } = req.query;
 
+        // Verificar qual coluna existe (PrazoConclusao ou PrazoRevisao)
+        const colunaCheck = await pool.request().query(`
+            SELECT COUNT(*) as existe
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
+        `);
+        const usarPrazoConclusao = colunaCheck.recordset[0].existe > 0;
+        const colunaPrazoSelect = usarPrazoConclusao 
+            ? 'p.PrazoConclusao AS prazo_revisao' 
+            : 'p.PrazoRevisao AS prazo_revisao';
+
         const request = pool.request();
         const conditions = [];
 
@@ -363,7 +374,7 @@ exports.getAllPDIs = async (req, res) => {
                 uGestor.NomeCompleto AS gestor_nome,
                 CAST(p.Objetivos AS NVARCHAR(MAX)) AS objetivos,
                 CAST(p.Acoes AS NVARCHAR(MAX)) AS acoes,
-                p.PrazoRevisao AS prazo_revisao,
+                ${colunaPrazoSelect},
                 p.DataCriacao AS criado_em,
                 ad.Titulo AS avaliacao_titulo
             FROM PDIs p

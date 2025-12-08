@@ -6,7 +6,8 @@ const Objetivos = {
         modalMode: 'create',
         currentObjetivoId: null,
         isSubmitting: false,
-        rejectModal: null
+        rejectModal: null,
+        pendingDeleteId: null
     },
     setSubmitButtonLoading(isLoading, text) {
         const submitBtn = document.getElementById('objetivo-submit-btn');
@@ -131,12 +132,68 @@ const Objetivos = {
     },
 
     async loadPDIs() {
+        // Debounce quando chamado a partir dos inputs de busca e filtro de status
+        const evt = typeof window !== 'undefined' ? window.event : null;
+        if (
+            evt &&
+            ((evt.type === 'input' && evt.target && evt.target.id === 'pdis-search') ||
+                (evt.type === 'change' && evt.target && evt.target.id === 'pdis-status-filter'))
+        ) {
+            clearTimeout(this._pdisSearchDebounce);
+            return await new Promise(resolve => {
+                this._pdisSearchDebounce = setTimeout(async () => {
+                    await this.loadPDIs();
+                    resolve();
+                }, 300);
+            });
+        }
+
         const container = document.getElementById('objetivos-pdis-list');
         if (!container) return;
         container.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando PDIs...</div>';
 
-        // Simulação de carregamento
-        setTimeout(() => {
+        try {
+            const pdis = await API.get('/api/objetivos/pdis/meus');
+            
+            // Aplicar filtros no cliente, insensíveis a acentos
+            const pdisSearch = document.getElementById('pdis-search');
+            const statusFilter = document.getElementById('pdis-status-filter');
+            
+            let lista = pdis;
+            
+            if (pdisSearch?.value.trim()) {
+                const searchTerm = this.normalizeText(pdisSearch.value.trim().toLowerCase());
+                lista = lista.filter(pdi => {
+                    const titulo = this.normalizeText((pdi.Titulo || '').toLowerCase());
+                    const feedback = this.normalizeText((pdi.FeedbackGestor || pdi.Feedback || '').toLowerCase());
+                    const colaborador = this.normalizeText((pdi.ColaboradorNome || '').toLowerCase());
+                    return titulo.includes(searchTerm) || feedback.includes(searchTerm) || colaborador.includes(searchTerm);
+                });
+            }
+
+            if (statusFilter?.value.trim()) {
+                lista = lista.filter(pdi => pdi.Status === statusFilter.value.trim());
+            }
+
+            this.updatePDIsList(lista);
+        } catch (error) {
+            console.error('Erro ao carregar PDIs:', error);
+            container.innerHTML = `
+                <div class="historico-empty" style="display: flex; flex-direction: column; align-items: center; padding: 40px; text-align: center;">
+                    <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: #ef4444; margin-bottom: 16px;"></i>
+                    <h4 style="font-size: 18px; font-weight: 600; color: #374151; margin-bottom: 8px;">Erro ao carregar PDIs</h4>
+                    <p style="color: #6b7280;">Não foi possível carregar os Planos de Desenvolvimento Individual.</p>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        }
+    },
+
+    updatePDIsList(pdis) {
+        const container = document.getElementById('objetivos-pdis-list');
+        if (!container) return;
+
+        if (!pdis || pdis.length === 0) {
             container.innerHTML = `
                 <div class="historico-empty" style="display: flex; flex-direction: column; align-items: center; padding: 40px; text-align: center;">
                     <i data-lucide="graduation-cap" style="width: 48px; height: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
@@ -145,7 +202,116 @@ const Objetivos = {
                 </div>
             `;
             if (window.lucide) lucide.createIcons();
-        }, 500);
+            return;
+        }
+
+        container.innerHTML = pdis.map(pdi => {
+            const currentUser = State.getUser();
+            const currentUserId = currentUser && (currentUser.userId || currentUser.Id);
+            const progresso = pdi.Progresso || 0;
+            const dataInicio = pdi.DataInicio ? this.formatPDIDate(pdi.DataInicio) : '';
+            const prazoConclusao = pdi.PrazoConclusao || pdi.PrazoRevisao;
+            const dataFim = prazoConclusao ? this.formatPDIDate(prazoConclusao) : '';
+            const isOverdue = prazoConclusao && new Date(prazoConclusao + 'T00:00:00') < new Date() && pdi.Status === 'Ativo';
+
+            const statusConfig = {
+                'Ativo': { color: '#10b981', icon: 'play-circle' },
+                'Aguardando Validação': { color: '#f59e0b', icon: 'clock' },
+                'Concluído': { color: '#059669', icon: 'check-circle' },
+                'Expirado': { color: '#ef4444', icon: 'x-circle' }
+            };
+            const { color, icon } = statusConfig[pdi.Status] || { color: '#6b7280', icon: 'circle' };
+
+            // Verificar se o usuário é gestor direto do PDI
+            const isGestorDireto = currentUserId && pdi.GestorId && Number(currentUserId) === Number(pdi.GestorId);
+            const canApprovePDI = isGestorDireto && pdi.Status === 'Aguardando Validação';
+            const isColaboradorPDI = currentUserId && pdi.UserId && Number(currentUserId) === Number(pdi.UserId);
+
+            return `
+                <div class="objetivo-item" data-pdi-id="${pdi.Id}" style="border-left-color: ${color};">
+                    <div class="objetivo-header">
+                        <div class="objetivo-info">
+                            <h4>${pdi.Titulo || 'PDI'}</h4>
+                            <p style="color: #6b7280; margin: 8px 0;">${pdi.FeedbackGestor || pdi.Feedback || 'Sem feedback'}</p>
+                            <div style="margin-top: 8px; font-size: 14px; color: #6b7280;">
+                                <span>Colaborador: ${pdi.ColaboradorNome || 'N/A'}</span>
+                                ${dataInicio ? `<span style="margin-left: 16px;">Início: ${dataInicio}</span>` : ''}
+                                ${dataFim ? `<span style="margin-left: 16px;">Prazo: ${dataFim}</span>` : ''}
+                                ${isOverdue ? '<span style="margin-left: 16px; color: #ef4444; display: inline-flex; align-items: center; gap: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="objetivo-badges">
+                            <span class="badge" style="background-color: ${color}; color: white;">
+                                <i data-lucide="${icon}" style="width: 14px; height: 14px; margin-right: 4px;"></i> ${pdi.Status}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="objetivo-progresso">
+                        <div class="progresso-bar">
+                            <div class="progresso-fill" style="width: ${progresso}%"></div>
+                        </div>
+                        <div class="progresso-text">
+                            <span>Progresso:</span>
+                            <span>${progresso}%</span>
+                        </div>
+                    </div>
+                    <div class="objetivo-actions">
+                        ${pdi.Status === 'Ativo' && isColaboradorPDI ? `
+                            <button class="btn btn-secondary btn-sm" onclick="PDIs.checkin(${pdi.Id})">
+                                <i data-lucide="check-circle" style="width: 16px; height: 16px; margin-right: 6px;"></i> Check-in
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-secondary btn-sm" onclick="PDIs.viewDetails(${pdi.Id})">
+                            <i data-lucide="eye" style="width: 16px; height: 16px; margin-right: 6px;"></i> Ver Detalhes
+                        </button>
+                        ${canApprovePDI ? `
+                            <button class="btn btn-success btn-sm" onclick="PDIs.openApprovalModal(${pdi.Id})">
+                                <i data-lucide="check" style="width: 16px; height: 16px; margin-right: 6px;"></i> Aprovar
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="PDIs.openRejectionModal(${pdi.Id})">
+                                <i data-lucide="x-circle" style="width: 16px; height: 16px; margin-right: 6px;"></i> Rejeitar
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (window.lucide) lucide.createIcons();
+    },
+
+    formatPDIDate(dateString) {
+        if (!dateString) return '';
+        try {
+            // Se já é um objeto Date, converter para string primeiro
+            let dateValue = dateString;
+            if (dateString instanceof Date) {
+                dateValue = dateString.toISOString();
+            } else if (typeof dateString !== 'string') {
+                dateValue = String(dateString);
+            }
+            
+            // Extrair a parte da data (antes do T se houver)
+            const dateStr = dateValue.split('T')[0];
+            if (!dateStr) return '';
+            
+            // Dividir em ano, mês, dia para evitar problemas de fuso horário
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                const [ano, mes, dia] = parts;
+                // Criar Date usando componentes locais (não UTC)
+                const date = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+                if (isNaN(date.getTime())) return '';
+                return date.toLocaleDateString('pt-BR');
+            }
+            
+            // Fallback: tentar criar Date diretamente
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '';
+            return date.toLocaleDateString('pt-BR');
+        } catch (error) {
+            return '';
+        }
     },
 
     normalizeText(texto) {
@@ -243,39 +409,44 @@ const Objetivos = {
                     <div class="objetivo-actions">
                         ${objetivo.status === 'Ativo' && isUserResponsavel ? `
                             <button class="btn btn-secondary btn-sm" onclick="Objetivos.checkin(${objetivo.Id})">
-                                <i class="fas fa-check-circle"></i> Check-in
+                                <i data-lucide="check-circle" style="width: 14px; height: 14px; margin-right: 4px;"></i> Check-in
                             </button>
                         ` : ''}
                         ${objetivo.status === 'Ativo' && progresso >= 100 ? `
                             <button class="btn btn-success btn-sm" onclick="Objetivos.complete(${objetivo.Id})">
-                                <i class="fas fa-flag-checkered"></i> Concluir
+                                <i data-lucide="flag" style="width: 14px; height: 14px; margin-right: 4px;"></i> Concluir
                             </button>
                         ` : ''}
                         ${canApproveCompletion ? `
                             <button class="btn btn-success btn-sm" onclick="Objetivos.approve(${objetivo.Id})">
-                                <i class="fas fa-check"></i> Aprovar Conclusão
+                                <i data-lucide="check" style="width: 14px; height: 14px; margin-right: 4px;"></i> Aprovar Conclusão
                             </button>
                             <button class="btn btn-danger btn-sm" onclick="Objetivos.openRejectionModal(${objetivo.Id})">
-                                <i class="fas fa-undo"></i> Rejeitar
+                                <i data-lucide="x-circle" style="width: 14px; height: 14px; margin-right: 4px;"></i> Rejeitar
                             </button>
                         ` : ''}
                         ${(objetivo.status === 'Ativo' || objetivo.status === 'Agendado') && isCriador ? `
                             <button class="btn btn-amber btn-sm" onclick="Objetivos.edit(${objetivo.Id})">
-                                <i class="fas fa-edit"></i> Editar
+                                <i data-lucide="pencil" style="width: 14px; height: 14px; margin-right: 4px;"></i> Editar
                             </button>
                         ` : ''}
                         <button class="btn btn-secondary btn-sm" onclick="Objetivos.viewDetails(${objetivo.Id})">
-                            <i class="fas fa-eye"></i> Ver Detalhes
+                            <i data-lucide="eye" style="width: 14px; height: 14px; margin-right: 4px;"></i> Ver Detalhes
                         </button>
                         ${objetivo.status !== 'Concluído' ? `
                             <button class="btn btn-danger btn-sm" onclick="Objetivos.delete(${objetivo.Id})">
-                                <i class="fas fa-trash"></i> Excluir
+                                <i data-lucide="trash-2" style="width: 14px; height: 14px; margin-right: 4px;"></i> Excluir
                             </button>
                         ` : ''}
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Inicializar ícones Lucide após renderizar
+        if (window.lucide) {
+            lucide.createIcons();
+        }
     },
 
     formatDate(dateString) {
@@ -373,8 +544,20 @@ const Objetivos = {
         document.getElementById('objetivo-data-inicio').parentElement.parentElement.style.display = 'flex';
         document.getElementById('checkin-fields').classList.add('hidden');
         document.getElementById('detalhes-fields').style.display = 'none';
-        document.getElementById('objetivo-modal-title').innerHTML = '<i class="fas fa-bullseye"></i> Novo Objetivo';
-        document.getElementById('objetivo-submit-btn').innerHTML = '<i class="fas fa-bullseye"></i> Criar Objetivo';
+        const titleElement = document.getElementById('objetivo-modal-title');
+        if (titleElement) {
+            titleElement.innerHTML = `
+                <i data-lucide="target" style="width: 20px; height: 20px; margin-right: 8px; color: #0d556d;"></i> Novo Objetivo
+            `;
+            if (window.lucide) lucide.createIcons();
+        }
+        const submitBtn = document.getElementById('objetivo-submit-btn');
+        if (submitBtn) {
+            submitBtn.innerHTML = `
+                <i data-lucide="target" style="width: 18px; height: 18px; margin-right: 4px; color: #0d556d;"></i> Criar Objetivo
+            `;
+            if (window.lucide) lucide.createIcons();
+        }
         document.getElementById('objetivo-submit-btn').style.display = 'block';
         this.closeRejectionModal();
     },
@@ -639,10 +822,21 @@ const Objetivos = {
                 }
             }
 
-            document.getElementById('objetivo-modal-title').innerHTML = '<i class="fas fa-edit"></i> Editar Objetivo';
+            const titleElement = document.getElementById('objetivo-modal-title');
+            if (titleElement) {
+                titleElement.innerHTML = `
+                    <i data-lucide="pencil" style="width: 20px; height: 20px; margin-right: 8px; color: #0d556d;"></i> Editar Objetivo
+                `;
+                if (window.lucide) lucide.createIcons();
+            }
             const submitBtn = document.getElementById('objetivo-submit-btn');
-            submitBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações';
-            submitBtn.style.display = 'block';
+            if (submitBtn) {
+                submitBtn.innerHTML = `
+                    <i data-lucide="save" style="width: 18px; height: 18px; margin-right: 4px;"></i> Salvar Alterações
+                `;
+                submitBtn.style.display = 'block';
+                if (window.lucide) lucide.createIcons();
+            }
             document.getElementById('objetivo-titulo').value = objetivo.titulo || '';
             document.getElementById('objetivo-titulo').disabled = false;
             document.getElementById('objetivo-descricao').value = objetivo.descricao || '';
@@ -696,10 +890,21 @@ const Objetivos = {
                 }
                 return;
             }
-            document.getElementById('objetivo-modal-title').innerHTML = '<i class="fas fa-check-circle"></i> Check-in do Objetivo';
+            const titleElement = document.getElementById('objetivo-modal-title');
+            if (titleElement) {
+                titleElement.innerHTML = `
+                    <i data-lucide="check-circle" style="width: 20px; height: 20px; margin-right: 8px; color: #0d556d;"></i> Check-in do Objetivo
+                `;
+                if (window.lucide) lucide.createIcons();
+            }
             const submitBtn = document.getElementById('objetivo-submit-btn');
-            submitBtn.innerHTML = '<i class="fas fa-check"></i> Registrar Check-in';
-            submitBtn.style.display = 'block';
+            if (submitBtn) {
+                submitBtn.innerHTML = `
+                    <i data-lucide="check-circle" style="width: 18px; height: 18px; margin-right: 4px;"></i> Registrar Check-in
+                `;
+                submitBtn.style.display = 'block';
+                if (window.lucide) lucide.createIcons();
+            }
 
             document.getElementById('objetivo-titulo').value = objetivo.titulo || '';
             document.getElementById('objetivo-titulo').disabled = true;
@@ -742,8 +947,17 @@ const Objetivos = {
             }
             const responsaveisTexto = responsaveisLista.length > 0 ? responsaveisLista.join(', ') : 'Nenhum responsável';
 
-            document.getElementById('objetivo-modal-title').innerHTML = '<i class="fas fa-eye"></i> Detalhes do Objetivo';
-            document.getElementById('objetivo-submit-btn').style.display = 'none';
+            const titleElement = document.getElementById('objetivo-modal-title');
+            if (titleElement) {
+                titleElement.innerHTML = `
+                    <i data-lucide="eye" style="width: 20px; height: 20px; margin-right: 8px; color: #0d556d;"></i> Detalhes do Objetivo
+                `;
+                if (window.lucide) lucide.createIcons();
+            }
+            const submitBtn = document.getElementById('objetivo-submit-btn');
+            if (submitBtn) {
+                submitBtn.style.display = 'none';
+            }
 
             document.getElementById('objetivo-titulo').value = objetivo.titulo || '';
             document.getElementById('objetivo-titulo').disabled = true;
@@ -771,7 +985,7 @@ const Objetivos = {
                 <div class="form-group">
                     <label class="form-label">Responsáveis</label>
                     <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f9fafb;">
-                        ${responsaveisLista.map(r => `<div style="padding: 6px 0; color: #374151;"><i class="fas fa-user" style="margin-right: 8px; color: #0d556d;"></i>${r}</div>`).join('')}
+                        ${responsaveisLista.map(r => `<div style="padding: 6px 0; color: #374151; display: flex; align-items: center;"><i data-lucide="user" style="width: 16px; height: 16px; margin-right: 8px; color: #0d556d;"></i>${r}</div>`).join('')}
                     </div>
                 </div>
             `;
@@ -868,7 +1082,7 @@ const Objetivos = {
                     <div class="form-group">
                         <label class="form-label">Histórico</label>
                         <div style="padding: 20px; text-align: center; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 8px;">
-                            <i class="fas fa-info-circle" style="font-size: 24px; margin-bottom: 8px;"></i>
+                            <i data-lucide="info" style="width: 24px; height: 24px; margin-bottom: 8px; display: inline-block;"></i>
                             <p>Nenhuma atividade registrada ainda.</p>
                         </div>
                     </div>
@@ -891,6 +1105,11 @@ const Objetivos = {
                 ${checkinsHtml}
             `;
             detalhesFields.innerHTML = finalHtml;
+            
+            // Inicializar ícones Lucide após inserir o HTML
+            if (window.lucide) {
+                lucide.createIcons();
+            }
 
             Modal.open('objetivo-modal');
         } catch (error) {
@@ -1032,14 +1251,28 @@ const Objetivos = {
         }
     },
 
-    async delete(objetivoId) {
-        let confirmed = false;
-        if (window.Configuracoes && typeof Configuracoes.showConfirm === 'function') {
-            confirmed = await Configuracoes.showConfirm('Deseja excluir este objetivo?');
-        } else {
-            confirmed = confirm('Tem certeza que deseja excluir este objetivo?');
+    openDeleteModal(objetivoId) {
+        this.state.pendingDeleteId = objetivoId;
+        const modal = document.getElementById('objetivo-delete-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
         }
-        if (!confirmed) return;
+    },
+
+    closeDeleteModal() {
+        const modal = document.getElementById('objetivo-delete-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        this.state.pendingDeleteId = null;
+    },
+
+    async confirmDelete() {
+        const objetivoId = this.state.pendingDeleteId;
+        if (!objetivoId) return;
+
+        this.closeDeleteModal();
 
         try {
             await API.delete(`/api/objetivos/${objetivoId}`);
@@ -1061,6 +1294,10 @@ const Objetivos = {
                 alert(displayMessage);
             }
         }
+    },
+
+    async delete(objetivoId) {
+        this.openDeleteModal(objetivoId);
     },
 
     async populateForm() {
@@ -1209,12 +1446,60 @@ function clearObjetivosFilters() {
     Objetivos.loadList();
 }
 
+function togglePDIsFilters() {
+    const container = document.getElementById('pdis-filters-container');
+    const btn = event.currentTarget;
+    const icon = btn.querySelector('svg:last-child');
+    const card = btn.closest('.card');
+
+    if (container && btn) {
+        container.classList.toggle('collapsed');
+        btn.classList.toggle('active');
+        const isCollapsed = container.classList.contains('collapsed');
+        if (card) {
+            card.classList.toggle('filters-collapsed', isCollapsed);
+        }
+
+        if (icon) {
+            if (isCollapsed) {
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                icon.style.transform = 'rotate(180deg)';
+            }
+        }
+    }
+}
+
+function clearPDIsFilters() {
+    document.getElementById('pdis-search').value = '';
+    document.getElementById('pdis-status-filter').value = '';
+    Objetivos.loadPDIs();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const rejectModal = document.getElementById('objetivo-reject-modal');
     if (rejectModal) {
         rejectModal.addEventListener('click', (event) => {
             if (event.target === rejectModal) {
                 Objetivos.closeRejectionModal();
+            }
+        });
+    }
+
+    const deleteModal = document.getElementById('objetivo-delete-modal');
+    if (deleteModal) {
+        deleteModal.addEventListener('click', (event) => {
+            if (event.target === deleteModal) {
+                Objetivos.closeDeleteModal();
+            }
+        });
+    }
+
+    const pdiRejectModal = document.getElementById('pdi-reject-modal');
+    if (pdiRejectModal) {
+        pdiRejectModal.addEventListener('click', (event) => {
+            if (event.target === pdiRejectModal) {
+                PDIs.closeRejectionModal();
             }
         });
     }
@@ -1232,6 +1517,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmBtn = document.querySelector('[data-action="confirmRejection"]');
     if (confirmBtn) {
         confirmBtn.addEventListener('click', () => Objetivos.rejectCurrentObjetivo());
+    }
+
+    const closePDIRejectBtn = document.querySelector('[data-action="closePDIRejectionModal"]');
+    if (closePDIRejectBtn) {
+        closePDIRejectBtn.addEventListener('click', () => PDIs.closeRejectionModal());
+    }
+
+    const cancelPDIRejectBtn = document.querySelector('[data-action="cancelPDIRejection"]');
+    if (cancelPDIRejectBtn) {
+        cancelPDIRejectBtn.addEventListener('click', () => PDIs.closeRejectionModal());
+    }
+
+    const confirmPDIRejectBtn = document.querySelector('[data-action="confirmPDIRejection"]');
+    if (confirmPDIRejectBtn) {
+        confirmPDIRejectBtn.addEventListener('click', () => PDIs.rejectCurrentPDI());
     }
 });
 
@@ -1257,66 +1557,128 @@ window.submitObjetivo = function () {
 const PDIs = {
     state: {
         currentPDI: null,
-        currentCheckin: null
+        currentCheckin: null,
+        rejectModal: null,
+        pendingApprovalId: null
     },
 
     async loadList() {
         try {
-            const container = document.getElementById('pdis-list');
+            const container = document.getElementById('objetivos-pdis-list');
             if (!container) return;
 
             container.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando PDIs...</div>';
 
             const pdis = await API.get('/api/objetivos/pdis/meus');
-            this.updateList(pdis);
+            
+            // Aplicar filtros no cliente, insensíveis a acentos
+            const pdisSearch = document.getElementById('pdis-search');
+            const statusFilter = document.getElementById('pdis-status-filter');
+            
+            let lista = pdis;
+            
+            // Usar normalizeText do Objetivos se disponível
+            const normalizeText = (window.Objetivos && typeof Objetivos.normalizeText === 'function') 
+                ? Objetivos.normalizeText.bind(Objetivos)
+                : (text) => text;
+            
+            if (pdisSearch?.value.trim()) {
+                const searchTerm = normalizeText(pdisSearch.value.trim().toLowerCase());
+                lista = lista.filter(pdi => {
+                    const titulo = normalizeText((pdi.Titulo || '').toLowerCase());
+                    const feedback = normalizeText((pdi.FeedbackGestor || pdi.Feedback || '').toLowerCase());
+                    const colaborador = normalizeText((pdi.ColaboradorNome || '').toLowerCase());
+                    return titulo.includes(searchTerm) || feedback.includes(searchTerm) || colaborador.includes(searchTerm);
+                });
+            }
+
+            if (statusFilter?.value.trim()) {
+                lista = lista.filter(pdi => pdi.Status === statusFilter.value.trim());
+            }
+
+            // Usar a função updatePDIsList do Objetivos
+            if (window.Objetivos && typeof Objetivos.updatePDIsList === 'function') {
+                Objetivos.updatePDIsList(lista);
+            } else {
+                // Fallback: usar updateList se updatePDIsList não estiver disponível
+                this.updateList(lista);
+            }
         } catch (error) {
             console.error('Erro ao carregar PDIs:', error);
-            const container = document.getElementById('pdis-list');
+            const container = document.getElementById('objetivos-pdis-list');
             if (container) {
-                container.innerHTML = '<div class="loading">Erro ao carregar PDIs.</div>';
+                container.innerHTML = `
+                    <div class="historico-empty" style="display: flex; flex-direction: column; align-items: center; padding: 40px; text-align: center;">
+                        <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: #ef4444; margin-bottom: 16px;"></i>
+                        <h4 style="font-size: 18px; font-weight: 600; color: #374151; margin-bottom: 8px;">Erro ao carregar PDIs</h4>
+                        <p style="color: #6b7280;">Não foi possível carregar os Planos de Desenvolvimento Individual.</p>
+                    </div>
+                `;
+                if (window.lucide) lucide.createIcons();
             }
         }
     },
 
     updateList(pdis) {
-        const container = document.getElementById('pdis-list');
+        // Usar a mesma função updatePDIsList que está no Objetivos
+        if (window.Objetivos && typeof Objetivos.updatePDIsList === 'function') {
+            Objetivos.updatePDIsList(pdis);
+            return;
+        }
+        
+        const container = document.getElementById('objetivos-pdis-list');
         if (!container) return;
 
-        if (pdis.length === 0) {
-            container.innerHTML = '<div class="loading">Nenhum PDI encontrado.</div>';
+        if (!pdis || pdis.length === 0) {
+            container.innerHTML = `
+                <div class="historico-empty" style="display: flex; flex-direction: column; align-items: center; padding: 40px; text-align: center;">
+                    <i data-lucide="graduation-cap" style="width: 48px; height: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
+                    <h4 style="font-size: 18px; font-weight: 600; color: #374151; margin-bottom: 8px;">Nenhum PDI encontrado</h4>
+                    <p style="color: #6b7280;">Você ainda não possui Planos de Desenvolvimento Individual.</p>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
             return;
         }
 
         container.innerHTML = pdis.map(pdi => {
+            const currentUser = State.getUser();
+            const currentUserId = currentUser && (currentUser.userId || currentUser.Id);
             const progresso = pdi.Progresso || 0;
-            const dataInicio = pdi.DataInicio ? this.formatDate(pdi.DataInicio) : '';
-            const dataFim = pdi.DataFim ? this.formatDate(pdi.DataFim) : '';
-            const isOverdue = pdi.DataFim && new Date(pdi.DataFim + 'T00:00:00') < new Date() && pdi.Status === 'Ativo';
+            const prazoConclusao = pdi.PrazoConclusao || pdi.PrazoRevisao || pdi.DataFim;
+            const dataInicio = pdi.DataInicio ? (this.formatPDIDate ? this.formatPDIDate(pdi.DataInicio) : this.formatDate(pdi.DataInicio)) : '';
+            const dataFim = prazoConclusao ? (this.formatPDIDate ? this.formatPDIDate(prazoConclusao) : this.formatDate(prazoConclusao)) : '';
+            const isOverdue = prazoConclusao && new Date(prazoConclusao + 'T00:00:00') < new Date() && pdi.Status === 'Ativo';
 
             const statusConfig = {
-                'Ativo': { color: '#10b981', icon: 'fas fa-play-circle' },
-                'Aguardando Validação': { color: '#f59e0b', icon: 'fas fa-clock' },
-                'Concluído': { color: '#059669', icon: 'fas fa-check-circle' },
-                'Expirado': { color: '#ef4444', icon: 'fas fa-times-circle' }
+                'Ativo': { color: '#10b981', icon: 'play-circle' },
+                'Aguardando Validação': { color: '#f59e0b', icon: 'clock' },
+                'Concluído': { color: '#059669', icon: 'check-circle' },
+                'Expirado': { color: '#ef4444', icon: 'x-circle' }
             };
-            const { color, icon } = statusConfig[pdi.Status] || { color: '#6b7280', icon: 'fas fa-circle' };
+            const { color, icon } = statusConfig[pdi.Status] || { color: '#6b7280', icon: 'circle' };
+
+            // Verificar se o usuário é gestor direto do PDI
+            const isGestorDireto = currentUserId && pdi.GestorId && Number(currentUserId) === Number(pdi.GestorId);
+            const canApprovePDI = isGestorDireto && pdi.Status === 'Aguardando Validação';
+            const isColaboradorPDI = currentUserId && pdi.UserId && Number(currentUserId) === Number(pdi.UserId);
 
             return `
                 <div class="objetivo-item" data-pdi-id="${pdi.Id}" style="border-left-color: ${color};">
                     <div class="objetivo-header">
                         <div class="objetivo-info">
                             <h4>${pdi.Titulo || 'PDI'}</h4>
-                            <p style="color: #6b7280; margin: 8px 0;">${pdi.Feedback || 'Sem feedback'}</p>
+                            <p style="color: #6b7280; margin: 8px 0;">${pdi.FeedbackGestor || pdi.Feedback || 'Sem feedback'}</p>
                             <div style="margin-top: 8px; font-size: 14px; color: #6b7280;">
                                 <span>Colaborador: ${pdi.ColaboradorNome || 'N/A'}</span>
-                                <span style="margin-left: 16px;">Início: ${dataInicio}</span>
-                                <span style="margin-left: 16px;">Prazo: ${dataFim}</span>
-                                ${isOverdue ? '<span style="margin-left: 16px; color: #ef4444;">⚠ Atrasado</span>' : ''}
+                                ${dataInicio ? `<span style="margin-left: 16px;">Início: ${dataInicio}</span>` : ''}
+                                ${dataFim ? `<span style="margin-left: 16px;">Prazo: ${dataFim}</span>` : ''}
+                                ${isOverdue ? '<span style="margin-left: 16px; color: #ef4444; display: inline-flex; align-items: center; gap: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado</span>' : ''}
                             </div>
                         </div>
                         <div class="objetivo-badges">
                             <span class="badge" style="background-color: ${color}; color: white;">
-                                <i class="${icon}"></i> ${pdi.Status}
+                                <i data-lucide="${icon}" style="width: 14px; height: 14px; margin-right: 4px;"></i> ${pdi.Status}
                             </span>
                         </div>
                     </div>
@@ -1330,41 +1692,122 @@ const PDIs = {
                         </div>
                     </div>
                     <div class="objetivo-actions">
-                        ${pdi.Status === 'Ativo' ? `
+                        ${pdi.Status === 'Ativo' && isColaboradorPDI ? `
                             <button class="btn btn-secondary btn-sm" onclick="PDIs.checkin(${pdi.Id})">
-                                <i class="fas fa-check-circle"></i> Check-in
+                                <i data-lucide="check-circle" style="width: 16px; height: 16px; margin-right: 6px;"></i> Check-in
                             </button>
                         ` : ''}
                         <button class="btn btn-secondary btn-sm" onclick="PDIs.viewDetails(${pdi.Id})">
-                            <i class="fas fa-eye"></i> Ver Detalhes
+                            <i data-lucide="eye" style="width: 16px; height: 16px; margin-right: 6px;"></i> Ver Detalhes
                         </button>
-                        ${pdi.Status === 'Aguardando Validação' ? `
-                            <button class="btn btn-success btn-sm" onclick="PDIs.approve(${pdi.Id})">
-                                <i class="fas fa-check"></i> Aprovar
+                        ${canApprovePDI ? `
+                            <button class="btn btn-success btn-sm" onclick="PDIs.openApprovalModal(${pdi.Id})">
+                                <i data-lucide="check" style="width: 16px; height: 16px; margin-right: 6px;"></i> Aprovar
                             </button>
-                            <button class="btn btn-danger btn-sm" onclick="PDIs.reject(${pdi.Id})">
-                                <i class="fas fa-times"></i> Rejeitar
+                            <button class="btn btn-danger btn-sm" onclick="PDIs.openRejectionModal(${pdi.Id})">
+                                <i data-lucide="x-circle" style="width: 16px; height: 16px; margin-right: 6px;"></i> Rejeitar
                             </button>
                         ` : ''}
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Inicializar ícones Lucide após renderizar
+        if (window.lucide) {
+            lucide.createIcons();
+        }
     },
 
     formatDate(dateString) {
         if (!dateString) return '';
         try {
-            const [ano, mes, dia] = dateString.split('T')[0].split('-');
-            return `${dia}/${mes}/${ano}`;
-        } catch {
-            return 'Data inválida';
+            // Se já é um objeto Date, converter para string
+            let dateValue = dateString;
+            if (dateString instanceof Date) {
+                dateValue = dateString.toISOString();
+            } else if (typeof dateString !== 'string') {
+                dateValue = String(dateString);
+            }
+            
+            // Extrair a parte da data (antes do T se houver)
+            const dateStr = dateValue.split('T')[0];
+            if (!dateStr) return '';
+            
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                // Formato YYYY-MM-DD: criar Date usando componentes locais (não UTC)
+                const [ano, mes, dia] = parts;
+                const date = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+                if (isNaN(date.getTime())) return '';
+                return date.toLocaleDateString('pt-BR');
+            }
+            
+            // Tentar outro formato (DD/MM/YYYY)
+            const parts2 = dateStr.split('/');
+            if (parts2.length === 3) {
+                const [dia, mes, ano] = parts2;
+                const date = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+                if (isNaN(date.getTime())) return '';
+                return date.toLocaleDateString('pt-BR');
+            }
+            
+            return '';
+        } catch (error) {
+            console.error('Erro ao formatar data:', error, dateString);
+            return '';
         }
     },
 
+    openCheckinModal(pdiId) {
+        const modal = document.getElementById('pdi-checkin-modal');
+        const inputProgresso = document.getElementById('pdi-checkin-progresso');
+        const textareaObservacoes = document.getElementById('pdi-checkin-observacoes');
+        const hiddenId = document.getElementById('pdi-checkin-id');
+        
+        if (!modal || !inputProgresso || !textareaObservacoes || !hiddenId) {
+            console.error('Elementos do modal de check-in não encontrados');
+            return;
+        }
+
+        // Armazenar o ID do PDI
+        hiddenId.value = pdiId;
+        
+        // Limpar campos
+        inputProgresso.value = '';
+        textareaObservacoes.value = '';
+        
+        // Abrir o modal
+        modal.classList.remove('hidden');
+        
+        // Focar no campo de progresso
+        setTimeout(() => inputProgresso.focus(), 100);
+    },
+
     async checkin(pdiId) {
-        const progresso = prompt('Digite o progresso atual (0-100):');
-        if (!progresso) return;
+        this.openCheckinModal(pdiId);
+    },
+
+    async submitCheckin() {
+        const inputProgresso = document.getElementById('pdi-checkin-progresso');
+        const textareaObservacoes = document.getElementById('pdi-checkin-observacoes');
+        const hiddenId = document.getElementById('pdi-checkin-id');
+        
+        if (!inputProgresso || !textareaObservacoes || !hiddenId) {
+            console.error('Elementos do modal não encontrados');
+            return;
+        }
+
+        const pdiId = hiddenId.value;
+        const progresso = inputProgresso.value.trim();
+        const observacoes = textareaObservacoes.value.trim();
+
+        if (!progresso) {
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('Por favor, informe o progresso atual', 'error');
+            }
+            return;
+        }
 
         const progressoNum = parseInt(progresso, 10);
         if (isNaN(progressoNum) || progressoNum < 0 || progressoNum > 100) {
@@ -1374,76 +1817,332 @@ const PDIs = {
             return;
         }
 
-        const observacoes = prompt('Observações (opcional):') || '';
-
         try {
-            await API.post(`/api/objetivos/pdis/${pdiId}/checkin`, { progresso: progressoNum, observacoes });
+            await API.post(`/api/objetivos/pdis/${pdiId}/checkin`, { 
+                progresso: progressoNum, 
+                observacoes 
+            });
+            
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
                 EmailPopup.showToast('Check-in registrado com sucesso!', 'success');
             }
-            this.loadList();
+            
+            // Fechar o modal
+            this.closeCheckinModal();
+            
+            // Recarregar a lista
+            if (window.Objetivos && typeof Objetivos.loadPDIs === 'function') {
+                Objetivos.loadPDIs();
+            }
+            if (this.loadList && typeof this.loadList === 'function') {
+                this.loadList();
+            }
         } catch (error) {
             console.error('Erro ao registrar check-in:', error);
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
-                EmailPopup.showToast('Erro ao registrar check-in', 'error');
+                const errorMsg = error.message || 'Erro ao registrar check-in';
+                EmailPopup.showToast(errorMsg, 'error');
             }
         }
     },
 
+    closeCheckinModal() {
+        const modal = document.getElementById('pdi-checkin-modal');
+        const inputProgresso = document.getElementById('pdi-checkin-progresso');
+        const textareaObservacoes = document.getElementById('pdi-checkin-observacoes');
+        const hiddenId = document.getElementById('pdi-checkin-id');
+        
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        
+        if (inputProgresso) {
+            inputProgresso.value = '';
+        }
+        
+        if (textareaObservacoes) {
+            textareaObservacoes.value = '';
+        }
+        
+        if (hiddenId) {
+            hiddenId.value = '';
+        }
+    },
+
     async viewDetails(pdiId) {
+        const modal = document.getElementById('pdi-detalhes-modal');
+        const content = document.getElementById('pdi-detalhes-content');
+        
+        if (!modal || !content) {
+            console.error('Elementos do modal de detalhes não encontrados');
+            return;
+        }
+
+        // Abrir modal e mostrar loading
+        modal.classList.remove('hidden');
+        content.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando detalhes...</div>';
+
         try {
             const [pdi, checkins] = await Promise.all([
                 API.get(`/api/objetivos/pdis/${pdiId}`),
                 API.get(`/api/objetivos/pdis/${pdiId}/checkins`)
             ]);
 
-            let detailsHtml = `
-                <div style="padding: 20px; background: #fff; border-radius: 12px;">
-                    <h3 style="margin-bottom: 16px;">Detalhes do PDI</h3>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <div><strong>Colaborador:</strong> ${pdi.ColaboradorNome || 'N/A'}</div>
-                        <div><strong>Status:</strong> ${pdi.Status}</div>
-                        <div><strong>Progresso:</strong> ${pdi.Progresso || 0}%</div>
-                        <div><strong>Feedback:</strong> ${pdi.Feedback || 'Sem feedback'}</div>
-                        <div><strong>Objetivos:</strong> ${pdi.Objetivos || 'Não definidos'}</div>
-                        <div><strong>Ações:</strong> ${pdi.Acoes || 'Não definidas'}</div>
-                        <div><strong>Prazo:</strong> ${this.formatDate(pdi.DataFim)}</div>
-                    </div>
-                    
-                    ${checkins.length > 0 ? `
-                        <h4 style="margin-top: 24px; margin-bottom: 12px;">Histórico de Check-ins</h4>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            ${checkins.map(c => `
-                                <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #0d556d;">
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                        <strong>${c.user_name || 'Sistema'}</strong>
-                                        <span style="color: #6b7280; font-size: 14px;">${new Date(c.created_at).toLocaleDateString('pt-BR')}</span>
-                                    </div>
-                                    <div style="color: #059669; font-weight: 600; margin-bottom: 4px;">Progresso: ${c.progresso}%</div>
-                                    ${c.observacoes ? `<div style="color: #6b7280; font-size: 14px;">${c.observacoes}</div>` : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : '<p style="margin-top: 16px; color: #6b7280;">Nenhum check-in registrado ainda.</p>'}
-                </div>
-            `;
+            // Verificar se o usuário atual é o colaborador ou gestor
+            const user = State.getUser();
+            const userId = user && (user.userId || user.Id);
+            const isColaborador = userId && pdi.UserId && Number(userId) === Number(pdi.UserId);
+            const isGestor = userId && pdi.GestorId && Number(userId) === Number(pdi.GestorId);
 
-            alert(detailsHtml.replace(/<[^>]*>/g, '\n'));
+            const progresso = pdi.Progresso || 0;
+            // Usar PrazoConclusao diretamente (o backend já faz o alias correto)
+            const prazoConclusao = pdi.PrazoConclusao;
+            
+            let prazoFormatado = 'Não informado';
+            if (prazoConclusao) {
+                // Usar formatPDIDate do Objetivos (mais simples e robusta)
+                if (window.Objetivos && typeof Objetivos.formatPDIDate === 'function') {
+                    const formatted = Objetivos.formatPDIDate(prazoConclusao);
+                    if (formatted && formatted.trim()) {
+                        prazoFormatado = formatted;
+                    } else {
+                        // Fallback: tentar criar Date diretamente
+                        const date = new Date(prazoConclusao);
+                        if (!isNaN(date.getTime())) {
+                            prazoFormatado = date.toLocaleDateString('pt-BR');
+                        }
+                    }
+                } else {
+                    // Fallback para formatDate do PDIs
+                    const formatted = this.formatDate ? this.formatDate(prazoConclusao) : '';
+                    if (formatted && formatted.trim()) {
+                        prazoFormatado = formatted;
+                    } else {
+                        // Último recurso: tentar criar Date diretamente
+                        const date = new Date(prazoConclusao);
+                        if (!isNaN(date.getTime())) {
+                            prazoFormatado = date.toLocaleDateString('pt-BR');
+                        }
+                    }
+                }
+            }
+            const isOverdue = prazoConclusao && new Date(prazoConclusao + 'T00:00:00') < new Date() && pdi.Status === 'Ativo';
+
+            const statusConfig = {
+                'Ativo': { color: '#10b981', icon: 'play-circle' },
+                'Aguardando Validação': { color: '#f59e0b', icon: 'clock' },
+                'Concluído': { color: '#059669', icon: 'check-circle' },
+                'Expirado': { color: '#ef4444', icon: 'x-circle' }
+            };
+            const { color } = statusConfig[pdi.Status] || { color: '#6b7280' };
+
+            // Usar FeedbackGestor ao invés de Feedback
+            const feedbackGestor = pdi.FeedbackGestor || pdi.Feedback || 'Sem feedback';
+
+            content.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    ${!isColaborador ? `
+                        <div class="form-group">
+                            <label class="form-label">Colaborador</label>
+                            <input type="text" class="form-input" value="${pdi.ColaboradorNome || 'N/A'}" readonly>
+                        </div>
+                    ` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <input type="text" class="form-input" value="${pdi.Status || 'N/A'}" readonly 
+                            style="color: ${color}; font-weight: 600;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Progresso</label>
+                        <input type="text" class="form-input" value="${progresso}%" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prazo de Conclusão</label>
+                        <input type="text" class="form-input" value="${prazoFormatado}${isOverdue ? ' ⚠ Atrasado' : ''}" readonly
+                            style="${isOverdue ? 'color: #ef4444;' : ''}">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 24px;">
+                    <div style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${progresso}%; height: 100%; background: ${color}; transition: width 0.3s ease;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 13px; color: #6b7280;">
+                        <span>Progresso atual</span>
+                        <span style="font-weight: 600;">${progresso}%</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Feedback</label>
+                    <textarea class="form-textarea" rows="3" readonly>${feedbackGestor}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Objetivos</label>
+                    <textarea class="form-textarea" rows="4" readonly>${pdi.Objetivos || 'Não definidos'}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Ações</label>
+                    <textarea class="form-textarea" rows="4" readonly>${pdi.Acoes || 'Não definidas'}</textarea>
+                </div>
+
+                ${checkins && checkins.length > 0 ? `
+                    <div style="margin-top: 24px;">
+                        <h4 style="font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 12px;">
+                            Histórico de Check-ins
+                        </h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0px;">
+                            ${checkins.map(c => {
+                                const eventDate = new Date(c.created_at);
+                                eventDate.setHours(eventDate.getHours() + 3);
+                                const rawObservacoes = (c.observacoes || '').trim();
+                                const isSystemEvent = /^\[SISTEMA\]/i.test(rawObservacoes);
+                                const cleanedObservacoes = rawObservacoes.replace(/^\[SISTEMA\]\s*/i, '');
+                                const lowerObs = cleanedObservacoes.toLowerCase();
+                                const numericProgress = Number(c.progresso) || 0;
+
+                                const theme = {
+                                    borderColor: '#0d556d',
+                                    badgeColor: '#0d556d',
+                                    badgeLabel: 'Check-in',
+                                    showProgress: true,
+                                    progressLabel: `Progresso: ${numericProgress}%`
+                                };
+
+                                if (isSystemEvent) {
+                                    theme.showProgress = false;
+                                    theme.badgeLabel = 'Atualização';
+                                    theme.borderColor = '#3b82f6';
+                                    theme.badgeColor = '#3b82f6';
+
+                                    if (lowerObs.includes('rejeit')) {
+                                        theme.badgeLabel = 'Rejeição';
+                                        theme.borderColor = '#ef4444';
+                                        theme.badgeColor = '#ef4444';
+                                        theme.showProgress = true;
+                                        theme.progressLabel = `Progresso restaurado para ${numericProgress}%`;
+                                    } else if (lowerObs.includes('aprov')) {
+                                        theme.badgeLabel = 'Aprovação';
+                                        theme.borderColor = '#10b981';
+                                        theme.badgeColor = '#10b981';
+                                    } else if (lowerObs.includes('aguard') || lowerObs.includes('pendente') || lowerObs.includes('solic')) {
+                                        theme.badgeLabel = 'Aguardando';
+                                        theme.borderColor = '#f59e0b';
+                                        theme.badgeColor = '#f59e0b';
+                                    }
+                                }
+
+                                const shouldTruncate = !isSystemEvent;
+                                const displayObservacoes = cleanedObservacoes
+                                    ? (shouldTruncate && cleanedObservacoes.length > 250
+                                        ? `${cleanedObservacoes.slice(0, 250)}...`
+                                        : cleanedObservacoes)
+                                    : '';
+
+                                const observacoesHtml = displayObservacoes
+                                    ? `<div style="color: #6b7280; font-size: 14px; white-space: pre-wrap; word-break: break-word; margin-top: 8px;">${displayObservacoes}</div>`
+                                    : '';
+
+                                const progressHtml = theme.showProgress
+                                    ? `<div style="color: #059669; font-weight: 600; font-size: 14px; margin-bottom: 4px;">${theme.progressLabel}</div>`
+                                    : '';
+
+                                const displayName = isSystemEvent ? 'Sistema' : (c.user_name || 'Sistema');
+
+                                return `
+                                    <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid ${theme.borderColor};">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                            <strong style="color: #374151;">${displayName}</strong>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <span style="display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; border: 1px solid ${theme.badgeColor}; color: ${theme.badgeColor}; background-color: ${theme.badgeColor}1A;">
+                                                    ${theme.badgeLabel}
+                                                </span>
+                                                <span style="color: #6b7280; font-size: 14px;">
+                                                    ${eventDate.toLocaleDateString('pt-BR')} ${eventDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        ${progressHtml}
+                                        ${observacoesHtml}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : `
+                    <div style="margin-top: 24px; padding: 20px; background: #f9fafb; border-radius: 8px; text-align: center;">
+                        <i data-lucide="info" style="width: 24px; height: 24px; margin-bottom: 8px; display: inline-block; color: #6b7280;"></i>
+                        <p style="color: #6b7280; margin: 0;">Nenhum check-in registrado ainda.</p>
+                    </div>
+                `}
+            `;
+            
+            // Inicializar ícones Lucide após inserir o HTML
+            if (window.lucide) {
+                lucide.createIcons();
+            }
         } catch (error) {
             console.error('Erro ao carregar detalhes do PDI:', error);
-            alert('Erro ao carregar detalhes do PDI');
+            content.innerHTML = `
+                <div style="padding: 20px; text-align: center;">
+                    <p style="color: #ef4444; margin: 0;">Erro ao carregar detalhes do PDI.</p>
+                </div>
+            `;
         }
     },
 
-    async approve(pdiId) {
-        if (!confirm('Deseja aprovar este PDI?')) return;
+    closeDetalhesModal() {
+        const modal = document.getElementById('pdi-detalhes-modal');
+        const content = document.getElementById('pdi-detalhes-content');
+        
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        
+        if (content) {
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando detalhes...</div>';
+        }
+    },
+
+    openApprovalModal(pdiId) {
+        this.state.pendingApprovalId = pdiId;
+        const overlay = document.getElementById('pdi-approve-modal');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+    },
+
+    closeApprovalModal() {
+        this.state.pendingApprovalId = null;
+        const overlay = document.getElementById('pdi-approve-modal');
+        if (overlay) {
+            overlay.classList.add('hidden');
+        }
+    },
+
+    async confirmApprove() {
+        if (!this.state.pendingApprovalId) {
+            this.closeApprovalModal();
+            return;
+        }
+
+        const pdiId = this.state.pendingApprovalId;
 
         try {
             await API.post(`/api/objetivos/pdis/${pdiId}/approve`);
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
                 EmailPopup.showToast('PDI aprovado com sucesso!', 'success');
             }
-            this.loadList();
+            this.closeApprovalModal();
+            // Recarregar a listagem de PDIs
+            if (window.Objetivos && typeof Objetivos.loadPDIs === 'function') {
+                await Objetivos.loadPDIs();
+            } else if (this.loadList && typeof this.loadList === 'function') {
+                await this.loadList();
+            }
         } catch (error) {
             console.error('Erro ao aprovar PDI:', error);
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
@@ -1452,20 +2151,84 @@ const PDIs = {
         }
     },
 
-    async reject(pdiId) {
-        const motivo = prompt('Motivo da rejeição:');
-        if (!motivo) return;
+    openRejectionModal(pdiId) {
+        this.state.rejectModal = {
+            pdiId: pdiId
+        };
+        const overlay = document.getElementById('pdi-reject-modal');
+        const textarea = document.getElementById('pdi-reject-reason');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            if (textarea) {
+                textarea.value = '';
+                setTimeout(() => textarea.focus(), 100);
+            }
+        }
+    },
+
+    closeRejectionModal() {
+        this.state.rejectModal = null;
+        const overlay = document.getElementById('pdi-reject-modal');
+        const textarea = document.getElementById('pdi-reject-reason');
+        if (overlay) {
+            overlay.classList.add('hidden');
+        }
+        if (textarea) {
+            textarea.value = '';
+        }
+    },
+
+    async rejectCurrentPDI() {
+        if (!this.state.rejectModal || !this.state.rejectModal.pdiId) {
+            this.closeRejectionModal();
+            return;
+        }
+
+        const textarea = document.getElementById('pdi-reject-reason');
+        if (!textarea) {
+            this.closeRejectionModal();
+            return;
+        }
+
+        const motivo = textarea.value.trim();
+        if (!motivo) {
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('Por favor, informe o motivo da rejeição', 'error');
+            } else {
+                alert('Por favor, informe o motivo da rejeição');
+            }
+            return;
+        }
+
+        const pdiId = this.state.rejectModal.pdiId;
 
         try {
-            await API.post(`/api/objetivos/pdis/${pdiId}/reject`, { motivo });
+            const response = await API.post(`/api/objetivos/pdis/${pdiId}/reject`, { motivo });
+            const message = response && response.message ? response.message : 'PDI rejeitado com sucesso';
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
-                EmailPopup.showToast('PDI rejeitado', 'warning');
+                EmailPopup.showToast(message, 'warning');
+            } else if (window.Notifications && typeof Notifications.warning === 'function') {
+                Notifications.warning(message);
+            } else {
+                alert(message);
             }
-            this.loadList();
+            this.closeRejectionModal();
+            // Recarregar a listagem de PDIs
+            if (window.Objetivos && typeof Objetivos.loadPDIs === 'function') {
+                await Objetivos.loadPDIs();
+            } else if (this.loadList && typeof this.loadList === 'function') {
+                await this.loadList();
+            }
         } catch (error) {
             console.error('Erro ao rejeitar PDI:', error);
+            const serverMessage = (error && (error.message || (error.data && (error.data.error || error.data.message)))) || '';
+            const displayMessage = serverMessage || 'Erro ao rejeitar PDI';
             if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
-                EmailPopup.showToast('Erro ao rejeitar PDI', 'error');
+                EmailPopup.showToast(displayMessage, 'error');
+            } else if (window.Notifications && typeof Notifications.error === 'function') {
+                Notifications.error(displayMessage);
+            } else {
+                alert(displayMessage);
             }
         }
     }
@@ -1494,3 +2257,22 @@ window.toggleObjetivosSubTab = function (subtab) {
 };
 
 window.PDIs = PDIs;
+
+// Funções globais para handlers inline dos modais de PDI
+function closePDIDetalhesModal() {
+    if (window.PDIs && typeof PDIs.closeDetalhesModal === 'function') {
+        PDIs.closeDetalhesModal();
+    }
+}
+
+function closePDICheckinModal() {
+    if (window.PDIs && typeof PDIs.closeCheckinModal === 'function') {
+        PDIs.closeCheckinModal();
+    }
+}
+
+function submitPDICheckin() {
+    if (window.PDIs && typeof PDIs.submitCheckin === 'function') {
+        PDIs.submitCheckin();
+    }
+}
