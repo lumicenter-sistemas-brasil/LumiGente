@@ -256,8 +256,6 @@ exports.getObjetivos = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
         
-        console.log('🔍 Buscando objetivos para usuário:', userId);
-        
         // Verificar se as tabelas existem antes de tentar usá-las
         try {
             await ensureObjetivosTablesExist(pool);
@@ -294,8 +292,6 @@ exports.getObjetivos = async (req, res) => {
                 ORDER BY o.created_at DESC
             `);
 
-        console.log('📋 Objetivos encontrados:', result.recordset.length);
-
         for (let objetivo of result.recordset) {
             try {
                 const responsaveisResult = await pool.request()
@@ -326,7 +322,6 @@ exports.getObjetivos = async (req, res) => {
             }
         }
 
-        console.log('✅ Objetivos processados com sucesso');
         res.json(result.recordset);
     } catch (error) {
         console.error('❌ Erro ao buscar objetivos:', error);
@@ -1295,5 +1290,244 @@ exports.rejectObjetivo = async (req, res) => {
     } catch (error) {
         console.error('Erro ao rejeitar objetivo:', error);
         res.status(500).json({ error: 'Erro ao rejeitar objetivo' });
+    }
+};
+
+// =================================================================
+// CONTROLLERS DE PDI (Plano de Desenvolvimento Individual)
+// =================================================================
+
+exports.getMeusPDIs = async (req, res) => {
+    try {
+        const userId = req.session.user.userId;
+        const pool = await getDatabasePool();
+        
+        const result = await pool.request()
+            .input('userId', sql.Int, userId)
+            .query(`
+                SELECT p.*, 
+                       u.NomeCompleto as ColaboradorNome, 
+                       u.Departamento as ColaboradorDepartamento,
+                       g.NomeCompleto as GestorNome
+                FROM PDIs p
+                LEFT JOIN Users u ON p.UserId = u.Id
+                LEFT JOIN Users g ON p.GestorId = g.Id
+                WHERE p.UserId = @userId OR p.GestorId = @userId
+                ORDER BY p.DataCriacao DESC
+            `);
+        
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Erro ao buscar PDIs:', error);
+        res.status(500).json({ error: 'Erro ao buscar PDIs' });
+    }
+};
+
+exports.getPDIById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.session.user.userId;
+        const pool = await getDatabasePool();
+        
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`
+                SELECT p.*, u.NomeCompleto as colaborador_nome, g.NomeCompleto as gestor_nome
+                FROM PDIs p
+                LEFT JOIN Users u ON p.UserId = u.Id
+                LEFT JOIN Users g ON p.GestorId = g.Id
+                WHERE p.Id = @id
+            `);
+        
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: 'PDI não encontrado' });
+        }
+        
+        const pdi = result.recordset[0];
+        
+        // Verificar permissão
+        if (pdi.UserId !== userId && pdi.GestorId !== userId && !hasFullAccess(req.session.user)) {
+            return res.status(403).json({ error: 'Acesso negado' });
+        }
+        
+        res.json(pdi);
+    } catch (error) {
+        console.error('Erro ao buscar PDI:', error);
+        res.status(500).json({ error: 'Erro ao buscar PDI' });
+    }
+};
+
+exports.createCheckinPDI = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { progresso, observacoes } = req.body;
+        const userId = req.session.user.userId;
+        
+        if (progresso === undefined || progresso < 0 || progresso > 100) {
+            return res.status(400).json({ error: 'Progresso deve ser entre 0 e 100' });
+        }
+        
+        const pool = await getDatabasePool();
+        
+        const pdiResult = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`SELECT UserId, GestorId, Titulo, Status FROM PDIs WHERE Id = @id`);
+        
+        if (pdiResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'PDI não encontrado' });
+        }
+        
+        const pdi = pdiResult.recordset[0];
+        
+        if (pdi.UserId !== userId) {
+            return res.status(403).json({ error: 'Apenas o colaborador pode fazer check-in' });
+        }
+        
+        // Registrar check-in
+        await pool.request()
+            .input('pdiId', sql.Int, id)
+            .input('userId', sql.Int, userId)
+            .input('progresso', sql.Decimal(5, 2), progresso)
+            .input('observacoes', sql.NText, observacoes || '')
+            .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
+        
+        let novoStatus = pdi.Status;
+        if (progresso >= 100) {
+            novoStatus = 'Aguardando Validação';
+            await pool.request()
+                .input('id', sql.Int, id)
+                .input('progresso', sql.Decimal(5, 2), progresso)
+                .input('status', sql.NVarChar, novoStatus)
+                .query(`UPDATE PDIs SET Progresso = @progresso, Status = @status WHERE Id = @id`);
+        } else {
+            await pool.request()
+                .input('id', sql.Int, id)
+                .input('progresso', sql.Decimal(5, 2), progresso)
+                .query(`UPDATE PDIs SET Progresso = @progresso WHERE Id = @id`);
+        }
+        
+        res.json({ 
+            success: true, 
+            message: progresso >= 100 ? 'Check-in registrado. Aguardando validação do gestor' : 'Check-in registrado com sucesso',
+            status: novoStatus
+        });
+    } catch (error) {
+        console.error('Erro ao registrar check-in de PDI:', error);
+        res.status(500).json({ error: 'Erro ao registrar check-in' });
+    }
+};
+
+exports.getCheckinsPDI = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = await getDatabasePool();
+        
+        const result = await pool.request()
+            .input('pdiId', sql.Int, id)
+            .query(`
+                SELECT pc.*, u.NomeCompleto as user_name
+                FROM PDICheckins pc
+                JOIN Users u ON pc.UserId = u.Id
+                WHERE pc.PDIId = @pdiId
+                ORDER BY pc.DataCheckin DESC
+            `);
+        
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Erro ao buscar check-ins de PDI:', error);
+        res.status(500).json({ error: 'Erro ao buscar check-ins' });
+    }
+};
+
+exports.approvePDI = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.session.user.userId;
+        const pool = await getDatabasePool();
+        
+        const pdiResult = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`SELECT GestorId, Titulo FROM PDIs WHERE Id = @id`);
+        
+        if (pdiResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'PDI não encontrado' });
+        }
+        
+        const pdi = pdiResult.recordset[0];
+        
+        if (pdi.GestorId !== userId && !hasFullAccess(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas o gestor pode aprovar' });
+        }
+        
+        await pool.request()
+            .input('id', sql.Int, id)
+            .query(`UPDATE PDIs SET Status = 'Concluído', Progresso = 100 WHERE Id = @id`);
+        
+        res.json({ success: true, message: 'PDI aprovado e concluído' });
+    } catch (error) {
+        console.error('Erro ao aprovar PDI:', error);
+        res.status(500).json({ error: 'Erro ao aprovar PDI' });
+    }
+};
+
+exports.rejectPDI = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { motivo } = req.body;
+        const userId = req.session.user.userId;
+        
+        if (!motivo || !motivo.trim()) {
+            return res.status(400).json({ error: 'Motivo é obrigatório' });
+        }
+        
+        const pool = await getDatabasePool();
+        
+        const pdiResult = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`SELECT GestorId, Titulo FROM PDIs WHERE Id = @id`);
+        
+        if (pdiResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'PDI não encontrado' });
+        }
+        
+        const pdi = pdiResult.recordset[0];
+        
+        if (pdi.GestorId !== userId && !hasFullAccess(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas o gestor pode rejeitar' });
+        }
+        
+        // Buscar último progresso < 100
+        const ultimoCheckinResult = await pool.request()
+            .input('pdiId', sql.Int, id)
+            .query(`
+                SELECT TOP 1 Progresso 
+                FROM PDICheckins 
+                WHERE PDIId = @pdiId AND Progresso < 100 
+                ORDER BY DataCheckin DESC
+            `);
+        
+        const progressoAnterior = ultimoCheckinResult.recordset.length > 0 ? ultimoCheckinResult.recordset[0].Progresso : 0;
+        
+        await pool.request()
+            .input('id', sql.Int, id)
+            .input('progresso', sql.Decimal(5, 2), progressoAnterior)
+            .query(`UPDATE PDIs SET Status = 'Ativo', Progresso = @progresso WHERE Id = @id`);
+        
+        // Registrar rejeição como check-in
+        await pool.request()
+            .input('pdiId', sql.Int, id)
+            .input('userId', sql.Int, userId)
+            .input('progresso', sql.Decimal(5, 2), progressoAnterior)
+            .input('observacoes', sql.NText, `[SISTEMA] Rejeitado pelo gestor. Motivo: ${motivo.trim()}`)
+            .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
+        
+        res.json({ 
+            success: true, 
+            message: `PDI rejeitado e revertido para ${progressoAnterior}%`,
+            progressoAnterior
+        });
+    } catch (error) {
+        console.error('Erro ao rejeitar PDI:', error);
+        res.status(500).json({ error: 'Erro ao rejeitar PDI' });
     }
 };

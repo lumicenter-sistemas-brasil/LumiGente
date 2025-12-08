@@ -323,3 +323,66 @@ exports.getHumorEntries = async (req, res) => {
     }
 };
 
+exports.getAllPDIs = async (req, res) => {
+    if (!ensureHistoricoAccess(req, res)) return;
+
+    try {
+        const pool = await getDatabasePool();
+        const { search, dateStart, dateEnd } = req.query;
+
+        const request = pool.request();
+        const conditions = [];
+
+        if (search) {
+            conditions.push(`(
+                CAST(p.Objetivos AS NVARCHAR(MAX)) LIKE @pdiSearch OR
+                CAST(p.Acoes AS NVARCHAR(MAX)) LIKE @pdiSearch OR
+                uColab.NomeCompleto LIKE @pdiSearch OR
+                uGestor.NomeCompleto LIKE @pdiSearch
+            )`);
+            request.input('pdiSearch', sql.NVarChar, `%${search}%`);
+        }
+
+        if (dateStart) {
+            conditions.push('CAST(p.DataCriacao AS DATE) >= @pdiDateStart');
+            request.input('pdiDateStart', sql.Date, dateStart);
+        }
+
+        if (dateEnd) {
+            conditions.push('CAST(p.DataCriacao AS DATE) <= @pdiDateEnd');
+            request.input('pdiDateEnd', sql.Date, dateEnd);
+        }
+
+        let query = `
+            SELECT TOP 500
+                p.Id,
+                p.UserId,
+                p.GestorId,
+                uColab.NomeCompleto AS colaborador_nome,
+                uColab.Departamento AS colaborador_departamento,
+                uGestor.NomeCompleto AS gestor_nome,
+                CAST(p.Objetivos AS NVARCHAR(MAX)) AS objetivos,
+                CAST(p.Acoes AS NVARCHAR(MAX)) AS acoes,
+                p.PrazoRevisao AS prazo_revisao,
+                p.DataCriacao AS criado_em,
+                ad.Titulo AS avaliacao_titulo
+            FROM PDIs p
+            JOIN Users uColab ON uColab.Id = p.UserId
+            LEFT JOIN Users uGestor ON uGestor.Id = p.GestorId
+            LEFT JOIN AvaliacoesDesempenho ad ON ad.Id = p.AvaliacaoId
+        `;
+
+        if (conditions.length) {
+            query += ` WHERE ${conditions.join(' AND ')} `;
+        }
+
+        query += ' ORDER BY p.DataCriacao DESC';
+
+        const result = await request.query(query);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Erro ao buscar PDIs para histórico:', error);
+        res.status(500).json({ error: 'Erro ao buscar PDIs.' });
+    }
+};
+

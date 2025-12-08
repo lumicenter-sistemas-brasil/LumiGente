@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const avaliacaoController = require('../controllers/avaliacaoController');
+const avaliacaoDesempenhoController = require('../controllers/avaliacaoDesempenhoController');
 const { requireAuth, requireManagerAccess, requireFeatureAccess } = require('../middleware/authMiddleware');
 
 // Aplica o middleware de autenticação para todas as rotas de avaliações
@@ -68,5 +69,44 @@ router.put('/templates/:tipo/perguntas/:id', requireFeatureAccess('avaliacoes'),
 // Remove uma pergunta do template
 router.delete('/templates/:tipo/perguntas/:id', requireFeatureAccess('avaliacoes'), avaliacaoController.deleteTemplatePergunta);
 
+
+
+// =================================================================
+// ROTAS PARA AVALIAÇÃO DE DESEMPENHO (NOVO MÓDULO)
+// =================================================================
+
+// Criar nova avaliação (RH)
+router.post('/desempenho/criar', avaliacaoDesempenhoController.criarAvaliacao);
+
+// Listar minhas avaliações (Colaborador/Gestor)
+router.get('/desempenho/minhas', avaliacaoDesempenhoController.listarMinhasAvaliacoes);
+
+// Listar todas as avaliações (RH)
+router.get('/desempenho/todas', avaliacaoDesempenhoController.listarTodasAvaliacoes);
+
+// Gerenciamento de Perguntas (RH)
+router.post('/desempenho/perguntas', avaliacaoDesempenhoController.criarPergunta);
+router.post('/desempenho/perguntas/reordenar', avaliacaoDesempenhoController.reordenarPerguntas);
+router.put('/desempenho/perguntas/:id', avaliacaoDesempenhoController.atualizarPergunta);
+router.delete('/desempenho/perguntas/:id', avaliacaoDesempenhoController.excluirPergunta);
+
+// Questionário e Respostas
+router.get('/desempenho/questionario', avaliacaoDesempenhoController.getQuestionario);
+router.get('/desempenho/:id/respostas', avaliacaoDesempenhoController.getRespostas);
+
+// Detalhes da avaliação
+router.get('/desempenho/:id', avaliacaoDesempenhoController.getAvaliacao);
+
+// Responder avaliação
+router.post('/desempenho/:id/responder', avaliacaoDesempenhoController.responderAvaliacao);
+
+// Calibrar avaliação (RH)
+router.post('/desempenho/:id/calibrar', avaliacaoDesempenhoController.calibrarAvaliacao);
+
+// Salvar feedback e PDI (Gestor)
+router.post('/desempenho/:id/feedback-pdi', avaliacaoDesempenhoController.salvarFeedbackPDI);
+
+// Questionário específico de uma avaliação
+router.get('/desempenho/:id/questionario', avaliacaoDesempenhoController.getQuestionarioAvaliacao);
 
 module.exports = router;

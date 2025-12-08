@@ -27,10 +27,8 @@ class AnalyticsManager {
         const cacheKey = `dashboard_${currentUser?.userId || 'anon'}_${scopeKey}_${period}_${department || 'all'}_${userId || 'all'}`;
         const cachedData = this.cache.get(cacheKey);
         if (cachedData) {
-            console.log('CACHE HIT:', cacheKey);
             return cachedData;
         }
-        console.log('CACHE MISS:', cacheKey);
 
         const performance = await this.executeWithFallback(
             () => this.getPerformanceIndicators(currentUser, period, department, scope),

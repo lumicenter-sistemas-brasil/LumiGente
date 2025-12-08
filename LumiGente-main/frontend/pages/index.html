@@ -1102,81 +1102,159 @@
 
                 <!-- Objetivos -->
                 <div id="objetivos-content" class="tab-content hidden">
-                    <div class="card">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="margin: 0;">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981"
-                                    stroke-width="2">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <circle cx="12" cy="12" r="6" />
-                                    <circle cx="12" cy="12" r="2" />
-                                </svg>
-                                Meus Objetivos
-                            </h3>
-                            <button class="btn btn-amber" data-action="openNewObjetivoModal">
+                    <style>
+                        .objetivos-tabs {
+                            display: flex;
+                            gap: 16px;
+                            border-bottom: 1px solid #e5e7eb;
+                            padding-bottom: 12px;
+                            margin-bottom: 24px;
+                        }
+
+                        .objetivos-tab {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 8px;
+                            padding: 10px 18px;
+                            border-radius: 999px;
+                            border: none;
+                            background: #f3f4f6;
+                            color: #374151;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                        }
+
+                        .objetivos-tab.active {
+                            background: linear-gradient(135deg, #0d556d, #0a4555);
+                            color: #ffffff;
+                            box-shadow: 0 10px 18px -12px rgba(13, 85, 109, 0.6);
+                        }
+
+                        .objetivos-tab svg {
+                            width: 16px;
+                            height: 16px;
+                        }
+                    </style>
+                    <div class="objetivos-tabs">
+                        <button class="objetivos-tab active" data-objetivos-tab="meus"
+                            onclick="Objetivos.switchTab('meus')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <circle cx="12" cy="12" r="6"></circle>
+                                <circle cx="12" cy="12" r="2"></circle>
+                            </svg>
+                            Meus Objetivos
+                        </button>
+                        <button class="objetivos-tab" data-objetivos-tab="pdis" onclick="Objetivos.switchTab('pdis')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                                <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+                            </svg>
+                            Meus PDIs
+                        </button>
+                    </div>
+                    <div id="objetivos-meus-panel">
+                        <div class="card">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="margin: 0;">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981"
+                                        stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <circle cx="12" cy="12" r="6" />
+                                        <circle cx="12" cy="12" r="2" />
+                                    </svg>
+                                    Meus Objetivos
+                                </h3>
+                                <button class="btn btn-amber" data-action="openNewObjetivoModal">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>
+                                    Novo Objetivo
+                                </button>
+                            </div>
+
+                            <button class="filters-toggle-btn" onclick="toggleObjetivosFilters()">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <line x1="12" y1="5" x2="12" y2="19" />
-                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                                 </svg>
-                                Novo Objetivo
+                                Filtros
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
                             </button>
+
+                            <div class="filters-container collapsed" id="objetivos-filters-container">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Buscar por Nome</label>
+                                        <input type="text" class="form-input" id="objetivos-search"
+                                            placeholder="Buscar objetivos..." oninput="Objetivos.loadList()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Buscar por Responsável</label>
+                                        <input type="text" class="form-input" id="objetivos-responsavel-search"
+                                            placeholder="Filtrar por responsável..." oninput="Objetivos.loadList()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Buscar por Status</label>
+                                        <select class="form-select" id="objetivos-status-filter"
+                                            onchange="Objetivos.loadList()">
+                                            <option value="">Todos os status</option>
+                                            <option value="Ativo">Ativo</option>
+                                            <option value="Agendado">Agendado</option>
+                                            <option value="Concluído">Concluído</option>
+                                            <option value="Expirado">Expirado</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                                        <button class="btn btn-secondary" onclick="clearObjetivosFilters()">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
+                                            Limpar Filtros
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <button class="filters-toggle-btn" onclick="toggleObjetivosFilters()">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                            </svg>
-                            Filtros
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                        </button>
-
-                        <div class="filters-container collapsed" id="objetivos-filters-container">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Buscar por Nome</label>
-                                    <input type="text" class="form-input" id="objetivos-search"
-                                        placeholder="Buscar objetivos..." oninput="Objetivos.loadList()">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Buscar por Responsável</label>
-                                    <input type="text" class="form-input" id="objetivos-responsavel-search"
-                                        placeholder="Filtrar por responsável..." oninput="Objetivos.loadList()">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Buscar por Status</label>
-                                    <select class="form-select" id="objetivos-status-filter"
-                                        onchange="Objetivos.loadList()">
-                                        <option value="">Todos os status</option>
-                                        <option value="Ativo">Ativo</option>
-                                        <option value="Agendado">Agendado</option>
-                                        <option value="Concluído">Concluído</option>
-                                        <option value="Expirado">Expirado</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="display: flex; align-items: flex-end;">
-                                    <button class="btn btn-secondary" onclick="clearObjetivosFilters()">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2">
-                                            <line x1="18" y1="6" x2="6" y2="18" />
-                                            <line x1="6" y1="6" x2="18" y2="18" />
-                                        </svg>
-                                        Limpar Filtros
-                                    </button>
-                                </div>
+                        <div class="objetivos-list" id="objetivos-list">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Carregando objetivos...
                             </div>
                         </div>
                     </div>
 
-                    <div class="objetivos-list" id="objetivos-list">
-                        <div class="loading">
-                            <div class="spinner"></div>
-                            Carregando objetivos...
+
+                    <div id="objetivos-pdis-panel" class="hidden">
+                        <div class="card">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="margin: 0;">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6"
+                                        stroke-width="2" style="margin-right: 8px;">
+                                        <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                                        <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+                                    </svg>
+                                    Meus PDIs
+                                </h3>
+                            </div>
+                            <div class="objetivos-list" id="objetivos-pdis-list">
+                                <div class="loading">
+                                    <div class="spinner"></div>Carregando PDIs...
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1333,9 +1411,11 @@
                 <!-- Usuários Externos -->
                 <div id="external-users-content" class="tab-content hidden">
                     <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <h3 style="margin: 0;">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d"
+                                    stroke-width="2">
                                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                                     <circle cx="9" cy="7" r="4" />
                                     <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -1344,7 +1424,8 @@
                                 Usuários Externos
                             </h3>
                             <button class="btn btn-amber" id="external-users-add-btn">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
                                     <line x1="12" y1="5" x2="12" y2="19" />
                                     <line x1="5" y1="12" x2="19" y2="12" />
                                 </svg>
@@ -1352,16 +1433,34 @@
                             </button>
                         </div>
                         <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-                            <button class="filter-btn" data-filter="active" onclick="ExternalUsers.setFilter('active')" style="padding: 8px 16px; border: none; background: #f3f4f6; color: #6b7280; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s ease;">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>
+                            <button class="filter-btn" data-filter="active" onclick="ExternalUsers.setFilter('active')"
+                                style="padding: 8px 16px; border: none; background: #f3f4f6; color: #6b7280; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s ease;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                                    <polyline points="20 6 9 17 4 12" />
+                                </svg>
                                 Ativos
                             </button>
-                            <button class="filter-btn" data-filter="inactive" onclick="ExternalUsers.setFilter('inactive')" style="padding: 8px 16px; border: none; background: #f3f4f6; color: #6b7280; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s ease;">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <button class="filter-btn" data-filter="inactive"
+                                onclick="ExternalUsers.setFilter('inactive')"
+                                style="padding: 8px 16px; border: none; background: #f3f4f6; color: #6b7280; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s ease;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="15" y1="9" x2="9" y2="15" />
+                                    <line x1="9" y1="9" x2="15" y2="15" />
+                                </svg>
                                 Inativos
                             </button>
-                            <button class="filter-btn" data-filter="all" onclick="ExternalUsers.setFilter('all')" style="padding: 8px 16px; border: none; background: #dbeafe; color: #1e40af; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s ease;">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <button class="filter-btn" data-filter="all" onclick="ExternalUsers.setFilter('all')"
+                                style="padding: 8px 16px; border: none; background: #dbeafe; color: #1e40af; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s ease;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                    <circle cx="9" cy="7" r="4" />
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                </svg>
                                 Todos
                             </button>
                         </div>
@@ -1533,7 +1632,8 @@
                                             <line x1="12" y1="16" x2="12" y2="12" />
                                             <line x1="12" y1="8" x2="12.01" y2="8" />
                                         </svg>
-                                        Informe sua senha atual e escolha uma nova senha. Um token será enviado para seu
+                                        Informe sua senha atual e escolha uma nova senha. Um token será enviado para
+                                        seu
                                         email para confirmar a alteração.
                                     </p>
                                     <form class="password-inputs" id="password-reset-form" onsubmit="return false;">
@@ -1781,7 +1881,8 @@
                                         <option value="Organização">Organização</option>
                                         <option value="Criatividade">Criatividade</option>
                                         <option value="Resolução de Problemas">Resolução de Problemas</option>
-                                        <option value="Relacionamento Interpessoal">Relacionamento Interpessoal</option>
+                                        <option value="Relacionamento Interpessoal">Relacionamento Interpessoal
+                                        </option>
                                         <option value="Comprometimento">Comprometimento</option>
                                         <option value="Desenvolvimento Profissional">Desenvolvimento Profissional
                                         </option>
@@ -1988,6 +2089,70 @@
                                 </div>
                             </div>
                         </section>
+
+                        <section class="historico-overview-section" id="overview-pdis-section">
+                            <div class="overview-section-header">
+                                <div>
+                                    <h3><i data-lucide="graduation-cap"></i> PDIs (Planos de Desenvolvimento)
+                                    </h3>
+                                    <p>Visualize todos os Planos de Desenvolvimento Individual criados nas
+                                        avaliações.</p>
+                                </div>
+                            </div>
+                            <div class="overview-filter-row">
+                                <div class="form-group">
+                                    <label>Pesquisar</label>
+                                    <input type="text" class="form-input" id="overview-pdis-search"
+                                        placeholder="Colaborador, gestor ou objetivos">
+                                </div>
+                                <div class="form-group">
+                                    <label>Data inicial</label>
+                                    <input type="date" class="form-input" id="overview-pdis-date-start">
+                                </div>
+                                <div class="form-group">
+                                    <label>Data final</label>
+                                    <input type="date" class="form-input" id="overview-pdis-date-end">
+                                </div>
+                                <div class="form-group historico-actions-group">
+                                    <label style="opacity: 0">Ações</label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button type="button" class="btn btn-secondary btn-sm"
+                                            id="overview-pdis-refresh">
+                                            <i data-lucide="refresh-cw"></i>
+                                            Atualizar
+                                        </button>
+                                        <button type="button" class="btn-clear-filters" id="overview-pdis-clear">
+                                            <i data-lucide="x-circle"></i>
+                                            Limpar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="historico-table-container">
+                                <div class="historico-section-loading" id="overview-pdis-loading">
+                                    <div class="spinner"></div>
+                                    Carregando PDIs...
+                                </div>
+                                <table class="historico-table" id="overview-pdis-table" style="display: none;">
+                                    <thead>
+                                        <tr>
+                                            <th>Data Criação</th>
+                                            <th>Colaborador</th>
+                                            <th>Gestor</th>
+                                            <th>Objetivos</th>
+                                            <th>Ações</th>
+                                            <th>Prazo Revisão</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                                <div class="historico-empty" id="overview-pdis-empty" style="display: none;">
+                                    <i data-lucide="folder-open"></i>
+                                    <h4>Nenhum PDI encontrado</h4>
+                                    <p>Não há PDIs cadastrados com os filtros aplicados.</p>
+                                </div>
+                            </div>
+                        </section>
                     </div>
 
                     <div id="historico-downloads" class="historico-tab-panel hidden"></div>
@@ -1999,7 +2164,8 @@
                                     <i data-lucide="history" style="color: #0d556d;"></i>
                                     Histórico de Feedbacks - Sistema Anterior
                                 </h3>
-                                <p>Visualize e analise os dados históricos do sistema anterior de feedbacks da empresa.
+                                <p>Visualize e analise os dados históricos do sistema anterior de feedbacks da
+                                    empresa.
                                 </p>
                             </div>
 
@@ -2152,7 +2318,8 @@
                                         <div class="spinner"></div>
                                         Carregando dados de colaboradores...
                                     </div>
-                                    <div class="historico-table" id="colaboradores-table" style="display: none;"></div>
+                                    <div class="historico-table" id="colaboradores-table" style="display: none;">
+                                    </div>
                                 </div>
                             </div>
 
@@ -2986,10 +3153,12 @@
                     </p>
                 </div>
                 <div class="modal-actions" style="display: flex; gap: 12px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="AvaliacoesTemplates.cancelarDescarte()">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;"
+                        onclick="AvaliacoesTemplates.cancelarDescarte()">
                         Cancelar
                     </button>
-                    <button type="button" class="btn btn-danger" style="flex: 1;" onclick="AvaliacoesTemplates.confirmarDescarte()">
+                    <button type="button" class="btn btn-danger" style="flex: 1;"
+                        onclick="AvaliacoesTemplates.confirmarDescarte()">
                         <i data-lucide="trash-2"></i>
                         Descartar
                     </button>
@@ -3010,14 +3179,17 @@
                 </div>
                 <div style="padding: 24px; text-align: center;">
                     <p style="color: #6b7280; font-size: 15px; margin: 0;">
-                        Tem certeza que deseja excluir esta pergunta? Esta ação não poderá ser desfeita após salvar as alterações.
+                        Tem certeza que deseja excluir esta pergunta? Esta ação não poderá ser desfeita após salvar as
+                        alterações.
                     </p>
                 </div>
                 <div class="modal-actions" style="display: flex; gap: 12px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="AvaliacoesTemplates.cancelarExclusaoPergunta()">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;"
+                        onclick="AvaliacoesTemplates.cancelarExclusaoPergunta()">
                         Cancelar
                     </button>
-                    <button type="button" class="btn btn-danger" style="flex: 1;" onclick="AvaliacoesTemplates.confirmarExclusaoPergunta()">
+                    <button type="button" class="btn btn-danger" style="flex: 1;"
+                        onclick="AvaliacoesTemplates.confirmarExclusaoPergunta()">
                         <i data-lucide="trash-2"></i>
                         Excluir
                     </button>
@@ -3072,8 +3244,10 @@
                     <div class="form-group">
                         <label class="form-label">Opções de Resposta</label>
                         <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                            <input type="text" class="form-input" id="nova-opcao-input" placeholder="Digite uma opção..." style="flex: 1;">
-                            <button type="button" class="btn btn-secondary" onclick="AvaliacoesTemplates.adicionarOpcao()">
+                            <input type="text" class="form-input" id="nova-opcao-input"
+                                placeholder="Digite uma opção..." style="flex: 1;">
+                            <button type="button" class="btn btn-secondary" id="btn-adicionar-opcao"
+                                onclick="routerAdicionarOpcao()">
                                 <i data-lucide="plus"></i>
                                 Adicionar
                             </button>
@@ -3111,10 +3285,12 @@
                 </div>
 
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="AvaliacoesTemplates.fecharModalPergunta()">
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar-pergunta"
+                        onclick="AvaliacoesTemplates.fecharModalPergunta()">
                         Cancelar
                     </button>
-                    <button type="button" class="btn btn-amber" onclick="AvaliacoesTemplates.salvarPergunta()">
+                    <button type="button" class="btn btn-amber" id="btn-salvar-pergunta"
+                        onclick="AvaliacoesTemplates.salvarPergunta()">
                         <i data-lucide="save"></i>
                         Salvar Pergunta
                     </button>
@@ -3128,21 +3304,139 @@
         <div class="modal">
             <div class="modal-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h3 style="margin: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> Novo Usuário Externo</h3>
-                    <button type="button" onclick="ExternalUsers.closeModal('external-users-create-modal')" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';" onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button>
+                    <h3 style="margin: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d"
+                            stroke-width="2">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg> Novo Usuário Externo</h3>
+                    <button type="button" onclick="ExternalUsers.closeModal('external-users-create-modal')"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';"
+                        onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24"
+                            height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg></button>
                 </div>
-                <div class="form-group"><label class="form-label">CPF *</label><input type="text" class="form-input" id="create-cpf" placeholder="000.000.000-00" maxlength="14"><span id="create-cpf-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
-                <div class="form-group"><label class="form-label">Nome Completo *</label><input type="text" class="form-input" id="create-nome" placeholder="Digite o nome completo"><span id="create-nome-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
-                <div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input" id="create-email" placeholder="email@exemplo.com"><span id="create-email-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
-                <div class="form-group"><label class="form-label">Senha *</label><input type="password" class="form-input" id="create-senha" placeholder="Mínimo 6 caracteres"><span id="create-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
-                <div class="form-group"><label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" id="create-is-active" checked style="width: 18px; height: 18px; cursor: pointer;"><span>Usuário ativo</span></label></div>
-                <div class="modal-actions"><button type="button" class="btn btn-amber" id="create-submit-btn" onclick="ExternalUsers.handleCreate()" style="width: 100%;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg> Cadastrar</button></div>
+                <div class="form-group"><label class="form-label">CPF *</label><input type="text" class="form-input"
+                        id="create-cpf" placeholder="000.000.000-00" maxlength="14"><span id="create-cpf-error"
+                        style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Nome Completo *</label><input type="text"
+                        class="form-input" id="create-nome" placeholder="Digite o nome completo"><span
+                        id="create-nome-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input"
+                        id="create-email" placeholder="email@exemplo.com"><span id="create-email-error"
+                        style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Senha *</label><input type="password"
+                        class="form-input" id="create-senha" placeholder="Mínimo 6 caracteres"><span
+                        id="create-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label
+                        style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox"
+                            id="create-is-active" checked
+                            style="width: 18px; height: 18px; cursor: pointer;"><span>Usuário ativo</span></label></div>
+                <div class="modal-actions"><button type="button" class="btn btn-amber" id="create-submit-btn"
+                        onclick="ExternalUsers.handleCreate()" style="width: 100%;"><svg width="18" height="18"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg> Cadastrar</button></div>
             </div>
         </div>
     </div>
-    <div id="external-users-edit-modal" class="modal-overlay hidden"><div class="modal"><div class="modal-content"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h3 style="margin: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editar Usuário Externo</h3><button type="button" onclick="ExternalUsers.closeModal('external-users-edit-modal')" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';" onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button></div><div class="form-group"><label class="form-label">Nome Completo *</label><input type="text" class="form-input" id="edit-nome" placeholder="Digite o nome completo"><span id="edit-nome-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div><div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input" id="edit-email" placeholder="email@exemplo.com"><span id="edit-email-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div><div class="form-group"><label class="form-label">Nova Senha (deixe em branco para manter)</label><input type="password" class="form-input" id="edit-senha" placeholder="Mínimo 6 caracteres"><span id="edit-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div><div class="modal-actions"><button type="button" class="btn btn-amber" id="edit-submit-btn" onclick="ExternalUsers.handleEdit()" style="width: 100%;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg> Salvar</button></div></div></div></div>
-    <div id="external-users-delete-modal" class="modal-overlay hidden"><div class="modal"><div class="modal-content"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h3 style="margin: 0; color: #dc2626;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Desativar Usuário</h3><button type="button" onclick="ExternalUsers.closeModal('external-users-delete-modal')" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';" onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button></div><p id="delete-message" style="color: #6b7280; margin-bottom: 20px;"></p><div class="modal-actions"><button type="button" class="btn btn-danger" id="delete-confirm-btn" onclick="ExternalUsers.handleDelete()" style="width: 100%;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Desativar</button></div></div></div></div>
-    <div id="external-users-activate-modal" class="modal-overlay hidden"><div class="modal"><div class="modal-content"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h3 style="margin: 0; color: #10b981;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Reativar Usuário</h3><button type="button" onclick="ExternalUsers.closeModal('external-users-activate-modal')" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';" onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button></div><p id="activate-message" style="color: #6b7280; margin-bottom: 20px;"></p><div class="modal-actions"><button type="button" class="btn btn-success" id="activate-confirm-btn" onclick="ExternalUsers.handleActivate()" style="width: 100%;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Reativar</button></div></div></div></div>
+    <div id="external-users-edit-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d556d"
+                            stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg> Editar Usuário Externo</h3><button type="button"
+                        onclick="ExternalUsers.closeModal('external-users-edit-modal')"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';"
+                        onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24"
+                            height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg></button>
+                </div>
+                <div class="form-group"><label class="form-label">Nome Completo *</label><input type="text"
+                        class="form-input" id="edit-nome" placeholder="Digite o nome completo"><span
+                        id="edit-nome-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input"
+                        id="edit-email" placeholder="email@exemplo.com"><span id="edit-email-error"
+                        style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Nova Senha (deixe em branco para manter)</label><input
+                        type="password" class="form-input" id="edit-senha" placeholder="Mínimo 6 caracteres"><span
+                        id="edit-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="modal-actions"><button type="button" class="btn btn-amber" id="edit-submit-btn"
+                        onclick="ExternalUsers.handleEdit()" style="width: 100%;"><svg width="18" height="18"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg> Salvar</button></div>
+            </div>
+        </div>
+    </div>
+    <div id="external-users-delete-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; color: #dc2626;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="#dc2626" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="15" y1="9" x2="9" y2="15" />
+                            <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg> Desativar Usuário</h3><button type="button"
+                        onclick="ExternalUsers.closeModal('external-users-delete-modal')"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';"
+                        onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24"
+                            height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg></button>
+                </div>
+                <p id="delete-message" style="color: #6b7280; margin-bottom: 20px;"></p>
+                <div class="modal-actions"><button type="button" class="btn btn-danger" id="delete-confirm-btn"
+                        onclick="ExternalUsers.handleDelete()" style="width: 100%;"><svg width="18" height="18"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg> Desativar</button></div>
+            </div>
+        </div>
+    </div>
+    <div id="external-users-activate-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; color: #10b981;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="#10b981" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg> Reativar Usuário</h3><button type="button"
+                        onclick="ExternalUsers.closeModal('external-users-activate-modal')"
+                        style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='#f3f4f6'; this.style.color='#374151';"
+                        onmouseout="this.style.background='none'; this.style.color='#6b7280';"><svg width="24"
+                            height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg></button>
+                </div>
+                <p id="activate-message" style="color: #6b7280; margin-bottom: 20px;"></p>
+                <div class="modal-actions"><button type="button" class="btn btn-success" id="activate-confirm-btn"
+                        onclick="ExternalUsers.handleActivate()" style="width: 100%;"><svg width="18" height="18"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg> Reativar</button></div>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts principais -->
     <!-- Críticos -->
@@ -3187,6 +3481,7 @@
     <script src="../js/modules/avaliacoes/handlers.js" defer></script>
     <script src="../js/modules/avaliacoes/loader.js" defer></script>
     <script src="../js/modules/tabs/avaliacoes-templates.js" defer></script>
+    <script src="../js/modules/tabs/avaliacoes-router.js" defer></script>
     <script src="../js/modules/shared/xlsx-loader.js" defer></script>
 </body>
 

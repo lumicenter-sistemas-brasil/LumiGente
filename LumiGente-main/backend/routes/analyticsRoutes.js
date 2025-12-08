@@ -50,5 +50,6 @@ router.get('/rh/feedbacks', requireFeatureAccess('historico'), historicoControll
 router.get('/rh/feedbacks/:id/mensagens', requireFeatureAccess('historico'), historicoController.getFeedbackMessages);
 router.get('/rh/reconhecimentos', requireFeatureAccess('historico'), historicoController.getAllRecognitions);
 router.get('/rh/humor', requireFeatureAccess('historico'), historicoController.getHumorEntries);
+router.get('/rh/pdis', requireFeatureAccess('historico'), historicoController.getAllPDIs);
 
 module.exports = router;

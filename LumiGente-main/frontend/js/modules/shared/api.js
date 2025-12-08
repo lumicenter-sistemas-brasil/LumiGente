@@ -3,7 +3,14 @@ const API = {
     async get(url, params = {}) {
         const queryString = new URLSearchParams(params).toString();
         const fullUrl = queryString ? `${url}?${queryString}` : url;
-        const response = await fetch(fullUrl, { credentials: 'include' });
+        const response = await fetch(fullUrl, { credentials: 'include', redirect: 'manual' });
+        
+        if (response.type === 'opaqueredirect' || response.status === 0) {
+            try { sessionStorage.setItem('lastAuthError', Date.now().toString()); } catch (_) {}
+            window.location.href = '/pages/login.html';
+            return Promise.reject(new Error('Sessão expirada'));
+        }
+        
         if (!response.ok) {
             let data = null;
             try { data = await response.json(); } catch (_) { /* ignore */ }
@@ -21,14 +28,20 @@ const API = {
     },
 
     async post(url, data) {
-        console.log('📤 [API] POST Request:', url, data);
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
+            redirect: 'manual',
             body: JSON.stringify(data)
         });
-        console.log('📥 [API] POST Response status:', response.status);
+        
+        if (response.type === 'opaqueredirect' || response.status === 0) {
+            try { sessionStorage.setItem('lastAuthError', Date.now().toString()); } catch (_) {}
+            window.location.href = '/pages/login.html';
+            return Promise.reject(new Error('Sessão expirada'));
+        }
+        
         if (!response.ok) {
             let respData = null;
             try { respData = await response.json(); } catch (_) { /* ignore */ }
@@ -50,8 +63,16 @@ const API = {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
+            redirect: 'manual',
             body: JSON.stringify(data)
         });
+        
+        if (response.type === 'opaqueredirect' || response.status === 0) {
+            try { sessionStorage.setItem('lastAuthError', Date.now().toString()); } catch (_) {}
+            window.location.href = '/pages/login.html';
+            return Promise.reject(new Error('Sessão expirada'));
+        }
+        
         if (!response.ok) {
             let respData = null;
             try { respData = await response.json(); } catch (_) { /* ignore */ }
@@ -71,8 +92,16 @@ const API = {
     async delete(url) {
         const response = await fetch(url, {
             method: 'DELETE',
-            credentials: 'include'
+            credentials: 'include',
+            redirect: 'manual'
         });
+        
+        if (response.type === 'opaqueredirect' || response.status === 0) {
+            try { sessionStorage.setItem('lastAuthError', Date.now().toString()); } catch (_) {}
+            window.location.href = '/pages/login.html';
+            return Promise.reject(new Error('Sessão expirada'));
+        }
+        
         if (!response.ok) {
             let respData = null;
             try { respData = await response.json(); } catch (_) { /* ignore */ }
