@@ -14,16 +14,21 @@ async function atualizarStatusAvaliacoes() {
         hoje.setHours(0, 0, 0, 0);
 
         // 1. Atualizar Agendada -> Pendente (quando chega 10 dias antes do prazo)
+        // IMPORTANTE: Usa COALESCE para considerar NovaDataLimiteResposta quando uma avaliação foi reaberta
+        // Se NovaDataLimiteResposta não for NULL, usa ele; caso contrário, usa DataLimiteResposta original
         const avaliacoesParaAbrir = await pool.request().query(`
-            SELECT a.Id, a.UserId, a.GestorId, a.DataLimiteResposta, t.Nome as TipoAvaliacao,
-                   u.NomeCompleto as NomeColaborador, u.email as EmailColaborador,
-                   g.NomeCompleto as NomeGestor, g.email as EmailGestor
+            SELECT 
+                a.Id, a.UserId, a.GestorId, 
+                COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) as DataLimiteResposta,
+                t.Nome as TipoAvaliacao,
+                u.NomeCompleto as NomeColaborador, u.email as EmailColaborador,
+                g.NomeCompleto as NomeGestor, g.email as EmailGestor
             FROM Avaliacoes a
             JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
             JOIN Users u ON a.UserId = u.Id
             LEFT JOIN Users g ON a.GestorId = g.Id
             WHERE a.StatusAvaliacao = 'Agendada'
-              AND CAST(GETDATE() AS DATE) >= CAST(DATEADD(DAY, -10, a.DataLimiteResposta) AS DATE)
+              AND CAST(GETDATE() AS DATE) >= CAST(DATEADD(DAY, -10, COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta)) AS DATE)
         `);
 
         for (const avaliacao of avaliacoesParaAbrir.recordset) {
@@ -72,17 +77,22 @@ async function atualizarStatusAvaliacoes() {
         }
 
         // 2. Enviar lembrete 3 dias antes de expirar
+        // IMPORTANTE: Usa COALESCE para considerar NovaDataLimiteResposta quando uma avaliação foi reaberta
+        // Se NovaDataLimiteResposta não for NULL, usa ele; caso contrário, usa DataLimiteResposta original
         const avaliacoesParaLembrete = await pool.request().query(`
-            SELECT a.Id, a.UserId, a.GestorId, a.DataLimiteResposta, t.Nome as TipoAvaliacao,
-                   u.NomeCompleto as NomeColaborador, u.email as EmailColaborador,
-                   g.NomeCompleto as NomeGestor, g.email as EmailGestor,
-                   a.RespostaColaboradorConcluida, a.RespostaGestorConcluida
+            SELECT 
+                a.Id, a.UserId, a.GestorId, 
+                COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) as DataLimiteResposta,
+                t.Nome as TipoAvaliacao,
+                u.NomeCompleto as NomeColaborador, u.email as EmailColaborador,
+                g.NomeCompleto as NomeGestor, g.email as EmailGestor,
+                a.RespostaColaboradorConcluida, a.RespostaGestorConcluida
             FROM Avaliacoes a
             JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
             JOIN Users u ON a.UserId = u.Id
             LEFT JOIN Users g ON a.GestorId = g.Id
             WHERE a.StatusAvaliacao = 'Pendente'
-              AND CAST(GETDATE() AS DATE) = CAST(DATEADD(DAY, -3, a.DataLimiteResposta) AS DATE)
+              AND CAST(GETDATE() AS DATE) = CAST(DATEADD(DAY, -3, COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta)) AS DATE)
         `);
 
         for (const avaliacao of avaliacoesParaLembrete.recordset) {
@@ -122,21 +132,27 @@ async function atualizarStatusAvaliacoes() {
         }
 
         // 3. Atualizar Pendente -> Expirada (quando passa do prazo)
+        // IMPORTANTE: Usa COALESCE para considerar NovaDataLimiteResposta quando uma avaliação foi reaberta
+        // Se NovaDataLimiteResposta não for NULL, usa ele; caso contrário, usa DataLimiteResposta original
         const avaliacoesParaExpirar = await pool.request().query(`
-            SELECT a.Id, a.UserId, a.GestorId, t.Nome as TipoAvaliacao,
-                   u.NomeCompleto as NomeColaborador, u.email as EmailColaborador,
-                   g.NomeCompleto as NomeGestor, g.email as EmailGestor,
-                   a.RespostaColaboradorConcluida, a.RespostaGestorConcluida
+            SELECT 
+                a.Id, a.UserId, a.GestorId, t.Nome as TipoAvaliacao,
+                u.NomeCompleto as NomeColaborador, u.email as EmailColaborador,
+                g.NomeCompleto as NomeGestor, g.email as EmailGestor,
+                a.RespostaColaboradorConcluida, a.RespostaGestorConcluida,
+                COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) as DataLimiteResposta
             FROM Avaliacoes a
             JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
             JOIN Users u ON a.UserId = u.Id
             LEFT JOIN Users g ON a.GestorId = g.Id
             WHERE a.StatusAvaliacao = 'Pendente'
-              AND CAST(GETDATE() AS DATE) > CAST(a.DataLimiteResposta AS DATE)
+              AND CAST(GETDATE() AS DATE) > CAST(COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) AS DATE)
         `);
 
         for (const avaliacao of avaliacoesParaExpirar.recordset) {
-            // Atualizar status
+            // Atualizar status para Expirada
+            // IMPORTANTE: Quando uma avaliação reaberta expira novamente, apenas o status muda
+            // O campo NovaDataLimiteResposta permanece preenchido para histórico
             await pool.request()
                 .input('id', sql.Int, avaliacao.Id)
                 .query(`UPDATE Avaliacoes SET StatusAvaliacao = 'Expirada', AtualizadoEm = GETDATE() WHERE Id = @id`);

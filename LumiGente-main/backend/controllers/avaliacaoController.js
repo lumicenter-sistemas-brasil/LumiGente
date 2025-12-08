@@ -75,7 +75,8 @@ exports.getAllAvaliacoes = async (req, res) => {
         const result = await pool.request().query(`
             SELECT 
                 a.Id, a.UserId, a.GestorId, a.Matricula, a.DataAdmissao, a.DataCriacao, 
-                a.DataLimiteResposta, a.StatusAvaliacao, a.RespostaColaboradorConcluida,
+                COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) as DataLimiteResposta, 
+                a.StatusAvaliacao, a.RespostaColaboradorConcluida,
                 a.RespostaGestorConcluida, t.Nome as TipoAvaliacao, u.NomeCompleto,
                 COALESCE(u.DescricaoDepartamento, u.Departamento, 'Não informado') as Departamento, 
                 g.NomeCompleto as NomeGestor
@@ -109,7 +110,13 @@ exports.getAvaliacaoById = async (req, res) => {
         const result = await pool.request()
             .input('id', sql.Int, parseInt(id))
             .query(`
-                SELECT a.*, t.Nome as TipoAvaliacao, u.NomeCompleto, u.Departamento, g.NomeCompleto as NomeGestor
+                SELECT 
+                    a.*, 
+                    t.Nome as TipoAvaliacao, 
+                    u.NomeCompleto, 
+                    u.Departamento, 
+                    g.NomeCompleto as NomeGestor,
+                    COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) as DataLimiteResposta
                 FROM Avaliacoes a
                 LEFT JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
                 INNER JOIN Users u ON a.UserId = u.Id
