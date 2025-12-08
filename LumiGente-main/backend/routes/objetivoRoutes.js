@@ -54,5 +54,26 @@ router.post('/:id/approve', requireManagerAccess, objetivoController.approveObje
 // Rota para um gestor rejeitar a conclusão de um objetivo, revertendo o progresso
 router.post('/:id/reject', requireManagerAccess, objetivoController.rejectObjetivo);
 
+// =================================================================
+// ROTAS DE PDI (Plano de Desenvolvimento Individual)
+// =================================================================
+
+// Listar PDIs do usuário
+router.get('/pdis/meus', objetivoController.getMeusPDIs);
+
+// Detalhes de um PDI específico
+router.get('/pdis/:id', objetivoController.getPDIById);
+
+// Check-in em PDI
+router.post('/pdis/:id/checkin', objetivoController.createCheckinPDI);
+
+// Listar check-ins de um PDI
+router.get('/pdis/:id/checkins', objetivoController.getCheckinsPDI);
+
+// Aprovar conclusão de PDI (Gestor)
+router.post('/pdis/:id/approve', requireManagerAccess, objetivoController.approvePDI);
+
+// Rejeitar conclusão de PDI (Gestor)
+router.post('/pdis/:id/reject', requireManagerAccess, objetivoController.rejectPDI);
 
 module.exports = router;

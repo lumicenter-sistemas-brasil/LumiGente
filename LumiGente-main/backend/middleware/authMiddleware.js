@@ -29,17 +29,11 @@ exports.requireManagerAccess = async (req, res, next) => {
         return res.status(401).json({ error: 'Usuário não autenticado' });
     }
 
-    console.log(`🔐 Verificando acesso de gestor para ${user.nomeCompleto || user.nome || 'Usuário'} (nível ${user.hierarchyLevel || 0})`);
-
-    // Administradores sempre têm acesso
     if (user.role === 'Administrador') {
-        console.log('✅ Acesso liberado: Administrador');
         return next();
     }
 
-    // RH e T&D têm acesso total
     if (hasFullAccess(user)) {
-        console.log('✅ Acesso liberado: RH/T&D -', user.departamento);
         return next();
     }
 
@@ -49,7 +43,6 @@ exports.requireManagerAccess = async (req, res, next) => {
         
         // Verificar se o usuário tem matrícula válida
         if (!user.matricula || typeof user.matricula !== 'string' || user.matricula.trim() === '') {
-            console.log('❌ Acesso negado: Usuário sem matrícula válida');
             return res.status(403).json({
                 error: 'Acesso negado. Usuário sem matrícula válida.'
             });
@@ -70,17 +63,12 @@ exports.requireManagerAccess = async (req, res, next) => {
         const isManager = isManagerCheck.recordset[0].count > 0;
 
         if (isManager) {
-            console.log('✅ Acesso liberado: Gestor (matrícula:', user.matricula, ')');
             return next();
         }
 
-        // Verificar se é gestor baseado no hierarchyLevel (fallback)
         if (user.hierarchyLevel >= 3) {
-            console.log('✅ Acesso liberado: Gestor (hierarchyLevel:', user.hierarchyLevel, ')');
             return next();
         }
-
-        console.log('❌ Acesso negado: Nível insuficiente');
         return res.status(403).json({
             error: 'Acesso negado. Apenas gestores, RH e T&D podem acessar este recurso.'
         });
@@ -142,18 +130,11 @@ exports.requireSurveyResultsAccess = (req, res, next) => {
 exports.requireExternalUserAccess = (req, res, next) => {
     const user = req.session.user;
 
-    console.log('🔐 [EXTERNAL-USERS] Verificando acesso para:', user?.nomeCompleto || 'Usuário desconhecido');
-    console.log('   Departamento:', user?.descricaoDepartamento || user?.DescricaoDepartamento || 'N/A');
-    console.log('   Role:', user?.role || 'N/A');
-
     if (!user) {
-        console.log('❌ [EXTERNAL-USERS] Usuário não autenticado');
         return res.status(401).json({ error: 'Usuário não autenticado' });
     }
 
-    // Administradores sempre têm acesso
     if (user.role === 'Administrador') {
-        console.log('✅ [EXTERNAL-USERS] Acesso liberado: Administrador');
         return next();
     }
 
@@ -167,14 +148,11 @@ exports.requireExternalUserAccess = (req, res, next) => {
     const hasAccess = allowedDepartments.some(dept => departmentDesc === dept || departmentDesc.includes(dept));
 
     if (!hasAccess) {
-        console.log('❌ [EXTERNAL-USERS] ACESSO NEGADO:', user.nomeCompleto, '-', departmentDesc);
         return res.status(403).json({
             error: 'Acesso negado. Apenas usuários do DEPARTAMENTO TREINAM&DESENVOLV ou SUPERVISAO RH podem acessar esta funcionalidade.',
             userDepartment: departmentDesc
         });
     }
-
-    console.log('✅ [EXTERNAL-USERS] ACESSO LIBERADO:', user.nomeCompleto, '-', departmentDesc);
     next();
 };
 
@@ -221,11 +199,8 @@ exports.requireFeatureAccess = (feature) => {
             return res.status(401).json({ error: 'Usuário não autenticado' });
         }
 
-        console.log(`🔐 Verificando acesso à funcionalidade '${feature}' para ${user.nomeCompleto || user.nome || 'Usuário'} (nível ${user.hierarchyLevel || 0})`);
-
         // Administradores sempre têm acesso
         if (user.role === 'Administrador') {
-            console.log('✅ Acesso liberado: Administrador');
             return next();
         }
 
@@ -236,70 +211,35 @@ exports.requireFeatureAccess = (feature) => {
         switch (feature) {
             case 'analytics':
             case 'relatorios':
-                // Gestores e qualquer usuário de T&D
-                if (manager || isTD) {
-                    console.log('✅ Acesso liberado para analytics/relatórios');
-                    return next();
-                }
+                if (manager || isTD) return next();
                 break;
 
             case 'pesquisas':
-                // Apenas RH/T&D específicos (departamentos) podem criar/gerenciar
-                if (canCreateSurveys(user)) {
-                    console.log('✅ Acesso liberado para gerenciamento de pesquisas');
-                    return next();
-                }
-                // Outros usuários podem apenas responder pesquisas ativas
-                if (req.method === 'GET' && !req.path.includes('/resultados') && !req.path.includes('/meta/')) {
-                    console.log('✅ Acesso de leitura liberado para pesquisas (apenas responder)');
-                    return next();
-                }
+                if (canCreateSurveys(user)) return next();
+                if (req.method === 'GET' && !req.path.includes('/resultados') && !req.path.includes('/meta/')) return next();
                 break;
 
             case 'avaliacoes':
-                // RH/T&D e gestores (nível 2+) podem criar/gerenciar avaliações
-                if (isHR || isTD || manager) {
-                    console.log('✅ Acesso liberado para avaliações (RH/T&D/Gestor)');
-                    return next();
-                }
-                // Outros usuários podem apenas responder
-                if (req.method === 'GET') {
-                    console.log('✅ Acesso de leitura liberado para avaliações');
-                    return next();
-                }
+                if (isHR || isTD || manager) return next();
+                if (req.method === 'GET') return next();
                 break;
 
             case 'historico':
-                if (canAccessHistory(user, { isHR, isTD, isHRTD: isHR || isTD })) {
-                    console.log('✅ Acesso liberado para histórico');
-                    return next();
-                }
+                if (canAccessHistory(user, { isHR, isTD, isHRTD: isHR || isTD })) return next();
                 break;
 
             case 'team':
             case 'equipe':
-                // Gestores (nível 2+) podem ver equipe
-                if (manager) {
-                    console.log('✅ Acesso liberado para equipe (gestor)');
-                    return next();
-                }
+                if (manager) return next();
                 break;
 
             case 'humor_empresa':
-                // Gestores (nível 2+), RH e T&D podem ver humor da empresa
-                if (manager || isHR || isTD) {
-                    console.log('✅ Acesso liberado para humor da empresa');
-                    return next();
-                }
+                if (manager || isHR || isTD) return next();
                 break;
 
             default:
-                // Para funcionalidades não especificadas, usar nível básico
-                console.log('⚠️ Funcionalidade não especificada, usando acesso básico');
                 return next();
         }
-
-        console.log('❌ Acesso negado para funcionalidade:', feature);
         return res.status(403).json({
             error: `Acesso negado. Você não tem permissão para acessar ${feature}.`,
             requiredLevel: feature === 'analytics' || feature === 'relatorios' ? 'Gestor ou T&D' : feature === 'historico' ? 'Gestor RH/T&D ou T&D' : 'Permissão restrita'

@@ -20,12 +20,12 @@ const AvaliacoesTemplates = {
      */
     async abrirModalEdicao() {
         this.state.templateAtual = '45';
-        
+
         // Resetar botões para 45 dias
         document.querySelectorAll('.btn-template-selector').forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-template') === '45');
         });
-        
+
         Modal.open('editar-questionarios-modal');
         await this.carregarPerguntas('45');
         this.refreshIcons();
@@ -38,11 +38,11 @@ const AvaliacoesTemplates = {
         try {
             // Salvar estado atual antes de processar
             this.state[`perguntas_${this.state.templateAtual}`] = JSON.parse(JSON.stringify(this.state.perguntas));
-            
+
             // Processar ambos os templates
             for (const tipo of ['45', '90']) {
                 const alteracoes = this.state.alteracoesPendentes[tipo];
-                
+
                 // Excluir perguntas
                 for (const id of alteracoes.excluir) {
                     await API.delete(`/api/avaliacoes/templates/${tipo}/perguntas/${id}`);
@@ -89,7 +89,7 @@ const AvaliacoesTemplates = {
             if (window.EmailPopup && typeof window.EmailPopup.showToast === 'function') {
                 window.EmailPopup.showToast('Alterações salvas com sucesso!', 'success');
             }
-            
+
             // Limpar estados e fechar modal
             this.state.alteracoesPendentes = {
                 '45': { adicionar: [], editar: [], excluir: [] },
@@ -97,7 +97,7 @@ const AvaliacoesTemplates = {
             };
             delete this.state.perguntas_45;
             delete this.state.perguntas_90;
-            
+
             Modal.close('editar-questionarios-modal');
         } catch (error) {
             console.error('Erro ao salvar alterações:', error);
@@ -111,14 +111,14 @@ const AvaliacoesTemplates = {
      * Fecha o modal de edição de templates
      */
     fecharModalEdicao() {
-        const temAlteracoes = 
-            this.state.alteracoesPendentes['45'].adicionar.length > 0 || 
-            this.state.alteracoesPendentes['45'].editar.length > 0 || 
+        const temAlteracoes =
+            this.state.alteracoesPendentes['45'].adicionar.length > 0 ||
+            this.state.alteracoesPendentes['45'].editar.length > 0 ||
             this.state.alteracoesPendentes['45'].excluir.length > 0 ||
-            this.state.alteracoesPendentes['90'].adicionar.length > 0 || 
-            this.state.alteracoesPendentes['90'].editar.length > 0 || 
+            this.state.alteracoesPendentes['90'].adicionar.length > 0 ||
+            this.state.alteracoesPendentes['90'].editar.length > 0 ||
             this.state.alteracoesPendentes['90'].excluir.length > 0;
-            
+
         if (temAlteracoes) {
             this.state.modalCallback = () => {
                 Modal.close('editar-questionarios-modal');
@@ -135,14 +135,14 @@ const AvaliacoesTemplates = {
             Modal.open('confirmar-descartar-alteracoes-modal');
             return;
         }
-        
+
         Modal.close('editar-questionarios-modal');
         this.state.perguntas = [];
         this.state.perguntasOriginais = [];
         this.state.alteracoesPendentes = {
             '45': { adicionar: [], editar: [], excluir: [] },
             '90': { adicionar: [], editar: [], excluir: [] }
-        };c
+        };
         delete this.state.perguntas_45;
         delete this.state.perguntas_90;
         this.state.templateAtual = '45';
@@ -175,7 +175,7 @@ const AvaliacoesTemplates = {
         if (this.state.templateAtual) {
             this.state[`perguntas_${this.state.templateAtual}`] = JSON.parse(JSON.stringify(this.state.perguntas));
         }
-        
+
         // Atualizar botões
         document.querySelectorAll('.btn-template-selector').forEach(btn => {
             btn.classList.remove('active');
@@ -183,7 +183,7 @@ const AvaliacoesTemplates = {
                 btn.classList.add('active');
             }
         });
-        
+
         this.state.templateAtual = tipo;
 
         // Restaurar estado salvo ou carregar do servidor
@@ -207,7 +207,7 @@ const AvaliacoesTemplates = {
             const perguntas = await API.get(`/api/avaliacoes/templates/${tipo}/perguntas`);
             this.state.perguntas = JSON.parse(JSON.stringify(perguntas));
             this.state.perguntasOriginais = JSON.parse(JSON.stringify(perguntas));
-            
+
             await new Promise(resolve => requestAnimationFrame(resolve));
             this.renderizarPerguntas();
         } catch (error) {
@@ -222,7 +222,7 @@ const AvaliacoesTemplates = {
      */
     renderizarPerguntas() {
         const container = document.getElementById('lista-perguntas-edicao');
-        
+
         if (this.state.perguntas.length === 0) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px 20px; background: #f9fafb; border-radius: 8px;">
@@ -338,7 +338,7 @@ const AvaliacoesTemplates = {
     salvarNovaOrdem() {
         const items = document.querySelectorAll('.pergunta-item');
         const novaOrdem = [];
-        
+
         items.forEach((item, index) => {
             const id = parseInt(item.getAttribute('data-id'));
             const pergunta = this.state.perguntas.find(p => p.Id === id);
@@ -347,7 +347,7 @@ const AvaliacoesTemplates = {
                 novaOrdem.push(pergunta);
             }
         });
-        
+
         this.state.perguntas = novaOrdem;
         this.renderizarPerguntas();
     },
@@ -360,7 +360,28 @@ const AvaliacoesTemplates = {
         this.state.opcoes = [];
         document.getElementById('titulo-modal-pergunta').innerHTML = '<i data-lucide="help-circle"></i> Nova Pergunta';
         this.limparFormularioPergunta();
+        const modal = document.getElementById('modal-pergunta-avaliacao');
+        modal.setAttribute('data-mode', 'template');
         Modal.open('modal-pergunta-avaliacao');
+
+        // Restore buttons
+        const btnSalvar = document.getElementById('btn-salvar-pergunta');
+        const btnCancelar = document.getElementById('btn-cancelar-pergunta');
+
+        if (btnSalvar) {
+            btnSalvar.removeAttribute('onclick');
+            btnSalvar.onclick = () => this.salvarPergunta();
+        }
+        if (btnCancelar) {
+            btnCancelar.removeAttribute('onclick');
+            btnCancelar.onclick = () => this.fecharModalPergunta();
+        }
+
+        const btnAdicionarOpcao = document.getElementById('btn-adicionar-opcao');
+        if (btnAdicionarOpcao) {
+            btnAdicionarOpcao.removeAttribute('onclick');
+            btnAdicionarOpcao.onclick = () => this.adicionarOpcao();
+        }
         this.refreshIcons();
     },
 
@@ -374,11 +395,11 @@ const AvaliacoesTemplates = {
         this.state.perguntaEditando = pergunta;
         this.state.opcoes = [];
         document.getElementById('titulo-modal-pergunta').innerHTML = '<i data-lucide="edit"></i> Editar Pergunta';
-        
+
         document.getElementById('input-pergunta-texto').value = pergunta.Pergunta;
         document.getElementById('input-tipo-pergunta').value = pergunta.TipoPergunta;
         document.getElementById('input-obrigatoria').value = pergunta.Obrigatoria ? 'true' : 'false';
-        
+
         if (pergunta.TipoPergunta === 'escala') {
             document.getElementById('input-escala-minima').value = pergunta.EscalaMinima || 1;
             document.getElementById('input-escala-maxima').value = pergunta.EscalaMaxima || 5;
@@ -402,7 +423,28 @@ const AvaliacoesTemplates = {
         }
 
         this.toggleCamposEscala();
+        const modal = document.getElementById('modal-pergunta-avaliacao');
+        modal.setAttribute('data-mode', 'template');
         Modal.open('modal-pergunta-avaliacao');
+
+        // Restore buttons
+        const btnSalvar = document.getElementById('btn-salvar-pergunta');
+        const btnCancelar = document.getElementById('btn-cancelar-pergunta');
+
+        if (btnSalvar) {
+            btnSalvar.removeAttribute('onclick');
+            btnSalvar.onclick = () => this.salvarPergunta();
+        }
+        if (btnCancelar) {
+            btnCancelar.removeAttribute('onclick');
+            btnCancelar.onclick = () => this.fecharModalPergunta();
+        }
+
+        const btnAdicionarOpcao = document.getElementById('btn-adicionar-opcao');
+        if (btnAdicionarOpcao) {
+            btnAdicionarOpcao.removeAttribute('onclick');
+            btnAdicionarOpcao.onclick = () => this.adicionarOpcao();
+        }
         this.refreshIcons();
     },
 
@@ -414,7 +456,7 @@ const AvaliacoesTemplates = {
         if (index === -1) return;
 
         const pergunta = this.state.perguntas[index];
-        
+
         if (pergunta.marcadaExclusao) {
             this.reativarPergunta(id);
             return;
@@ -436,7 +478,7 @@ const AvaliacoesTemplates = {
 
         const pergunta = this.state.perguntas[index];
         const tipo = this.state.templateAtual;
-        
+
         if (pergunta.Id < 0) {
             const addIndex = this.state.alteracoesPendentes[tipo].adicionar.findIndex(p => p.Id === id);
             if (addIndex !== -1) {
@@ -472,9 +514,9 @@ const AvaliacoesTemplates = {
 
         const pergunta = this.state.perguntas[index];
         const tipo = this.state.templateAtual;
-        
+
         pergunta.marcadaExclusao = false;
-        
+
         const excluirIndex = this.state.alteracoesPendentes[tipo].excluir.indexOf(id);
         if (excluirIndex !== -1) {
             this.state.alteracoesPendentes[tipo].excluir.splice(excluirIndex, 1);
@@ -489,21 +531,21 @@ const AvaliacoesTemplates = {
     adicionarOpcao() {
         const input = document.getElementById('nova-opcao-input');
         const texto = input.value.trim();
-        
+
         if (!texto) {
             if (window.EmailPopup && typeof window.EmailPopup.showToast === 'function') {
                 window.EmailPopup.showToast('Digite o texto da opção', 'error');
             }
             return;
         }
-        
+
         if (this.state.opcoes.includes(texto)) {
             if (window.EmailPopup && typeof window.EmailPopup.showToast === 'function') {
                 window.EmailPopup.showToast('Esta opção já existe', 'error');
             }
             return;
         }
-        
+
         this.state.opcoes.push(texto);
         input.value = '';
         this.renderizarOpcoes();
@@ -544,12 +586,12 @@ const AvaliacoesTemplates = {
      */
     renderizarOpcoes() {
         const container = document.getElementById('lista-opcoes-multipla');
-        
+
         if (this.state.opcoes.length === 0) {
             container.innerHTML = '<p style="color: #9ca3af; font-size: 14px; text-align: center; padding: 20px;">Nenhuma opção adicionada</p>';
             return;
         }
-        
+
         container.innerHTML = this.state.opcoes.map((opcao, index) => `
             <div style="display: flex; align-items: center; gap: 8px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;">
                 <span style="background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; min-width: 24px; text-align: center;">
@@ -569,7 +611,7 @@ const AvaliacoesTemplates = {
                 </div>
             </div>
         `).join('');
-        
+
         this.refreshIcons();
     },
 
@@ -626,7 +668,7 @@ const AvaliacoesTemplates = {
                 dados.Id = this.state.perguntaEditando.Id;
                 dados.Ordem = this.state.perguntas[index].Ordem;
                 this.state.perguntas[index] = dados;
-                
+
                 if (dados.Id > 0) {
                     const editIndex = this.state.alteracoesPendentes[tipo].editar.findIndex(p => p.Id === dados.Id);
                     if (editIndex !== -1) {
@@ -672,10 +714,10 @@ const AvaliacoesTemplates = {
         document.getElementById('input-escala-maxima').value = 5;
         document.getElementById('input-escala-label-minima').value = '';
         document.getElementById('input-escala-label-maxima').value = '';
-        
+
         const novaOpcaoInput = document.getElementById('nova-opcao-input');
         if (novaOpcaoInput) novaOpcaoInput.value = '';
-        
+
         this.state.opcoes = [];
         this.toggleCamposEscala();
     },
@@ -687,10 +729,10 @@ const AvaliacoesTemplates = {
         const tipo = document.getElementById('input-tipo-pergunta').value;
         const camposEscala = document.getElementById('campos-escala');
         const camposMultipla = document.getElementById('campos-multipla-escolha');
-        
+
         camposEscala.style.display = tipo === 'escala' ? 'block' : 'none';
         camposMultipla.style.display = tipo === 'multipla_escolha' ? 'block' : 'none';
-        
+
         if (tipo === 'multipla_escolha') {
             this.renderizarOpcoes();
         }

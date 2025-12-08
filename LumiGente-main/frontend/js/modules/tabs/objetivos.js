@@ -98,6 +98,56 @@ const Objetivos = {
         }
     },
 
+    switchTab(tab) {
+        const tabs = document.querySelectorAll('.objetivos-tab');
+        tabs.forEach(t => t.classList.remove('active'));
+        const activeTab = document.querySelector(`.objetivos-tab[data-objetivos-tab="${tab}"]`);
+        if (activeTab) activeTab.classList.add('active');
+
+        const meusPanel = document.getElementById('objetivos-meus-panel');
+        const pdisPanel = document.getElementById('objetivos-pdis-panel');
+
+        if (tab === 'meus') {
+            if (meusPanel) {
+                meusPanel.classList.remove('hidden');
+                meusPanel.style.display = 'block';
+            }
+            if (pdisPanel) {
+                pdisPanel.classList.add('hidden');
+                pdisPanel.style.display = 'none';
+            }
+            this.loadList();
+        } else if (tab === 'pdis') {
+            if (meusPanel) {
+                meusPanel.classList.add('hidden');
+                meusPanel.style.display = 'none';
+            }
+            if (pdisPanel) {
+                pdisPanel.classList.remove('hidden');
+                pdisPanel.style.display = 'block';
+            }
+            this.loadPDIs();
+        }
+    },
+
+    async loadPDIs() {
+        const container = document.getElementById('objetivos-pdis-list');
+        if (!container) return;
+        container.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando PDIs...</div>';
+
+        // Simulação de carregamento
+        setTimeout(() => {
+            container.innerHTML = `
+                <div class="historico-empty" style="display: flex; flex-direction: column; align-items: center; padding: 40px; text-align: center;">
+                    <i data-lucide="graduation-cap" style="width: 48px; height: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
+                    <h4 style="font-size: 18px; font-weight: 600; color: #374151; margin-bottom: 8px;">Nenhum PDI encontrado</h4>
+                    <p style="color: #6b7280;">Você ainda não possui Planos de Desenvolvimento Individual.</p>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        }, 500);
+    },
+
     normalizeText(texto) {
         if (!texto) return '';
         try {
@@ -1199,3 +1249,248 @@ window.closeObjetivoModal = function () {
 window.submitObjetivo = function () {
     Objetivos.submit();
 };
+
+// ========================================
+// FUNCIONALIDADES DE PDI
+// ========================================
+
+const PDIs = {
+    state: {
+        currentPDI: null,
+        currentCheckin: null
+    },
+
+    async loadList() {
+        try {
+            const container = document.getElementById('pdis-list');
+            if (!container) return;
+
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando PDIs...</div>';
+
+            const pdis = await API.get('/api/objetivos/pdis/meus');
+            this.updateList(pdis);
+        } catch (error) {
+            console.error('Erro ao carregar PDIs:', error);
+            const container = document.getElementById('pdis-list');
+            if (container) {
+                container.innerHTML = '<div class="loading">Erro ao carregar PDIs.</div>';
+            }
+        }
+    },
+
+    updateList(pdis) {
+        const container = document.getElementById('pdis-list');
+        if (!container) return;
+
+        if (pdis.length === 0) {
+            container.innerHTML = '<div class="loading">Nenhum PDI encontrado.</div>';
+            return;
+        }
+
+        container.innerHTML = pdis.map(pdi => {
+            const progresso = pdi.Progresso || 0;
+            const dataInicio = pdi.DataInicio ? this.formatDate(pdi.DataInicio) : '';
+            const dataFim = pdi.DataFim ? this.formatDate(pdi.DataFim) : '';
+            const isOverdue = pdi.DataFim && new Date(pdi.DataFim + 'T00:00:00') < new Date() && pdi.Status === 'Ativo';
+
+            const statusConfig = {
+                'Ativo': { color: '#10b981', icon: 'fas fa-play-circle' },
+                'Aguardando Validação': { color: '#f59e0b', icon: 'fas fa-clock' },
+                'Concluído': { color: '#059669', icon: 'fas fa-check-circle' },
+                'Expirado': { color: '#ef4444', icon: 'fas fa-times-circle' }
+            };
+            const { color, icon } = statusConfig[pdi.Status] || { color: '#6b7280', icon: 'fas fa-circle' };
+
+            return `
+                <div class="objetivo-item" data-pdi-id="${pdi.Id}" style="border-left-color: ${color};">
+                    <div class="objetivo-header">
+                        <div class="objetivo-info">
+                            <h4>${pdi.Titulo || 'PDI'}</h4>
+                            <p style="color: #6b7280; margin: 8px 0;">${pdi.Feedback || 'Sem feedback'}</p>
+                            <div style="margin-top: 8px; font-size: 14px; color: #6b7280;">
+                                <span>Colaborador: ${pdi.ColaboradorNome || 'N/A'}</span>
+                                <span style="margin-left: 16px;">Início: ${dataInicio}</span>
+                                <span style="margin-left: 16px;">Prazo: ${dataFim}</span>
+                                ${isOverdue ? '<span style="margin-left: 16px; color: #ef4444;">⚠ Atrasado</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="objetivo-badges">
+                            <span class="badge" style="background-color: ${color}; color: white;">
+                                <i class="${icon}"></i> ${pdi.Status}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="objetivo-progresso">
+                        <div class="progresso-bar">
+                            <div class="progresso-fill" style="width: ${progresso}%"></div>
+                        </div>
+                        <div class="progresso-text">
+                            <span>Progresso:</span>
+                            <span>${progresso}%</span>
+                        </div>
+                    </div>
+                    <div class="objetivo-actions">
+                        ${pdi.Status === 'Ativo' ? `
+                            <button class="btn btn-secondary btn-sm" onclick="PDIs.checkin(${pdi.Id})">
+                                <i class="fas fa-check-circle"></i> Check-in
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-secondary btn-sm" onclick="PDIs.viewDetails(${pdi.Id})">
+                            <i class="fas fa-eye"></i> Ver Detalhes
+                        </button>
+                        ${pdi.Status === 'Aguardando Validação' ? `
+                            <button class="btn btn-success btn-sm" onclick="PDIs.approve(${pdi.Id})">
+                                <i class="fas fa-check"></i> Aprovar
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="PDIs.reject(${pdi.Id})">
+                                <i class="fas fa-times"></i> Rejeitar
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    formatDate(dateString) {
+        if (!dateString) return '';
+        try {
+            const [ano, mes, dia] = dateString.split('T')[0].split('-');
+            return `${dia}/${mes}/${ano}`;
+        } catch {
+            return 'Data inválida';
+        }
+    },
+
+    async checkin(pdiId) {
+        const progresso = prompt('Digite o progresso atual (0-100):');
+        if (!progresso) return;
+
+        const progressoNum = parseInt(progresso, 10);
+        if (isNaN(progressoNum) || progressoNum < 0 || progressoNum > 100) {
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('Progresso deve ser entre 0 e 100', 'error');
+            }
+            return;
+        }
+
+        const observacoes = prompt('Observações (opcional):') || '';
+
+        try {
+            await API.post(`/api/objetivos/pdis/${pdiId}/checkin`, { progresso: progressoNum, observacoes });
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('Check-in registrado com sucesso!', 'success');
+            }
+            this.loadList();
+        } catch (error) {
+            console.error('Erro ao registrar check-in:', error);
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('Erro ao registrar check-in', 'error');
+            }
+        }
+    },
+
+    async viewDetails(pdiId) {
+        try {
+            const [pdi, checkins] = await Promise.all([
+                API.get(`/api/objetivos/pdis/${pdiId}`),
+                API.get(`/api/objetivos/pdis/${pdiId}/checkins`)
+            ]);
+
+            let detailsHtml = `
+                <div style="padding: 20px; background: #fff; border-radius: 12px;">
+                    <h3 style="margin-bottom: 16px;">Detalhes do PDI</h3>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div><strong>Colaborador:</strong> ${pdi.ColaboradorNome || 'N/A'}</div>
+                        <div><strong>Status:</strong> ${pdi.Status}</div>
+                        <div><strong>Progresso:</strong> ${pdi.Progresso || 0}%</div>
+                        <div><strong>Feedback:</strong> ${pdi.Feedback || 'Sem feedback'}</div>
+                        <div><strong>Objetivos:</strong> ${pdi.Objetivos || 'Não definidos'}</div>
+                        <div><strong>Ações:</strong> ${pdi.Acoes || 'Não definidas'}</div>
+                        <div><strong>Prazo:</strong> ${this.formatDate(pdi.DataFim)}</div>
+                    </div>
+                    
+                    ${checkins.length > 0 ? `
+                        <h4 style="margin-top: 24px; margin-bottom: 12px;">Histórico de Check-ins</h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            ${checkins.map(c => `
+                                <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #0d556d;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <strong>${c.user_name || 'Sistema'}</strong>
+                                        <span style="color: #6b7280; font-size: 14px;">${new Date(c.created_at).toLocaleDateString('pt-BR')}</span>
+                                    </div>
+                                    <div style="color: #059669; font-weight: 600; margin-bottom: 4px;">Progresso: ${c.progresso}%</div>
+                                    ${c.observacoes ? `<div style="color: #6b7280; font-size: 14px;">${c.observacoes}</div>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<p style="margin-top: 16px; color: #6b7280;">Nenhum check-in registrado ainda.</p>'}
+                </div>
+            `;
+
+            alert(detailsHtml.replace(/<[^>]*>/g, '\n'));
+        } catch (error) {
+            console.error('Erro ao carregar detalhes do PDI:', error);
+            alert('Erro ao carregar detalhes do PDI');
+        }
+    },
+
+    async approve(pdiId) {
+        if (!confirm('Deseja aprovar este PDI?')) return;
+
+        try {
+            await API.post(`/api/objetivos/pdis/${pdiId}/approve`);
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('PDI aprovado com sucesso!', 'success');
+            }
+            this.loadList();
+        } catch (error) {
+            console.error('Erro ao aprovar PDI:', error);
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('Erro ao aprovar PDI', 'error');
+            }
+        }
+    },
+
+    async reject(pdiId) {
+        const motivo = prompt('Motivo da rejeição:');
+        if (!motivo) return;
+
+        try {
+            await API.post(`/api/objetivos/pdis/${pdiId}/reject`, { motivo });
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('PDI rejeitado', 'warning');
+            }
+            this.loadList();
+        } catch (error) {
+            console.error('Erro ao rejeitar PDI:', error);
+            if (window.EmailPopup && typeof EmailPopup.showToast === 'function') {
+                EmailPopup.showToast('Erro ao rejeitar PDI', 'error');
+            }
+        }
+    }
+};
+
+// Função global para alternar entre subabas
+window.toggleObjetivosSubTab = function (subtab) {
+    const objetivosTab = document.querySelector('[data-objetivos-subtab="objetivos"]');
+    const pdisTab = document.querySelector('[data-objetivos-subtab="pdis"]');
+    const objetivosContent = document.getElementById('objetivos-subtab-content');
+    const pdisContent = document.getElementById('pdis-subtab-content');
+
+    if (subtab === 'objetivos') {
+        objetivosTab.classList.add('active');
+        pdisTab.classList.remove('active');
+        objetivosContent.style.display = 'block';
+        pdisContent.style.display = 'none';
+        Objetivos.loadList();
+    } else if (subtab === 'pdis') {
+        objetivosTab.classList.remove('active');
+        pdisTab.classList.add('active');
+        objetivosContent.style.display = 'none';
+        pdisContent.style.display = 'block';
+        PDIs.loadList();
+    }
+};
+
+window.PDIs = PDIs;

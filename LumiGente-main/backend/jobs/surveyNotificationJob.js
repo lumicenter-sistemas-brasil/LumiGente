@@ -18,7 +18,7 @@ function startSurveyNotificationJob() {
             const result = await pool.request().query(`
                 SELECT Id, titulo, data_encerramento
                 FROM Surveys
-                WHERE status_calculado = 'Ativa'
+                WHERE status = 'Ativa'
                   AND data_encerramento IS NOT NULL
                   AND data_encerramento > GETDATE()
                   AND data_encerramento <= DATEADD(HOUR, 6, GETDATE())
@@ -60,7 +60,7 @@ function startSurveyNotificationJob() {
             const result = await pool.request().query(`
                 SELECT Id, titulo
                 FROM Surveys
-                WHERE status_calculado = 'Encerrada'
+                WHERE status = 'Encerrada'
                   AND NOT EXISTS (
                       SELECT 1 FROM SurveyNotificationLog 
                       WHERE survey_id = Surveys.Id AND notification_type = 'CLOSED'

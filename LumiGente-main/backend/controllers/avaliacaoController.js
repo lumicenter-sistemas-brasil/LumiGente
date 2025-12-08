@@ -46,11 +46,7 @@ exports.getMinhasAvaliacoes = async (req, res) => {
         const pool = await getDatabasePool();
         const temPermissaoAdmin = verificarPermissaoAvaliacoesAdmin(user);
         
-        console.log('🔍 Buscando avaliações para usuário:', user.userId, 'Admin:', temPermissaoAdmin);
-        
         const avaliacoes = await AvaliacoesManager.buscarAvaliacoesUsuario(pool, user.userId, temPermissaoAdmin);
-        
-        console.log('✅ Avaliações encontradas:', avaliacoes.length);
         res.json(avaliacoes);
     } catch (error) {
         console.error('❌ Erro ao buscar minhas avaliações:', error);

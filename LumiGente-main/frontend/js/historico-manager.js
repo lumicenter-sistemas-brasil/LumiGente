@@ -149,6 +149,12 @@ class HistoricoManager {
                 data: [],
                 filters: { search: '', department: 'todos', minScore: '', maxScore: '', dateStart: '', dateEnd: '' },
                 elements: {}
+            },
+            pdis: {
+                loaded: false,
+                data: [],
+                filters: { search: '', dateStart: '', dateEnd: '' },
+                elements: {}
             }
         };
 
@@ -331,6 +337,19 @@ class HistoricoManager {
         };
         this.overview.humor.elements = humorElements;
 
+        const pdiElements = {
+            loading: document.getElementById('overview-pdis-loading'),
+            table: document.getElementById('overview-pdis-table'),
+            tbody: document.querySelector('#overview-pdis-table tbody'),
+            empty: document.getElementById('overview-pdis-empty'),
+            search: document.getElementById('overview-pdis-search'),
+            dateStart: document.getElementById('overview-pdis-date-start'),
+            dateEnd: document.getElementById('overview-pdis-date-end'),
+            refresh: document.getElementById('overview-pdis-refresh'),
+            clear: document.getElementById('overview-pdis-clear')
+        };
+        this.overview.pdis.elements = pdiElements;
+
         // Objetivos filters
         objetivoElements.search?.addEventListener('input', () => this.debounce('overview-objetivos', () => this.loadOverviewObjetivos()));
         objetivoElements.status?.addEventListener('change', () => this.loadOverviewObjetivos());
@@ -366,6 +385,13 @@ class HistoricoManager {
         humorElements.dateEnd?.addEventListener('change', () => this.loadOverviewHumor());
         humorElements.refresh?.addEventListener('click', () => this.loadOverviewHumor(true));
         humorElements.clear?.addEventListener('click', () => this.resetOverviewFilters('humor'));
+
+        // PDI filters
+        pdiElements.search?.addEventListener('input', () => this.debounce('overview-pdis', () => this.loadOverviewPDIs()));
+        pdiElements.dateStart?.addEventListener('change', () => this.loadOverviewPDIs());
+        pdiElements.dateEnd?.addEventListener('change', () => this.loadOverviewPDIs());
+        pdiElements.refresh?.addEventListener('click', () => this.loadOverviewPDIs(true));
+        pdiElements.clear?.addEventListener('click', () => this.resetOverviewFilters('pdis'));
 
         // Feedback conversation modal trigger via delegation
         feedbackElements.tbody?.addEventListener('click', (event) => {
@@ -445,6 +471,7 @@ class HistoricoManager {
         if (force || !this.overview.feedbacks.loaded) this.loadOverviewFeedbacks(force);
         if (force || !this.overview.recognitions.loaded) this.loadOverviewRecognitions(force);
         if (force || !this.overview.humor.loaded) this.loadOverviewHumor(force);
+        if (force || !this.overview.pdis.loaded) this.loadOverviewPDIs(force);
     }
 
     async loadOverviewObjetivos(force = false) {
@@ -750,6 +777,75 @@ class HistoricoManager {
                 <td>${escapeHtml(item.department || '—')}</td>
                 <td>${escapeHtml(item.score != null ? item.score : '—')}</td>
                 <td>${escapeHtml(truncate(item.description || '', 120))}</td>
+            </tr>
+        `).join('');
+
+        tbody.innerHTML = rows;
+        table.style.display = 'table';
+        empty.style.display = 'none';
+        this.refreshIcons();
+    }
+
+    async loadOverviewPDIs(force = false) {
+        if (!this.userHasHistoricoAccess) {
+            this.displayOverviewForbidden();
+            return;
+        }
+        const section = this.overview.pdis;
+        if (!force && section.loading) return;
+
+        const { search, dateStart, dateEnd } = {
+            search: section.elements.search?.value.trim() || '',
+            dateStart: section.elements.dateStart?.value || '',
+            dateEnd: section.elements.dateEnd?.value || ''
+        };
+
+        section.filters = { search, dateStart, dateEnd };
+        this.setSectionLoading('pdis', true);
+
+        try {
+            const params = {};
+            if (search) params.search = search;
+            if (dateStart) params.dateStart = dateStart;
+            if (dateEnd) params.dateEnd = dateEnd;
+            const data = await API.get('/api/analytics/rh/pdis', params);
+            section.loaded = true;
+            section.data = data || [];
+            this.updatePDIsTable(section.data);
+        } catch (error) {
+            if (error?.status === 403) {
+                this.handleForbiddenAccess(error);
+            } else {
+                console.error('Erro ao carregar PDIs (visão RH):', error);
+                this.showOverviewError('pdis', error);
+            }
+        } finally {
+            this.setSectionLoading('pdis', false);
+        }
+    }
+
+    updatePDIsTable(data) {
+        const { table, tbody, empty } = this.overview.pdis.elements;
+        if (!tbody || !table || !empty) return;
+
+        if (!data || data.length === 0) {
+            table.style.display = 'none';
+            empty.style.display = 'flex';
+            this.refreshIcons();
+            return;
+        }
+
+        const rows = data.map(pdi => `
+            <tr>
+                <td>${formatDate(pdi.criado_em)}</td>
+                <td>
+                    ${escapeHtml(pdi.colaborador_nome || '—')}
+                    <span class="table-muted">${escapeHtml(pdi.colaborador_departamento || '-')}</span>
+                </td>
+                <td>${escapeHtml(pdi.gestor_nome || '—')}</td>
+                <td>${escapeHtml(truncate(pdi.objetivos || '', 100))}</td>
+                <td>${escapeHtml(truncate(pdi.acoes || '', 100))}</td>
+                <td>${formatDate(pdi.prazo_revisao)}</td>
             </tr>
         `).join('');
 
