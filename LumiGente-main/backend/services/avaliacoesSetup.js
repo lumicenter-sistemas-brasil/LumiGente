@@ -129,6 +129,23 @@ async function ensureAvaliacoesTablesExist() {
         // Verificar estrutura da tabela PerguntasAvaliacao para adaptar o código
         await verificarEstruturaPerguntasAvaliacao(pool);
 
+        // Migração: Adicionar campo NovaDataLimiteResposta se não existir
+        await pool.request().query(`
+            IF NOT EXISTS (
+                SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'Avaliacoes' AND COLUMN_NAME = 'NovaDataLimiteResposta'
+            )
+            BEGIN
+                ALTER TABLE Avaliacoes
+                ADD NovaDataLimiteResposta DATE NULL;
+                PRINT '  -> Campo NovaDataLimiteResposta adicionado à tabela Avaliacoes';
+            END
+            ELSE
+            BEGIN
+                PRINT '  -> Campo NovaDataLimiteResposta já existe';
+            END
+        `);
+
         return true;
 
     } catch (error) {

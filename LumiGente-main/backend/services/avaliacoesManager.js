@@ -205,7 +205,13 @@ class AvaliacoesManager {
      */
     static async buscarAvaliacoesUsuario(pool, userId, temPermissaoAdmin) {
         const query = `
-            SELECT a.*, t.Nome as TipoAvaliacao, u.NomeCompleto, u.DescricaoDepartamento, g.NomeCompleto as NomeGestor
+            SELECT 
+                a.*, 
+                t.Nome as TipoAvaliacao, 
+                u.NomeCompleto, 
+                COALESCE(u.DescricaoDepartamento, u.Departamento, 'Não informado') as Departamento,
+                g.NomeCompleto as NomeGestor,
+                COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) as DataLimiteResposta
             FROM Avaliacoes a
             JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
             JOIN Users u ON a.UserId = u.Id
@@ -219,7 +225,7 @@ class AvaliacoesManager {
                     WHEN 'Expirada' THEN 4 
                     ELSE 5 
                 END, 
-                a.DataLimiteResposta ASC
+                COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) ASC
         `;
 
         const result = await pool.request()
@@ -236,7 +242,13 @@ class AvaliacoesManager {
         const pool = await getDatabasePool();
         const result = await pool.request()
             .input('id', sql.Int, avaliacaoId)
-            .query('SELECT * FROM Avaliacoes WHERE Id = @id');
+            .query(`
+                SELECT 
+                    *,
+                    COALESCE(NovaDataLimiteResposta, DataLimiteResposta) as DataLimiteResposta
+                FROM Avaliacoes 
+                WHERE Id = @id
+            `);
         return result.recordset[0];
     }
 
@@ -248,7 +260,13 @@ class AvaliacoesManager {
         
         const result = await pool.request()
             .input('id', sql.Int, avaliacaoId)
-            .query('SELECT * FROM Avaliacoes WHERE Id = @id');
+            .query(`
+                SELECT 
+                    *,
+                    COALESCE(NovaDataLimiteResposta, DataLimiteResposta) as DataLimiteResposta
+                FROM Avaliacoes 
+                WHERE Id = @id
+            `);
         
         const avaliacao = result.recordset[0];
         console.log('📋 Avaliação encontrada:', avaliacao ? 'Sim' : 'Não');
@@ -445,12 +463,36 @@ class AvaliacoesManager {
      * Reabre uma avaliação que foi expirada.
      */
     static async reabrirAvaliacao(pool, avaliacaoId, novaDataLimite) {
+        // Converter a string de data para formato DATE válido
+        // Formato esperado: "YYYY-MM-DD"
+        const dataLimpa = novaDataLimite.trim().replace(/\s+/g, '').replace(/-+/g, '-');
+        
+        // Validar formato YYYY-MM-DD
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(dataLimpa)) {
+            throw new Error('Formato de data inválido. Use YYYY-MM-DD');
+        }
+        
+        // Criar objeto Date para validação
+        const [ano, mes, dia] = dataLimpa.split('-');
+        const anoInt = parseInt(ano);
+        const mesInt = parseInt(mes);
+        const diaInt = parseInt(dia);
+        const dataFormatada = new Date(anoInt, mesInt - 1, diaInt);
+        
+        if (isNaN(dataFormatada.getTime()) || 
+            dataFormatada.getFullYear() != anoInt || 
+            dataFormatada.getMonth() != mesInt - 1 || 
+            dataFormatada.getDate() != diaInt) {
+            throw new Error('Data inválida fornecida');
+        }
+
         await pool.request()
             .input('id', sql.Int, avaliacaoId)
-            .input('novaData', sql.DateTime, novaDataLimite)
+            .input('novaData', sql.Date, dataLimpa)
             .query(`
                 UPDATE Avaliacoes
-                SET DataLimiteResposta = @novaData, StatusAvaliacao = 'Pendente', AtualizadoEm = GETDATE()
+                SET NovaDataLimiteResposta = @novaData, StatusAvaliacao = 'Pendente', AtualizadoEm = GETDATE()
                 WHERE Id = @id AND StatusAvaliacao = 'Expirada'
             `);
     }

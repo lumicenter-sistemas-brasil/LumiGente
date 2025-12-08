@@ -27,19 +27,25 @@ window.Avaliacoes = {
         const dept = (user.descricaoDepartamento || user.DescricaoDepartamento || user.department || '').toUpperCase().trim();
         const role = (user.role || '').toUpperCase();
 
-        const isHRTD = dept.includes('SUPERVISAO RH') ||
-            dept.includes('DEPARTAMENTO TREINAM&DESENVOLV') ||
-            dept.includes('TREINAMENTO') ||
-            dept.includes('DESENVOLVIMENTO') ||
-            dept.includes('T&D') ||
-            dept.includes('RECURSOS HUMANOS') ||
-            dept.includes('ADM/RH/SESMT');
+        // Verificar apenas os departamentos específicos: SUPERVISAO RH ou DEPARTAMENTO TREINAM&DESENVOLV
+        const isHRTD = dept === 'SUPERVISAO RH' || 
+            dept.includes('DEPARTAMENTO TREINAM&DESENVOLV');
 
         return isHRTD || role === 'ADMINISTRADOR';
     },
 
     async load() {
         await this.checkPermissions();
+        
+        // Garantir que usuários sem permissão sempre vejam apenas "Minhas Avaliações"
+        const hasAccess = this.hasHRTDAccess === true;
+        if (!hasAccess) {
+            const minhasView = document.getElementById('minhas-avaliacoes-view');
+            const todasView = document.getElementById('todas-avaliacoes-view');
+            if (minhasView) minhasView.style.display = 'block';
+            if (todasView) todasView.style.display = 'none';
+        }
+        
         await this.loadMinhas();
         this.refreshIcons();
     },
@@ -105,6 +111,14 @@ window.Avaliacoes = {
     },
 
     toggleView(view) {
+        // Verificar se o usuário tem permissão para ver todas as avaliações
+        const hasAccess = this.hasHRTDAccess === true;
+
+        // Se tentar acessar "todas" sem permissão, bloquear e mostrar apenas "minhas"
+        if (view === 'todas' && !hasAccess) {
+            view = 'minhas';
+        }
+
         const minhasView = document.getElementById('minhas-avaliacoes-view');
         const todasView = document.getElementById('todas-avaliacoes-view');
         const btnMinhas = document.getElementById('btn-tab-minhas');
@@ -119,7 +133,7 @@ window.Avaliacoes = {
             if (minhasView) minhasView.style.display = 'block';
             if (btnMinhas) btnMinhas.classList.add('active');
             this.loadMinhas();
-        } else if (view === 'todas') {
+        } else if (view === 'todas' && hasAccess) {
             if (todasView) todasView.style.display = 'block';
             if (btnTodas) btnTodas.classList.add('active');
             this.loadTodas();
@@ -147,9 +161,22 @@ window.Avaliacoes = {
 
     formatDate(dateString) {
         if (!dateString) return '-';
-        const dateStr = dateString.split('T')[0];
+        
+        // Se já é um objeto Date, converter para string
+        let dateValue = dateString;
+        if (dateString instanceof Date) {
+            dateValue = dateString.toISOString();
+        } else if (typeof dateString !== 'string') {
+            // Tentar converter para string se for outro tipo
+            dateValue = String(dateString);
+        }
+        
+        // Extrair a parte da data (antes do T se houver)
+        const dateStr = dateValue.split('T')[0];
         const [year, month, day] = dateStr.split('-');
+        
         if (!year || !month || !day) return '-';
+        
         const date = new Date(year, month - 1, day);
         return date.toLocaleDateString('pt-BR');
     },
@@ -297,10 +324,23 @@ window.Avaliacoes = {
             const statusPendente = statusAtual === 'Pendente' || statusAtual === 'Criada' || statusAtual === 'Em Andamento';
             const podeResponder = isParticipante && !jaRespondeu && statusPendente;
             const emCalibragem = statusAtual === 'Calibragem' && this.hasAdminPermission();
+            const estaExpirada = statusAtual === 'Expirada';
 
             let textoBotao, iconeBotao, statusExibido = statusAtual;
+            let acaoBotao = `Avaliacoes.open(${avaliacao.Id})`;
+            let btnClass = 'btn-amber';
 
-            if (emCalibragem) {
+            if (estaExpirada) {
+                if (isAdmin) {
+                    textoBotao = 'Reabrir Avaliação';
+                    iconeBotao = 'refresh-cw';
+                    acaoBotao = `Avaliacoes.abrirModalReabrirAvaliacao(${avaliacao.Id})`;
+                } else {
+                    textoBotao = 'Ver Detalhes';
+                    iconeBotao = 'eye';
+                    // Mantém ação padrão de abrir modal que mostra msg de expirada
+                }
+            } else if (emCalibragem) {
                 textoBotao = 'Realizar Calibragem';
                 iconeBotao = 'sliders';
             } else if (podeResponder) {
@@ -337,7 +377,7 @@ window.Avaliacoes = {
                                 </div>
                                 <span class="badge" style="${this.getStatusBadgeStyle(statusExibido)}">${statusExibido}</span>
                             </div>
-                            <button class="btn btn-amber btn-sm" onclick="Avaliacoes.open(${avaliacao.Id})">
+                            <button class="btn ${btnClass} btn-sm" onclick="${acaoBotao}">
                                 ${this.renderIcon(iconeBotao, 16, 'margin-right: 6px;')}
                                 ${textoBotao}
                             </button>
@@ -449,7 +489,19 @@ window.Avaliacoes = {
             const eGestor = avaliacao.GestorId === user.userId;
             const eParticipante = eColaborador || eGestor;
             const jaRespondeu = eColaborador ? avaliacao.RespostaColaboradorConcluida : avaliacao.RespostaGestorConcluida;
-            const estaExpirada = avaliacao.StatusAvaliacao === 'Expirada' || new Date() > new Date(avaliacao.DataLimiteResposta);
+            // Verificar expiração: 
+            // O campo DataLimiteResposta já vem do backend com COALESCE(NovaDataLimiteResposta, DataLimiteResposta)
+            // Se foi reaberta, o status será 'Pendente' e a DataLimiteResposta terá o valor de NovaDataLimiteResposta
+            // Se o status é 'Pendente' ou 'Agendada', verificar apenas se a data limite já passou
+            // Se o status é 'Expirada', está expirada independente da data
+            const dataLimite = avaliacao.DataLimiteResposta ? new Date(avaliacao.DataLimiteResposta) : null;
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+            if (dataLimite) {
+                dataLimite.setHours(0, 0, 0, 0);
+            }
+            // Se status é 'Expirada', está expirada. Caso contrário, verificar se a data limite passou
+            const estaExpirada = avaliacao.StatusAvaliacao === 'Expirada' || (avaliacao.StatusAvaliacao !== 'Expirada' && dataLimite && hoje > dataLimite);
             const estaAgendada = avaliacao.StatusAvaliacao === 'Agendada';
             const estaConcluida = avaliacao.StatusAvaliacao === 'Concluida' || avaliacao.StatusAvaliacao === 'Concluída';
             const ambasPartesResponderam = avaliacao.RespostaColaboradorConcluida && avaliacao.RespostaGestorConcluida;
@@ -526,7 +578,11 @@ window.Avaliacoes = {
         }
 
         const user = State.getUser();
-        const dataLimite = avaliacao.DataLimiteAutoAvaliacao || avaliacao.DataLimiteGestor || avaliacao.DataLimiteResposta;
+        // Priorizar NovaDataLimiteResposta se existir (avaliação reaberta), caso contrário usar os outros campos
+        const dataLimite = avaliacao.NovaDataLimiteResposta || 
+                          avaliacao.DataLimiteAutoAvaliacao || 
+                          avaliacao.DataLimiteGestor || 
+                          avaliacao.DataLimiteResposta;
 
         container.innerHTML = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
@@ -812,9 +868,7 @@ window.Avaliacoes = {
         document.getElementById('btn-enviar-avaliacao').style.display = 'none';
         document.getElementById('acoes-avaliacao').style.display = 'none';
 
-        const user = State.getUser();
-        const dept = (user?.descricaoDepartamento || user?.DescricaoDepartamento || '').toUpperCase();
-        const isAdmin = dept.includes('SUPERVISAO RH') || dept.includes('DEPARTAMENTO TREINAM&DESENVOLV') || dept.includes('TREINAMENTO') || dept.includes('T&D') || dept.includes('RECURSOS HUMANOS') || dept.includes('ADM/RH/SESMT');
+        const isAdmin = this.hasAdminPermission();
 
         const container = document.getElementById('formulario-avaliacao');
         container.innerHTML = `
@@ -824,7 +878,7 @@ window.Avaliacoes = {
                 <p style="color: #7f1d1d; font-size: 16px;">O prazo expirou em <strong>${this.formatDate(avaliacao.DataLimiteResposta)}</strong>.</p>
                 ${isAdmin ? `
                     <div style="margin-top: 24px;">
-                        <button class="btn btn-amber" onclick="Avaliacoes.reabrirAvaliacao(${avaliacao.Id})">
+                        <button class="btn btn-amber" onclick="Avaliacoes.abrirModalReabrirAvaliacao(${avaliacao.Id})">
                             ${this.renderIcon('refresh-cw', 16, 'margin-right: 6px;')}
                             Reabrir Avaliação
                         </button>
@@ -1147,6 +1201,14 @@ window.Avaliacoes = {
     },
 
     toggleView(view) {
+        // Verificar se o usuário tem permissão para ver todas as avaliações
+        const hasAccess = this.hasHRTDAccess === true;
+
+        // Se tentar acessar "todas" sem permissão, bloquear e mostrar apenas "minhas"
+        if (view === 'todas' && !hasAccess) {
+            view = 'minhas';
+        }
+
         const buttons = document.querySelectorAll('.btn-toggle');
         buttons.forEach(btn => {
             btn.classList.remove('active');
@@ -1162,7 +1224,7 @@ window.Avaliacoes = {
             minhasView.style.display = 'block';
             todasView.style.display = 'none';
             this.loadMinhas();
-        } else {
+        } else if (view === 'todas' && hasAccess) {
             minhasView.style.display = 'none';
             todasView.style.display = 'block';
             this.loadTodas();
@@ -1173,15 +1235,13 @@ window.Avaliacoes = {
         try {
             const user = State.getUser();
 
-            // Usar descricaoDepartamento (minúscula) que contém o texto completo
-            const dept = (user?.descricaoDepartamento || user?.DescricaoDepartamento || '').toUpperCase();
-            const isHRTD = dept.includes('SUPERVISAO RH') ||
-                dept.includes('DEPARTAMENTO TREINAM&DESENVOLV') ||
-                dept.includes('TREINAMENTO') ||
-                dept.includes('DESENVOLVIMENTO') ||
-                dept.includes('T&D') ||
-                dept.includes('RECURSOS HUMANOS') ||
-                dept.includes('ADM/RH/SESMT');
+            // Verificar apenas os departamentos específicos: SUPERVISAO RH ou DEPARTAMENTO TREINAM&DESENVOLV
+            const dept = (user?.descricaoDepartamento || user?.DescricaoDepartamento || '').toUpperCase().trim();
+            const isHRTD = dept === 'SUPERVISAO RH' || 
+                dept.includes('DEPARTAMENTO TREINAM&DESENVOLV');
+
+            // Armazenar permissão para uso em outras funções
+            this.hasHRTDAccess = isHRTD;
 
             const toggleButtons = document.getElementById('avaliacoes-toggle-buttons');
             if (toggleButtons) {
@@ -1192,37 +1252,108 @@ window.Avaliacoes = {
             if (btnEditarTemplates) {
                 btnEditarTemplates.style.display = isHRTD ? 'inline-flex' : 'none';
             }
+
+            // Garantir que usuários sem permissão sempre vejam apenas "Minhas Avaliações"
+            if (!isHRTD) {
+                const minhasView = document.getElementById('minhas-avaliacoes-view');
+                const todasView = document.getElementById('todas-avaliacoes-view');
+                if (minhasView) minhasView.style.display = 'block';
+                if (todasView) todasView.style.display = 'none';
+            }
         } catch (error) {
             console.error('Erro ao verificar permissões:', error);
+            // Em caso de erro, garantir que não tenha acesso
+            this.hasHRTDAccess = false;
         }
     },
 
-    async reabrirAvaliacao(avaliacaoId) {
-        const novaData = prompt('Digite a nova data limite (DD/MM/AAAA):');
-        if (!novaData) return;
+    abrirModalReabrirAvaliacao(avaliacaoId) {
+        const modal = document.getElementById('reabrir-avaliacao-modal');
+        const inputData = document.getElementById('nova-data-limite-avaliacao');
+        const hiddenId = document.getElementById('avaliacao-id-reabrir');
+        
+        if (!modal || !inputData || !hiddenId) {
+            console.error('Elementos do modal de reabrir avaliação não encontrados');
+            return;
+        }
 
-        const [dia, mes, ano] = novaData.split('/');
-        if (!dia || !mes || !ano) {
+        // Armazenar o ID da avaliação no campo hidden
+        hiddenId.value = avaliacaoId;
+        
+        // Limpar o campo de data
+        inputData.value = '';
+        
+        // Abrir o modal
+        modal.classList.remove('hidden');
+        this.refreshIcons();
+        
+        // Focar no campo de data
+        setTimeout(() => inputData.focus(), 100);
+    },
+
+    async confirmarReaberturaAvaliacao() {
+        const inputData = document.getElementById('nova-data-limite-avaliacao');
+        const hiddenId = document.getElementById('avaliacao-id-reabrir');
+        
+        if (!inputData || !hiddenId) {
+            console.error('Elementos do modal não encontrados');
+            return;
+        }
+
+        const avaliacaoId = hiddenId.value;
+        const dataSelecionada = inputData.value;
+
+        if (!dataSelecionada) {
             if (window.EmailPopup && typeof window.EmailPopup.showToast === 'function') {
-                window.EmailPopup.showToast('Data inválida. Use o formato DD/MM/AAAA', 'error');
+                window.EmailPopup.showToast('Por favor, selecione uma data limite', 'error');
             }
             return;
         }
 
-        const novaDataLimite = `${ano} -${mes.padStart(2, '0')} -${dia.padStart(2, '0')} `;
+        // Converter formato YYYY-MM-DD para o formato esperado pelo backend
+        // O backend agora aceita formato YYYY-MM-DD diretamente
+        const novaDataLimite = dataSelecionada;
 
         try {
-            await API.post(`/ api / avaliacoes / ${avaliacaoId}/reabrir`, { novaDataLimite });
+            await API.post(`/api/avaliacoes/${avaliacaoId}/reabrir`, { novaDataLimite });
+            
             if (window.EmailPopup && typeof window.EmailPopup.showToast === 'function') {
                 window.EmailPopup.showToast('Avaliação reaberta com sucesso!', 'success');
             }
-            this.closeModal();
-            this.loadMinhas();
+            
+            // Fechar o modal
+            this.fecharModalReabrirAvaliacao();
+            
+            // Recarregar as avaliações
+            if (this.hasHRTDAccess) {
+                this.loadTodas();
+            } else {
+                this.loadMinhas();
+            }
         } catch (error) {
             console.error('Erro ao reabrir avaliação:', error);
             if (window.EmailPopup && typeof window.EmailPopup.showToast === 'function') {
-                window.EmailPopup.showToast('Erro ao reabrir avaliação', 'error');
+                const errorMsg = error.message || 'Erro ao reabrir avaliação';
+                window.EmailPopup.showToast(errorMsg, 'error');
             }
+        }
+    },
+
+    fecharModalReabrirAvaliacao() {
+        const modal = document.getElementById('reabrir-avaliacao-modal');
+        const inputData = document.getElementById('nova-data-limite-avaliacao');
+        const hiddenId = document.getElementById('avaliacao-id-reabrir');
+        
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        
+        if (inputData) {
+            inputData.value = '';
+        }
+        
+        if (hiddenId) {
+            hiddenId.value = '';
         }
     },
 
@@ -2498,3 +2629,5 @@ function enviarRespostasAvaliacao() {
 
 function fecharModalAvaliacao() { Avaliacoes.closeModal(); }
 function fecharModalResponderAvaliacao() { Avaliacoes.closeModal(); }
+function fecharModalReabrirAvaliacao() { Avaliacoes.fecharModalReabrirAvaliacao(); }
+function reabrirAvaliacao() { Avaliacoes.confirmarReaberturaAvaliacao(); }
