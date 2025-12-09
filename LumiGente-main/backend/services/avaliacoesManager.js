@@ -1,6 +1,7 @@
 const sql = require('mssql');
 const { getDatabasePool } = require('../config/db'); // Importa a conexão centralizada
 const OracleConnectionHelper = require('../utils/oracleConnectionHelper');
+const { getTipoAvaliacaoIdByDias } = require('./avaliacoesSetup');
 
 /**
  * Classe estática para gerenciar toda a lógica de negócio das Avaliações de Desempenho.
@@ -76,15 +77,24 @@ class AvaliacoesManager {
 
                 // Criar avaliações para colaboradores com menos de 90 dias
                 if (diasNaEmpresa < 90) {
+                    // Buscar IDs dinamicamente
+                    const tipo45Id = await getTipoAvaliacaoIdByDias(45);
+                    const tipo90Id = await getTipoAvaliacaoIdByDias(90);
+                    
+                    if (!tipo45Id || !tipo90Id) {
+                        console.warn('⚠️ Tipos de avaliação não encontrados. Verifique se a tabela TiposAvaliacao está populada.');
+                        continue;
+                    }
+                    
                     // Se tem menos de 45 dias, cria ambas as avaliações
                     if (diasNaEmpresa < 45) {
                         const avaliacao45existente = await pool.request()
                             .input('userId', sql.Int, func.Id)
-                            .input('tipoId', sql.Int, 1)
+                            .input('tipoId', sql.Int, tipo45Id)
                             .query('SELECT Id FROM Avaliacoes WHERE UserId = @userId AND TipoAvaliacaoId = @tipoId');
 
                         if (avaliacao45existente.recordset.length === 0) {
-                            await this.criarAvaliacao(func, 1);
+                            await this.criarAvaliacao(func, tipo45Id);
                             criadas45++;
                         }
                     }
@@ -92,11 +102,11 @@ class AvaliacoesManager {
                     // Sempre cria avaliação de 90 dias para quem tem menos de 90 dias
                     const avaliacao90existente = await pool.request()
                         .input('userId', sql.Int, func.Id)
-                        .input('tipoId', sql.Int, 2)
+                        .input('tipoId', sql.Int, tipo90Id)
                         .query('SELECT Id FROM Avaliacoes WHERE UserId = @userId AND TipoAvaliacaoId = @tipoId');
 
                     if (avaliacao90existente.recordset.length === 0) {
-                        await this.criarAvaliacao(func, 2);
+                        await this.criarAvaliacao(func, tipo90Id);
                         criadas90++;
                     }
                 }
@@ -119,7 +129,29 @@ class AvaliacoesManager {
      */
     static async criarAvaliacao(funcionario, tipoAvaliacaoId) {
         const pool = await getDatabasePool();
-        const diasPrazo = tipoAvaliacaoId === 1 ? 45 : 90;
+        
+        // Buscar informações do tipo de avaliação para obter os dias dinamicamente
+        const tipoAvaliacao = await pool.request()
+            .input('tipoId', sql.Int, tipoAvaliacaoId)
+            .query(`
+                SELECT Id, DiasMinimos, DiasMaximos, Nome 
+                FROM TiposAvaliacao 
+                WHERE Id = @tipoId
+            `);
+        
+        if (tipoAvaliacao.recordset.length === 0) {
+            throw new Error(`Tipo de avaliação com ID ${tipoAvaliacaoId} não encontrado`);
+        }
+        
+        const tipo = tipoAvaliacao.recordset[0];
+        // Usar DiasMinimos se disponível, senão tentar extrair do nome ou usar padrão
+        let diasPrazo = tipo.DiasMinimos || tipo.DiasMaximos;
+        if (!diasPrazo) {
+            // Tentar extrair do nome (ex: "Avaliação de 45 dias" -> 45)
+            const match = tipo.Nome.match(/(\d+)/);
+            diasPrazo = match ? parseInt(match[1]) : 45; // Default para 45 se não encontrar
+        }
+        
         const diasAntecipacao = 10;
 
         // Data limite (expiração): no dia exato que completa 45 ou 90 dias
@@ -154,8 +186,9 @@ class AvaliacoesManager {
         const avaliacaoId = insertResult.recordset[0].Id;
 
         // Copiar perguntas do template padrão para criar snapshot da avaliação
-        const tabelaQuestionario = tipoAvaliacaoId === 1 ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
-        const tabelaOpcoes = tipoAvaliacaoId === 1 ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
+        // Determinar tabelas baseado nos dias (45 ou 90)
+        const tabelaQuestionario = diasPrazo === 45 ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
+        const tabelaOpcoes = diasPrazo === 45 ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
         
         const perguntas = await pool.request()
             .query(`SELECT * FROM ${tabelaQuestionario} ORDER BY Ordem`);
@@ -374,7 +407,21 @@ class AvaliacoesManager {
             .input('id', sql.Int, avaliacaoId)
             .query('SELECT TipoAvaliacaoId FROM Avaliacoes WHERE Id = @id');
         
-        const tipoQuestionario = avaliacaoResult.recordset[0].TipoAvaliacaoId === 1 ? '45' : '90';
+        // Buscar tipo de avaliação para determinar os dias
+        const tipoAvalResult = await pool.request()
+            .input('tipoId', sql.Int, avaliacaoResult.recordset[0].TipoAvaliacaoId)
+            .query('SELECT DiasMinimos, DiasMaximos, Nome FROM TiposAvaliacao WHERE Id = @tipoId');
+        
+        let diasTipo = null;
+        if (tipoAvalResult.recordset.length > 0) {
+            const tipo = tipoAvalResult.recordset[0];
+            diasTipo = tipo.DiasMinimos || tipo.DiasMaximos;
+            if (!diasTipo) {
+                const match = tipo.Nome.match(/(\d+)/);
+                diasTipo = match ? parseInt(match[1]) : 90;
+            }
+        }
+        const tipoQuestionario = diasTipo === 45 ? '45' : '90';
         
         // Buscar texto e tipo da pergunta
         const perguntaResult = await pool.request()

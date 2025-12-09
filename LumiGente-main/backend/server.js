@@ -84,6 +84,14 @@ async function startServer() {
         const syncInterval = parseInt(process.env.SYNC_INTERVAL_MINUTES) || 30;
         sincronizador.startAutoSync(syncInterval);
 
+        // Garantir que a tabela Roles tenha dados padrão
+        try {
+            const { ensureRolesExist } = require('./services/rolesSetup');
+            await ensureRolesExist();
+        } catch (error) {
+            console.error('⚠️ Erro ao verificar tabela Roles:', error.message);
+        }
+
         // Garantir que as tabelas de avaliações existam
         try {
             const { ensureAvaliacoesTablesExist } = require('./services/avaliacoesSetup');

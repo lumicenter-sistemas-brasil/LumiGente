@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const { getDatabasePool } = require('../config/db');
 const { validarCPF, formatarCPF } = require('../utils/cpfValidator');
 const emailService = require('../services/emailService');
+const { getRoleIdByName } = require('../services/rolesSetup');
 
 /**
  * GET /api/external-users - Lista todos os usuários externos
@@ -158,6 +159,12 @@ exports.createExternalUser = async (req, res) => {
         // nome é obrigatório - usar primeiro nome do nomeCompleto
         const primeiroNome = nomeCompletoTrimmed.split(' ')[0] || nomeCompletoTrimmed;
         
+        // Buscar RoleId dinamicamente pelo nome 'public'
+        const publicRoleId = await getRoleIdByName('public');
+        if (!publicRoleId) {
+            return res.status(500).json({ error: 'Role "public" não encontrado no sistema' });
+        }
+        
         const insertResult = await pool.request()
             .input('cpf', sql.VarChar, cpfLimpo)
             .input('nome', sql.VarChar, primeiroNome)
@@ -170,7 +177,7 @@ exports.createExternalUser = async (req, res) => {
             .input('departamento', sql.VarChar, 'Usuarios Externos')
             .input('descricaoDepartamento', sql.VarChar, 'USUARIOS EXTERNOS')
             .input('filial', sql.VarChar, 'SEM FILIAL')
-            .input('roleId', sql.Int, 2)
+            .input('roleId', sql.Int, publicRoleId)
             .query(`
                 INSERT INTO Users (CPF, nome, NomeCompleto, Email, PasswordHash, UserName, IsActive, IsExternal, Departamento, DescricaoDepartamento, Filial, RoleId, created_at, updated_at)
                 OUTPUT INSERTED.Id, INSERTED.CPF, INSERTED.Email, INSERTED.NomeCompleto, INSERTED.IsActive

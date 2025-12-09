@@ -3,6 +3,7 @@ const router = express.Router();
 const sql = require('mssql');
 const { requireAuth, requireManagerAccess } = require('../middleware/authMiddleware');
 const { getDatabasePool } = require('../config/db');
+const { getRoleIdByName } = require('../services/rolesSetup');
 
 // Importação de todos os arquivos de rota
 const authRoutes = require('./authRoutes');
@@ -94,8 +95,10 @@ router.get('/debug-permissions/:matricula', requireAuth, async (req, res) => {
         // Simular cálculo de hierarchyLevel
         let hierarchyLevel = 1;
         
-        // Verificar RoleId
-        if (user.RoleId === 1 || user.RoleId === 2) {
+        // Verificar RoleId dinamicamente (admin ou public)
+        const adminRoleId = await getRoleIdByName('admin');
+        const publicRoleId = await getRoleIdByName('public');
+        if ((adminRoleId && user.RoleId === adminRoleId) || (publicRoleId && user.RoleId === publicRoleId)) {
             hierarchyLevel = 3;
         }
         
@@ -125,7 +128,7 @@ router.get('/debug-permissions/:matricula', requireAuth, async (req, res) => {
                 hasTeamAccess: hierarchyLevel >= 3
             },
             debug: {
-                roleCheck: user.RoleId === 1 || user.RoleId === 2,
+                roleCheck: (adminRoleId && user.RoleId === adminRoleId) || (publicRoleId && user.RoleId === publicRoleId),
                 responsibilityCheck: isResponsavel,
                 finalLevel: hierarchyLevel
             }
@@ -180,8 +183,12 @@ router.post('/refresh-permissions', requireAuth, async (req, res) => {
             } else if (departments.length === 1) {
                 hierarchyLevel = 4;
             }
-        } else if (user.RoleId === 1) {
-            hierarchyLevel = 4;
+        } else {
+            // Verificar se é admin
+            const adminRoleId = await getRoleIdByName('admin');
+            if (adminRoleId && user.RoleId === adminRoleId) {
+                hierarchyLevel = 4;
+            }
         }
         
         // Atualizar dados na sessão

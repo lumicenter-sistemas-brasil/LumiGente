@@ -1,6 +1,7 @@
 const sql = require('mssql');
 const { getDatabasePool } = require('../config/db'); // Importa a função de conexão centralizada
 const HierarchyManager = require('./hierarchyManager'); // Importa o HierarchyManager já refatorado
+const { getRoleIdByName } = require('./rolesSetup'); // Importa função para buscar RoleId dinamicamente
 
 class SincronizadorDadosExternos {
     constructor() {
@@ -157,6 +158,12 @@ class SincronizadorDadosExternos {
         const descricaoDepartamento = await this.buscarDescricaoDepartamento(pool, departamentoCodigo || departamentoFinal);
         const primeiroNome = func.NOME ? func.NOME.split(' ')[0] : func.MATRICULA;
 
+        // Buscar RoleId dinamicamente pelo nome 'public' (role padrão para usuários sincronizados)
+        const publicRoleId = await getRoleIdByName('public');
+        if (!publicRoleId) {
+            throw new Error('Role "public" não encontrado no sistema. Execute o servidor para garantir que os roles sejam criados.');
+        }
+
         await pool.request()
             .input('cpf', sql.VarChar, func.CPF)
             .input('matricula', sql.VarChar, func.MATRICULA)
@@ -166,9 +173,10 @@ class SincronizadorDadosExternos {
             .input('descricaoDepartamento', sql.VarChar, descricaoDepartamento)
             .input('filial', sql.VarChar, func.FILIAL)
             .input('hierarchyPath', sql.VarChar, path)
+            .input('roleId', sql.Int, publicRoleId)
             .query(`
-                INSERT INTO Users (CPF, UserName, Matricula, nome, NomeCompleto, Departamento, DescricaoDepartamento, Filial, HierarchyPath, IsActive, FirstLogin, created_at, updated_at) 
-                VALUES (@cpf, @cpf, @matricula, @nome, @nomeCompleto, @departamento, @descricaoDepartamento, @filial, @hierarchyPath, 1, 1, GETDATE(), GETDATE())
+                INSERT INTO Users (CPF, UserName, Matricula, nome, NomeCompleto, Departamento, DescricaoDepartamento, Filial, HierarchyPath, RoleId, IsActive, FirstLogin, created_at, updated_at) 
+                VALUES (@cpf, @cpf, @matricula, @nome, @nomeCompleto, @departamento, @descricaoDepartamento, @filial, @hierarchyPath, @roleId, 1, 1, GETDATE(), GETDATE())
             `);
     }
 
