@@ -200,9 +200,60 @@ window.Avaliacoes = {
         }
 
         container.innerHTML = `
-            <h3>${this.renderIcon('clipboard-check', 20, 'margin-right: 8px; color: #10b981;')}Minhas Avaliações</h3>
-            <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">Total: ${avaliacoes.length} avaliação(ões)</p>
-            ${this.renderList(avaliacoes, false)}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <h3 style="margin: 0;">${this.renderIcon('clipboard-check', 20, 'margin-right: 8px; color: #10b981;')}Minhas Avaliações</h3>
+                    <p style="color: #6b7280; font-size: 14px; margin: 0;">Total: ${avaliacoes.length} avaliação(ões)</p>
+                </div>
+                <button class="filters-toggle-btn" onclick="Avaliacoes.toggleMinhasFiltros()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                    </svg>
+                    Filtros
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                </button>
+            </div>
+            <div class="filters-container collapsed" id="minhas-filters-container" style="margin: 8px 0;">
+                <div class="form-row" style="row-gap: 8px;">
+                    <div class="form-group">
+                        <label class="form-label">Buscar por Nome</label>
+                        <input type="text" class="form-input" id="filtro-minhas-nome" placeholder="Buscar por nome..." oninput="Avaliacoes.aplicarFiltrosMinhas()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select id="filtro-minhas-status" class="form-select" onchange="Avaliacoes.aplicarFiltrosMinhas()">
+                            <option value="">Todos</option>
+                            <option value="Pendente">Pendente</option>
+                            <option value="Agendada">Agendada</option>
+                            <option value="Em Andamento">Em Andamento</option>
+                            <option value="Aguardando Gestor">Aguardando Gestor</option>
+                            <option value="Aguardando Colaborador">Aguardando Colaborador</option>
+                            <option value="Concluida">Concluída</option>
+                            <option value="Concluída">Concluída</option>
+                            <option value="Expirada">Expirada</option>
+                            <option value="Calibragem">Calibragem</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tipo</label>
+                        <select id="filtro-minhas-tipo" class="form-select" onchange="Avaliacoes.aplicarFiltrosMinhas()">
+                            <option value="">Todos</option>
+                            <option value="45">45 dias</option>
+                            <option value="90">90 dias</option>
+                            <option value="Desempenho">Desempenho</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start;">
+                        <button class="btn btn-secondary btn-sm" style="text-align: center; min-width: 140px; height: 2.75rem; display: inline-flex; align-items: center; justify-content: center;" onclick="Avaliacoes.limparFiltrosMinhas()">
+                            ${this.renderIcon('x', 16, 'margin-right: 6px;')}
+                            Limpar Filtros
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="lista-minhas-avaliacoes">${this.renderList(avaliacoes, false)}</div>
         `;
         this.refreshIcons();
     },
@@ -257,7 +308,7 @@ window.Avaliacoes = {
                         ${this.hasAdminPermission() ? `
                             <button class="btn btn-amber btn-sm" onclick="Avaliacoes.abrirModalCriacao()">
                                 ${this.renderIcon('plus', 16, 'margin-right: 6px;')}
-                                Nova Avaliação
+                                Nova Avaliação de Desempenho
                             </button>
                         ` : ''}
                         <button class="btn btn-sm" onclick="Avaliacoes.limparFiltros()" style="background: #6b7280; color: white;">
@@ -266,10 +317,10 @@ window.Avaliacoes = {
                         </button>
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                    <input type="text" id="filtro-nome" placeholder="Buscar por nome..." class="form-input" style="padding: 8px 12px; font-size: 14px;" oninput="Avaliacoes.aplicarFiltros()">
-                    <input type="text" id="filtro-departamento" placeholder="Buscar por departamento..." class="form-input" style="padding: 8px 12px; font-size: 14px;" oninput="Avaliacoes.aplicarFiltros()">
-                    <select id="filtro-status" class="form-select" style="padding: 8px 12px; font-size: 14px;" onchange="Avaliacoes.aplicarFiltros()">
+                <div class="avaliacoes-filtros-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                    <input type="text" id="filtro-nome" placeholder="Buscar por nome..." class="form-input" style="padding: 8px 12px; font-size: 14px; width: 100%; box-sizing: border-box;" oninput="Avaliacoes.aplicarFiltros()">
+                    <input type="text" id="filtro-departamento" placeholder="Buscar por departamento..." class="form-input" style="padding: 8px 12px; font-size: 14px; width: 100%; box-sizing: border-box;" oninput="Avaliacoes.aplicarFiltros()">
+                    <select id="filtro-status" class="form-select" style="padding: 8px 12px; font-size: 14px; width: 100%; box-sizing: border-box;" onchange="Avaliacoes.aplicarFiltros()">
                         <option value="">Todos os status</option>
                         <option value="Pendente">Pendente</option>
                         <option value="Agendada">Agendada</option>
@@ -279,7 +330,7 @@ window.Avaliacoes = {
                         <option value="Concluida">Concluída</option>
                         <option value="Expirada">Expirada</option>
                     </select>
-                    <select id="filtro-tipo" class="form-select" style="padding: 8px 12px; font-size: 14px;" onchange="Avaliacoes.aplicarFiltros()">
+                    <select id="filtro-tipo" class="form-select" style="padding: 8px 12px; font-size: 14px; width: 100%; box-sizing: border-box;" onchange="Avaliacoes.aplicarFiltros()">
                         <option value="">Todos os tipos</option>
                         <option value="45">45 dias</option>
                         <option value="90">90 dias</option>
@@ -294,14 +345,14 @@ window.Avaliacoes = {
 
     getStatusBadgeStyle(status) {
         const styles = {
-            'Pendente': 'background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
-            'Agendada': 'background: #dbeafe; color: #1e40af; border: 1px solid #60a5fa; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
-            'Concluída': 'background: #d1fae5; color: #065f46; border: 1px solid #10b981; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
-            'Concluida': 'background: #d1fae5; color: #065f46; border: 1px solid #10b981; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
-            'Aguardando Gestor': 'background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
-            'Aguardando Colaborador': 'background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
-            'Em Andamento': 'background: #e0e7ff; color: #3730a3; border: 1px solid #818cf8; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
-            'Expirada': 'background: #fee2e2; color: #991b1b; border: 1px solid #f87171; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;'
+            'Pendente': 'background: var(--color-warning-light); color: var(--color-warning); border: 1px solid var(--color-warning); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
+            'Agendada': 'background: var(--color-info-light); color: var(--color-info); border: 1px solid var(--color-info); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
+            'Concluída': 'background: var(--color-success-light); color: var(--color-success); border: 1px solid var(--color-success); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
+            'Concluida': 'background: var(--color-success-light); color: var(--color-success); border: 1px solid var(--color-success); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
+            'Aguardando Gestor': 'background: rgba(13,85,109,0.10); color: var(--color-primary); border: 1px solid var(--color-primary); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
+            'Aguardando Colaborador': 'background: rgba(13,85,109,0.10); color: var(--color-primary); border: 1px solid var(--color-primary); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
+            'Em Andamento': 'background: rgba(58, 132, 247, 0.12); color: #1d4ed8; border: 1px solid #3b82f6; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;',
+            'Expirada': 'background: var(--color-error-light); color: var(--color-error); border: 1px solid var(--color-error); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;'
         };
         return styles[status] || 'background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block; height: fit-content;';
     },
@@ -362,22 +413,22 @@ window.Avaliacoes = {
                 tipoDias = avaliacao.TipoAvaliacao.includes('45') ? '45 dias' : '90 dias';
             }
 
-            const badgeColor = avaliacao.Origem === 'NOVA' ? '#7c3aed' : '#374151';
-            const badgeBg = avaliacao.Origem === 'NOVA' ? '#f5f3ff' : '#f3f4f6';
+            const badgeColor = avaliacao.Origem === 'NOVA' ? 'var(--color-primary)' : '#374151';
+            const badgeBg = avaliacao.Origem === 'NOVA' ? 'rgba(13,85,109,0.08)' : '#f3f4f6';
 
             return `
-                        <div class="avaliacao-item" style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                                <div style="flex: 1;">
-                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                        <h4 style="margin: 0;">${avaliacao.NomeCompleto}</h4>
-                                        <span style="background: ${badgeBg}; color: ${badgeColor}; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">${tipoDias}</span>
+                        <div class="avaliacao-item" style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-sizing: border-box;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; flex-wrap: wrap; gap: 12px;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+                                        <h4 style="margin: 0; word-break: break-word; flex: 1; min-width: 0;">${avaliacao.NomeCompleto}</h4>
+                                        <span style="background: ${badgeBg}; color: ${badgeColor}; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0;">${tipoDias}</span>
                                     </div>
-                                    <p style="margin: 0; color: #6b7280; font-size: 13px;">${avaliacao.Departamento || 'Departamento não informado'}</p>
+                                    <p style="margin: 0; color: #6b7280; font-size: 13px; word-break: break-word;">${avaliacao.Departamento || 'Departamento não informado'}</p>
                                 </div>
-                                <span class="badge" style="${this.getStatusBadgeStyle(statusExibido)}">${statusExibido}</span>
+                                <span class="badge" style="${this.getStatusBadgeStyle(statusExibido)} white-space: nowrap; flex-shrink: 0;">${statusExibido}</span>
                             </div>
-                            <button class="btn ${btnClass} btn-sm" onclick="${acaoBotao}">
+                            <button class="btn ${btnClass} btn-sm avaliacao-action-btn" onclick="${acaoBotao}">
                                 ${this.renderIcon(iconeBotao, 16, 'margin-right: 6px;')}
                                 ${textoBotao}
                             </button>
@@ -560,9 +611,13 @@ window.Avaliacoes = {
         let quartoCampoLabel, quartoCampoConteudo;
         if (modoAdmin) {
             quartoCampoLabel = 'Status das Respostas:';
-            const statusColab = avaliacao.RespostaColaboradorConcluida ? '✅ Colaborador respondeu' : '⏳ Colaborador pendente';
-            const statusGest = avaliacao.RespostaGestorConcluida ? '✅ Gestor respondeu' : '⏳ Gestor pendente';
-            quartoCampoConteudo = `<p style="margin: 0; color: #6b7280; font-size: 13px;">${statusColab}<br>${statusGest}</p>`;
+            const statusColab = avaliacao.RespostaColaboradorConcluida 
+                ? `<span style="display: inline-flex; align-items: center; gap: 6px; color: #6b7280; font-size: 13px; font-weight: 600;">${this.renderIcon('check-circle', 16, 'color: #10b981;')} Colaborador respondeu</span>` 
+                : `<span style="display: inline-flex; align-items: center; gap: 6px; color: #6b7280; font-size: 13px; font-weight: 600;">${this.renderIcon('clock', 16, 'color: #f59e0b;')} Colaborador pendente</span>`;
+            const statusGest = avaliacao.RespostaGestorConcluida 
+                ? `<span style="display: inline-flex; align-items: center; gap: 6px; color: #6b7280; font-size: 13px; font-weight: 600;">${this.renderIcon('check-circle', 16, 'color: #10b981;')} Gestor respondeu</span>` 
+                : `<span style="display: inline-flex; align-items: center; gap: 6px; color: #6b7280; font-size: 13px; font-weight: 600;">${this.renderIcon('clock', 16, 'color: #f59e0b;')} Gestor pendente</span>`;
+            quartoCampoConteudo = `<div style="display: flex; flex-direction: column; gap: 8px; margin: 0;">${statusColab}${statusGest}</div>`;
         } else if (modoVisualizacao) {
             quartoCampoLabel = 'Gestor Responsável:';
             quartoCampoConteudo = `<p style="margin: 0; color: #8b5cf6; font-weight: 600;">${this.renderIcon('user-cog', 18, 'margin-right: 6px;')}${avaliacao.NomeGestor || 'Não atribuído'}</p>`;
@@ -587,8 +642,9 @@ window.Avaliacoes = {
         container.innerHTML = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
                 <div><p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px; font-weight: 600;">Tipo de Avaliação</p><p style="margin: 0; color: #111827; font-weight: 600;">${avaliacao.TipoAvaliacao}</p></div>
-                <div><p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px; font-weight: 600;">Colaborador Avaliado</p><p style="margin: 0; color: #111827;">${avaliacao.NomeCompleto || 'Nome não disponível'}</p></div>
-                <div><p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px; font-weight: 600;">Prazo de Resposta (Colaborador e Gestor)</p><p style="margin: 0; color: #111827;">${this.formatDate(dataLimite)}</p></div>
+                <div><p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px; font-weight: 600;">Colaborador Avaliado</p><p style="margin: 0; color: #111827; font-weight: 600;">${avaliacao.NomeCompleto || 'Nome não disponível'}</p></div>
+                <div><p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px; font-weight: 600;">Gestor Responsável</p><p style="margin: 0; color: #111827; font-weight: 600;">${avaliacao.NomeGestor || 'Não atribuído'}</p></div>
+                <div><p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px; font-weight: 600;">Prazo de Resposta (Colaborador e Gestor)</p><p style="margin: 0; color: #111827; font-weight: 600;">${this.formatDate(dataLimite)}</p></div>
                 <div><p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px; font-weight: 600;">${quartoCampoLabel}</p>${quartoCampoConteudo}</div>
             </div>
         `;
@@ -608,11 +664,11 @@ window.Avaliacoes = {
 
         const container = document.getElementById('formulario-avaliacao');
         container.innerHTML = `
-            <div style="text-align: center; padding: 40px 20px; background: #eff6ff; border-radius: 12px; border: 2px solid #93c5fd;">
-                ${this.renderIcon('calendar', 64, 'color: #3b82f6; margin-bottom: 24px;')}
-                <h3 style="color: #1e40af; margin-bottom: 12px; justify-content: center;">Avaliação Agendada</h3>
-                <p style="color: #1e3a8a; font-size: 16px;">Esta avaliação ainda não está disponível.</p>
-                <p style="color: #3b82f6; font-size: 14px;">Faltam aproximadamente <strong>${diasFaltantes} dia(s)</strong>.</p>
+            <div style="text-align: center; padding: 40px 20px; background: rgba(13,85,109,0.08); border-radius: 12px; border: 2px solid var(--color-primary);">
+                ${this.renderIcon('calendar', 64, 'color: var(--color-primary); margin-bottom: 24px;')}
+                <h3 style="color: var(--color-primary-dark); margin-bottom: 12px; justify-content: center;">Avaliação Agendada</h3>
+                <p style="color: var(--color-primary); font-size: 16px;">Esta avaliação ainda não está disponível.</p>
+                <p style="color: var(--color-primary); font-size: 14px;">Faltam aproximadamente <strong>${diasFaltantes} dia(s)</strong>.</p>
             </div>
         `;
         this.switchTab('responder');
@@ -652,12 +708,12 @@ window.Avaliacoes = {
 
         const container = document.getElementById('formulario-avaliacao');
         container.innerHTML = `
-            <div style="text-align: center; padding: 40px 20px; background: #e0e7ff; border-radius: 12px; border: 2px solid #818cf8;">
-                ${this.renderIcon('loader', 64, 'color: #4f46e5; margin-bottom: 24px;')}
-                <h3 style="color: #3730a3; margin-bottom: 12px; justify-content: center;">Avaliação em Processamento</h3>
-                <p style="color: #4338ca; font-size: 16px;">Sua avaliação foi respondida com sucesso!</p>
-                <p style="color: #6366f1; font-size: 14px;">${msgPrincipal}</p>
-                <p style="color: #818cf8; font-size: 13px; margin-top: 16px;">Você será notificado quando os resultados estiverem disponíveis.</p>
+            <div style="text-align: center; padding: 40px 20px; background: rgba(10,69,85,0.08); border-radius: 12px; border: 2px solid var(--color-primary-dark);">
+                ${this.renderIcon('loader', 64, 'color: var(--color-primary); margin-bottom: 24px;')}
+                <h3 style="color: var(--color-primary-dark); margin-bottom: 12px; justify-content: center;">Avaliação em Processamento</h3>
+                <p style="color: #0f5167; font-size: 16px;">Sua avaliação foi respondida com sucesso!</p>
+                <p style="color: var(--color-primary); font-size: 14px;">${msgPrincipal}</p>
+                <p style="color: #0f5167; font-size: 13px; margin-top: 16px;">Você será notificado quando os resultados estiverem disponíveis.</p>
             </div>
         `;
         this.switchTab('responder');
@@ -799,31 +855,31 @@ window.Avaliacoes = {
                 return `
                             <div style="padding: 20px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px;">
                                 <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 8px;">
-                                    <span style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 14px;">${index + 1}</span>
+                                    <span style="background: var(--color-secondary); color: white; padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 14px;">${index + 1}</span>
                                     <div style="flex: 1;">
                                         <p style="margin: 0 0 4px 0; color: #111827; font-size: 16px; font-weight: 500;">${this.escapeHtml(pergunta.Pergunta || pergunta.Texto)}</p>
-                                        <span style="display: inline-block; padding: 2px 8px; background: #f3f4f6; color: #6b7280; border-radius: 4px; font-size: 11px; font-weight: 600;">${tipoLabel}</span>
+                                        <span style="display: inline-block; padding: 2px 8px; background: var(--color-gray-100); color: var(--color-gray-600); border-radius: 4px; font-size: 11px; font-weight: 600;">${tipoLabel}</span>
                                     </div>
                                 </div>
                                 ${infoAdicional}
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
-                                    <div style="padding: 12px; background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 6px;">
-                                        <p style="margin: 0 0 8px 0; color: #1e40af; font-weight: 600; font-size: 13px;">${this.renderIcon('user', 16, 'margin-right: 6px;')} Colaborador</p>
-                                        <p style="margin: 0; color: #1e3a8a; font-size: 14px; font-weight: 600;">${respostaColab && respostaColab.Resposta ? this.escapeHtml(respostaColab.Resposta) : '<em style="color: #9ca3af; font-weight: normal;">Sem resposta</em>'}</p>
+                                    <div style="padding: 12px; background: rgba(13, 85, 109, 0.10); border-left: 3px solid var(--color-primary); border-radius: 6px;">
+                                        <p style="margin: 0 0 8px 0; color: var(--color-primary); font-weight: 700; font-size: 13px;">${this.renderIcon('user', 16, 'margin-right: 6px; color: var(--color-primary);')} Colaborador</p>
+                                        <p style="margin: 0; color: var(--color-primary-dark); font-size: 14px; font-weight: 600;">${respostaColab && respostaColab.Resposta ? this.escapeHtml(respostaColab.Resposta) : '<em style="color: #9ca3af; font-weight: normal;">Sem resposta</em>'}</p>
                                     </div>
-                                    <div style="padding: 12px; background: #f5f3ff; border-left: 3px solid #8b5cf6; border-radius: 6px;">
-                                        <p style="margin: 0 0 8px 0; color: #6d28d9; font-weight: 600; font-size: 13px;">${this.renderIcon('user-cog', 16, 'margin-right: 6px;')} Gestor</p>
-                                        <p style="margin: 0; color: #5b21b6; font-size: 14px; font-weight: 600;">${respostaGest && respostaGest.Resposta ? this.escapeHtml(respostaGest.Resposta) : '<em style="color: #9ca3af; font-weight: normal;">Sem resposta</em>'}</p>
+                                    <div style="padding: 12px; background: rgba(10, 69, 85, 0.04); border-left: 3px solid var(--color-primary-dark); border-radius: 6px;">
+                                        <p style="margin: 0 0 8px 0; color: var(--color-primary-dark); font-weight: 700; font-size: 13px;">${this.renderIcon('user-cog', 16, 'margin-right: 6px; color: var(--color-primary-dark);')} Gestor</p>
+                                        <p style="margin: 0; color: #0b3c4c; font-size: 14px; font-weight: 600;">${respostaGest && respostaGest.Resposta ? this.escapeHtml(respostaGest.Resposta) : '<em style="color: #9ca3af; font-weight: normal;">Sem resposta</em>'}</p>
                                     </div>
                                 </div>
                                 ${respostaColab && respostaColab.RespostaCalibrada ? `
-                                    <div style="padding: 12px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 6px; margin-top: 16px;">
-                                        <p style="margin: 0 0 8px 0; color: #92400e; font-weight: 600; font-size: 13px;">${this.renderIcon('sliders', 16, 'margin-right: 6px;')} Resposta Calibrada (RH)</p>
-                                        <p style="margin: 0; color: #78350f; font-size: 14px; font-weight: 600;">${this.escapeHtml(respostaColab.RespostaCalibrada)}</p>
+                                    <div style="padding: 12px; background: rgba(245, 158, 11, 0.08); border-left: 3px solid var(--color-warning); border-radius: 6px; margin-top: 16px;">
+                                        <p style="margin: 0 0 8px 0; color: var(--color-warning); font-weight: 700; font-size: 13px;">${this.renderIcon('sliders', 16, 'margin-right: 6px; color: var(--color-warning);')} Resposta Calibrada (RH)</p>
+                                        <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 600;">${this.escapeHtml(respostaColab.RespostaCalibrada)}</p>
                                         ${respostaColab.JustificativaCalibrada ? `
-                                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #fbbf24;">
+                                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-warning);">
                                                 <p style="margin: 0 0 4px 0; color: #92400e; font-weight: 600; font-size: 12px;">Justificativa:</p>
-                                                <p style="margin: 0; color: #78350f; font-size: 13px;">${this.escapeHtml(respostaColab.JustificativaCalibrada)}</p>
+                                                <p style="margin: 0; color: #92400e; font-size: 13px;">${this.escapeHtml(respostaColab.JustificativaCalibrada)}</p>
                                             </div>
                                         ` : ''}
                                     </div>
@@ -872,10 +928,10 @@ window.Avaliacoes = {
 
         const container = document.getElementById('formulario-avaliacao');
         container.innerHTML = `
-            <div style="text-align: center; padding: 60px 20px; background: #fef2f2; border-radius: 12px; border: 2px solid #fca5a5;">
-                ${this.renderIcon('alert-triangle', 64, 'color: #dc2626; margin-bottom: 24px;')}
-                <h3 style="color: #991b1b; margin-bottom: 12px; justify-content: center;">Avaliação Expirada</h3>
-                <p style="color: #7f1d1d; font-size: 16px;">O prazo expirou em <strong>${this.formatDate(avaliacao.DataLimiteResposta)}</strong>.</p>
+            <div style="text-align: center; padding: 60px 20px; background: var(--color-error-light); border-radius: 12px; border: 2px solid var(--color-error);">
+                ${this.renderIcon('alert-triangle', 64, 'color: var(--color-error); margin-bottom: 24px;')}
+                <h3 style="color: #b91c1c; margin-bottom: 12px; justify-content: center;">Avaliação Expirada</h3>
+                <p style="color: #991b1b; font-size: 16px;">O prazo expirou em <strong>${this.formatDate(avaliacao.DataLimiteResposta)}</strong>.</p>
                 ${isAdmin ? `
                     <div style="margin-top: 24px;">
                         <button class="btn btn-amber" onclick="Avaliacoes.abrirModalReabrirAvaliacao(${avaliacao.Id})">
@@ -922,15 +978,26 @@ window.Avaliacoes = {
                     return p;
                 });
             } else {
-                const tipo = avaliacao.TipoAvaliacao.includes('45') ? '45' : '90';
-                perguntas = await API.get(`/api/avaliacoes/questionario/${tipo}`);
+                // Experiência: usar snapshot da avaliação para garantir consistência (colaborador/gestor)
+                const snapshot = await API.get(`/api/avaliacoes/${avaliacao.Id}/respostas`);
+                perguntas = (snapshot && snapshot.perguntas) ? snapshot.perguntas : [];
 
-                // Carregar opções para perguntas de múltipla escolha
-                for (const pergunta of perguntas) {
-                    if (pergunta.TipoPergunta === 'multipla_escolha') {
-                        pergunta.opcoes = await API.get(`/api/avaliacoes/questionario/${tipo}/perguntas/${pergunta.Id}/opcoes`);
+                // Normalizar opções (snapshot já contém OpcoesPerguntasAvaliacao)
+                perguntas = perguntas.map(p => {
+                    const opcoes = p.Opcoes || p.opcoes || [];
+                    let opcoesNormalizadas = opcoes;
+                    if (typeof opcoes === 'string') {
+                        try { opcoesNormalizadas = JSON.parse(opcoes); } catch (e) { opcoesNormalizadas = []; }
                     }
-                }
+                    if (opcoesNormalizadas.length > 0 && !opcoesNormalizadas[0].TextoOpcao) {
+                        opcoesNormalizadas = opcoesNormalizadas.map(op => ({ TextoOpcao: op.TextoOpcao || op }));
+                    }
+                    return {
+                        ...p,
+                        opcoes: opcoesNormalizadas,
+                        TipoPergunta: p.TipoPergunta || p.Tipo
+                    };
+                });
             }
 
             this.renderQuestionario(perguntas);
@@ -1438,6 +1505,74 @@ window.Avaliacoes = {
         if (filtroTipo) filtroTipo.value = '';
 
         this.updateTodasList(this.todasAvaliacoes);
+    },
+
+    toggleMinhasFiltros() {
+        const container = document.getElementById('minhas-filters-container');
+        const btn = event.currentTarget;
+        const icon = btn.querySelector('svg:last-child');
+        const card = btn.closest('.card');
+
+        if (container && btn) {
+            container.classList.toggle('collapsed');
+            btn.classList.toggle('active');
+            const isCollapsed = container.classList.contains('collapsed');
+            if (card) {
+                card.classList.toggle('filters-collapsed', isCollapsed);
+            }
+
+            if (icon) {
+                icon.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)';
+            }
+        }
+    },
+
+    aplicarFiltrosMinhas() {
+        if (!this.minhasAvaliacoes) return;
+
+        const nome = document.getElementById('filtro-minhas-nome')?.value || '';
+        const status = document.getElementById('filtro-minhas-status')?.value || '';
+        const tipo = document.getElementById('filtro-minhas-tipo')?.value || '';
+
+        let filtradas = [...this.minhasAvaliacoes];
+
+        if (nome) {
+            const nomeLower = nome.toLowerCase();
+            filtradas = filtradas.filter(av => (av.NomeCompleto || '').toLowerCase().includes(nomeLower));
+        }
+
+        if (status) {
+            filtradas = filtradas.filter(av => {
+                const st = av.StatusAvaliacao || av.Status;
+                return st === status;
+            });
+        }
+
+        if (tipo) {
+            if (tipo === 'Desempenho') {
+                filtradas = filtradas.filter(av => av.TipoAvaliacao === 'Desempenho');
+            } else {
+                filtradas = filtradas.filter(av => av.TipoAvaliacao && av.TipoAvaliacao.includes(tipo));
+            }
+        }
+
+        const container = document.getElementById('lista-minhas-avaliacoes');
+        if (container) {
+            container.innerHTML = this.renderList(filtradas, false);
+            this.refreshIcons();
+        }
+    },
+
+    limparFiltrosMinhas() {
+        const nome = document.getElementById('filtro-minhas-nome');
+        const status = document.getElementById('filtro-minhas-status');
+        const tipo = document.getElementById('filtro-minhas-tipo');
+
+        if (nome) nome.value = '';
+        if (status) status.value = '';
+        if (tipo) tipo.value = '';
+
+        this.aplicarFiltrosMinhas();
     },
 
     async abrirModalCriacao() {
@@ -2103,6 +2238,16 @@ window.Avaliacoes = {
 
         try {
             const perguntas = await API.get(`/api/avaliacoes/desempenho/${avaliacao.Id}/questionario`);
+            // Garantir opções para múltipla escolha
+            for (const p of perguntas) {
+                if (p.Tipo === 'multipla_escolha' && (!p.Opcoes || p.Opcoes.length === 0)) {
+                    try {
+                        p.Opcoes = await API.get(`/api/avaliacoes/desempenho/${avaliacao.Id}/perguntas/${p.Id}/opcoes`);
+                    } catch (err) {
+                        console.warn('Não foi possível carregar opções da pergunta', p.Id, err);
+                    }
+                }
+            }
             const respostasRaw = await API.get(`/api/avaliacoes/desempenho/${avaliacao.Id}/respostas`);
             const mapRespostas = new Map(respostasRaw.map(r => [r.PerguntaId, r]));
 
@@ -2416,6 +2561,16 @@ window.Avaliacoes = {
 
         try {
             const perguntas = await API.get(`/api/avaliacoes/desempenho/${avaliacao.Id}/questionario`);
+            // Garantir opções para múltipla escolha
+            for (const p of perguntas) {
+                if (p.Tipo === 'multipla_escolha' && (!p.Opcoes || p.Opcoes.length === 0)) {
+                    try {
+                        p.Opcoes = await API.get(`/api/avaliacoes/desempenho/${avaliacao.Id}/perguntas/${p.Id}/opcoes`);
+                    } catch (err) {
+                        console.warn('Não foi possível carregar opções da pergunta', p.Id, err);
+                    }
+                }
+            }
             const respostasRaw = await API.get(`/api/avaliacoes/desempenho/${avaliacao.Id}/respostas`);
             const mapRespostas = new Map(respostasRaw.map(r => [r.PerguntaId, r]));
 

@@ -1395,27 +1395,27 @@
 
                 <!-- Avaliações -->
                 <div id="avaliacoes-content" class="tab-content hidden">
-                    <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 1rem;">
+                    <div class="avaliacoes-header-actions" style="display: flex; gap: 12px; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
                         <!-- Botão Editar Templates - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
                         <button class="btn btn-amber" id="btn-editar-templates"
-                            data-action="abrirModalEditarQuestionarios" style="display: none;">
+                            data-action="abrirModalEditarQuestionarios" style="display: none; flex-shrink: 0;">
                             <i data-lucide="edit"></i>
                             Editar Templates
                         </button>
 
                         <!-- Botões de alternância - visível apenas para RH, T&D e DEPARTAMENTO ADM/RH/SESMT -->
-                        <div id="avaliacoes-toggle-buttons" style="display: none;">
+                        <div id="avaliacoes-toggle-buttons" style="display: none; flex: 0 0 auto; min-width: 0;">
                             <div class="btn-group"
-                                style="display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 8px;">
+                                style="display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 8px; flex-wrap: wrap;">
                                 <button class="btn-toggle active" data-view="minhas" data-action="toggleAvaliacoesView"
                                     data-param="minhas">
                                     <i data-lucide="user"></i>
-                                    Minhas Avaliações
+                                    <span class="btn-toggle-text">Minhas Avaliações</span>
                                 </button>
                                 <button class="btn-toggle" data-view="todas" data-action="toggleAvaliacoesView"
                                     data-param="todas">
                                     <i data-lucide="list"></i>
-                                    Todas as Avaliações
+                                    <span class="btn-toggle-text">Todas as Avaliações</span>
                                 </button>
                             </div>
                         </div>
