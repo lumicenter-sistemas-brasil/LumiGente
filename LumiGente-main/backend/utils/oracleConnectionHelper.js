@@ -11,9 +11,9 @@ class OracleConnectionHelper {
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                console.log(`🔄 Tentativa ${attempt}/${maxRetries} - Executando query Oracle...`);
+                console.log(`[ORACLE] Tentativa ${attempt}/${maxRetries}`);
                 const result = await pool.request().query(primaryQuery);
-                console.log('✅ Conexão Oracle bem-sucedida');
+                console.log('[ORACLE] Conexao OK');
                 return result;
             } catch (error) {
                 lastError = error;

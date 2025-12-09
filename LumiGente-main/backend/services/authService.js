@@ -91,7 +91,7 @@ exports.loginUser = async (cpf, password) => {
         }
 
             // Retorna dados do usuário externo (sem hierarquia, matrícula, etc.)
-            console.log(`✅ Login (Usuário Externo): ${user.NomeCompleto || user.Email || 'Sem nome'}`);
+            console.log(`[AUTH] Login externo: ${user.NomeCompleto || user.Email || 'Sem nome'}`);
 
             // Calcular permissões para usuário externo
             const { getAllPermissions } = require('../utils/permissionsHelper');
@@ -207,7 +207,7 @@ exports.loginUser = async (cpf, password) => {
     const permissions = getAllPermissions(tempUser);
     const role = permissions.managerType || 'Funcionário';
     
-    console.log(`✅ Login: ${user.NomeCompleto.trim()} | ${role} | Nível ${hierarchyLevel}`);
+    console.log(`[AUTH] Login: ${user.NomeCompleto.trim()} | ${role} | Nível ${hierarchyLevel}`);
 
     return {
         userId: user.Id,

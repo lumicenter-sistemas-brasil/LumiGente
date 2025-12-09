@@ -8,7 +8,6 @@ const emailService = require('../services/emailService');
  */
 async function atualizarStatusAvaliacoes() {
     try {
-        console.log('🔄 Iniciando job de atualização de status de avaliações...');
         const pool = await getDatabasePool();
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
@@ -73,7 +72,6 @@ async function atualizarStatusAvaliacoes() {
                 await criarNotificacaoAvaliacao(pool, avaliacao.GestorId, 'avaliacao_aberta', avaliacao.TipoAvaliacao);
             }
 
-            console.log(`✅ Avaliação ${avaliacao.Id} aberta para ${avaliacao.NomeColaborador}`);
         }
 
         // 2. Enviar lembrete 3 dias antes de expirar
@@ -128,7 +126,6 @@ async function atualizarStatusAvaliacoes() {
                 }
             }
 
-            console.log(`✅ Lembrete enviado para avaliação ${avaliacao.Id}`);
         }
 
         // 3. Atualizar Pendente -> Expirada (quando passa do prazo)
@@ -185,10 +182,9 @@ async function atualizarStatusAvaliacoes() {
                 }
             }
 
-            console.log(`✅ Avaliação ${avaliacao.Id} expirada`);
         }
 
-        console.log(`✅ Job concluído: ${avaliacoesParaAbrir.recordset.length} abertas, ${avaliacoesParaLembrete.recordset.length} lembretes, ${avaliacoesParaExpirar.recordset.length} expiradas`);
+        console.log(`[JOB][AVALIACOES] Status ok - Abertas: ${avaliacoesParaAbrir.recordset.length}, Lembretes: ${avaliacoesParaLembrete.recordset.length}, Expiradas: ${avaliacoesParaExpirar.recordset.length}`);
     } catch (error) {
         console.error('❌ Erro no job de atualização de status de avaliações:', error);
         throw error;

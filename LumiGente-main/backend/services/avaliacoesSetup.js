@@ -165,8 +165,6 @@ async function ensureAvaliacoesTablesExist() {
                     EXEC sp_rename 'PDIs.PrazoRevisao', 'PrazoConclusao', 'COLUMN';
                 `);
                 console.log('  -> Coluna PrazoRevisao renomeada para PrazoConclusao na tabela PDIs');
-            } else if (prazoConclusaoCheck.recordset[0].existe > 0) {
-                console.log('  -> Coluna PrazoConclusao já existe na tabela PDIs');
             }
         } catch (error) {
             // Se a tabela PDIs não existir ainda, apenas logar o erro sem quebrar

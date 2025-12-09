@@ -17,12 +17,12 @@ class SincronizadorDadosExternos {
      */
     async startAutoSync(intervalMinutes = 30) {
         if (this.isRunning) {
-            console.log('🔄 Sincronizador já está em execução.');
+            console.log('[SYNC] Já está em execução.');
             return;
         }
 
         this.isRunning = true;
-        console.log(`🔄 Sincronizador automático iniciado (intervalo: ${intervalMinutes} minutos)`);
+        console.log(`[SYNC] Iniciado - intervalo: ${intervalMinutes} minutos`);
 
         // Executa a primeira sincronização imediatamente
         await this.syncAllData();
@@ -42,7 +42,7 @@ class SincronizadorDadosExternos {
             this.syncInterval = null;
         }
         this.isRunning = false;
-        console.log('⏸️ Sincronizador automático parado.');
+        console.log('[SYNC] Parado.');
     }
 
     /**
@@ -60,16 +60,13 @@ class SincronizadorDadosExternos {
      * Orquestra a execução de todas as tarefas de sincronização.
      */
     async syncAllData() {
-        console.log('\n================================================');
-        console.log(`[SYNC START] Início do ciclo de sincronização: ${new Date().toLocaleString('pt-BR')}`);
         this.lastSync = new Date();
         try {
             await this.syncFuncionarios();
-            console.log(`[SYNC END] Sincronização concluída com sucesso: ${new Date().toLocaleString('pt-BR')}`);
+            console.log(`[SYNC] Ciclo concluído: ${new Date().toLocaleString('pt-BR')}`);
         } catch (error) {
-            console.error('\n❌ Erro fatal durante o ciclo de sincronização:', error);
+            console.error('[SYNC] Erro fatal durante o ciclo de sincronização:', error);
         }
-        console.log('================================================\n');
     }
 
     /**
@@ -126,7 +123,7 @@ class SincronizadorDadosExternos {
                         criados++;
                     }
                 } catch (error) {
-                    console.error(`   - ❌ Erro ao processar CPF ${func.CPF}:`, error.message);
+                    console.error(`   - Erro ao processar CPF ${func.CPF}:`, error.message);
                     erros++;
                 }
             }
@@ -142,10 +139,10 @@ class SincronizadorDadosExternos {
             `);
             const inativados = inativacaoResult.rowsAffected[0];
 
-            if (erros > 0) console.log(`   ❌ Erros: ${erros}`);
+            if (erros > 0) console.log(`   Erros: ${erros}`);
 
         } catch (error) {
-            console.error('❌ Erro crítico no método syncFuncionarios:', error);
+            console.error('Erro crítico no método syncFuncionarios:', error);
             throw error;
         }
     }
@@ -217,7 +214,7 @@ class SincronizadorDadosExternos {
 
             return result.recordset.length > 0 ? (result.recordset[0].DESCRICAO_ATUAL || departamento) : departamento;
         } catch (error) {
-            console.error(`   - ⚠️ Erro ao buscar descrição do depto ${departamento}:`, error.message);
+            console.error(`   - Erro ao buscar descrição do depto ${departamento}:`, error.message);
             return departamento; // Retorna o código como fallback
         }
     }

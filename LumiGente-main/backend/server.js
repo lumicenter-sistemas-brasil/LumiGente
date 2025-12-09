@@ -101,7 +101,7 @@ async function startServer() {
         startSurveyNotificationJob();
 
         app.listen(PORT, () => {
-            console.log(`📱 Acesse: http://localhost:${PORT}`);
+            console.log(`[SERVER] Acesse o sistema de forma local em: http://localhost:${PORT}`);
         });
     } catch (error) {
         console.error('❌ Erro ao iniciar o servidor:', error);

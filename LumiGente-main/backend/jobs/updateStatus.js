@@ -9,9 +9,6 @@ const { getDatabasePool } = require('../config/db');
 async function updatePesquisaStatus() {
     try {
         const pool = await getDatabasePool();
-        const now = new Date();
-        let changed = false;
-
         // --- NOVO SISTEMA DE PESQUISAS (Tabela Surveys) ---
         // Ativar pesquisas agendadas
         const ativarResult = await pool.request().query(`
@@ -19,10 +16,6 @@ async function updatePesquisaStatus() {
             SET status = 'Ativa'
             WHERE status = 'Agendada' AND data_inicio IS NOT NULL AND data_inicio <= GETDATE()
         `);
-        if (ativarResult.rowsAffected[0] > 0) {
-            console.log(`🕒 [JOB] ${ativarResult.rowsAffected[0]} nova(s) pesquisa(s) foram ativadas.`);
-            changed = true;
-        }
 
         // Encerrar pesquisas ativas que passaram do prazo
         const encerrarResult = await pool.request().query(`
@@ -30,17 +23,8 @@ async function updatePesquisaStatus() {
             SET status = 'Encerrada'
             WHERE status = 'Ativa' AND data_encerramento IS NOT NULL AND data_encerramento <= GETDATE()
         `);
-        if (encerrarResult.rowsAffected[0] > 0) {
-            console.log(`🕒 [JOB] ${encerrarResult.rowsAffected[0]} pesquisa(s) foram encerradas.`);
-            changed = true;
-        }
         
-        const nowStr = new Date().toLocaleTimeString('pt-BR', { hour12: false });
-        if (changed) {
-            console.log(`🕒 [${nowStr}] Status das pesquisas verificado e atualizado.`);
-        } else {
-            console.log(`🕒 [${nowStr}] Verificação de status de pesquisas concluída (sem alterações).`);
-        }
+        console.log(`[JOB][PESQUISAS] Status ok - Ativadas: ${ativarResult.rowsAffected[0]}, Encerradas: ${encerrarResult.rowsAffected[0]}`);
 
     } catch (error) {
         // Ignora erro se a tabela 'Surveys' não existir ainda
@@ -60,12 +44,8 @@ async function updatePesquisaStatus() {
 async function updateObjetivoStatus() {
     try {
         const pool = await getDatabasePool();
-        const now = new Date();
-        const nowStr = now.toLocaleString('pt-BR');
         let totalAtivados = 0;
         let totalExpirados = 0;
-
-        console.log(`🎯 [JOB] [${nowStr}] Iniciando verificação de status de objetivos...`);
 
         // Ativar objetivos agendados quando a data de início é alcançada
         const ativarResult = await pool.request().query(`
@@ -75,9 +55,6 @@ async function updateObjetivoStatus() {
         `);
         
         totalAtivados = ativarResult.rowsAffected[0];
-        if (totalAtivados > 0) {
-            console.log(`   ✅ ${totalAtivados} objetivo(s) foram ativados automaticamente (Agendado -> Ativo).`);
-        }
 
         // Expirar objetivos ativos quando a data de fim é ultrapassada
         const expirarResult = await pool.request().query(`
@@ -87,15 +64,7 @@ async function updateObjetivoStatus() {
         `);
 
         totalExpirados = expirarResult.rowsAffected[0];
-        if (totalExpirados > 0) {
-            console.log(`   ⏰ ${totalExpirados} objetivo(s) foram marcados como expirados (Ativo -> Expirado).`);
-        }
-
-        if (totalAtivados === 0 && totalExpirados === 0) {
-            console.log(`   ℹ️  Nenhuma alteração de status necessária.`);
-        } else {
-            console.log(`🎯 [JOB] [${nowStr}] Verificação de objetivos concluída: ${totalAtivados} ativado(s), ${totalExpirados} expirado(s).`);
-        }
+        console.log(`[JOB][OBJETIVOS] Status ok - Ativados: ${totalAtivados}, Expirados: ${totalExpirados}`);
     } catch (error) {
         // Ignora erro se a tabela 'Objetivos' não existir ainda
         if (!error.message.toLowerCase().includes("invalid object name 'objetivos'")) {
@@ -104,8 +73,47 @@ async function updateObjetivoStatus() {
     }
 }
 
+/**
+ * Atualiza o status dos PDIs com base no prazo de conclusão.
+ * - Marca como 'Expirado' quando o prazo é ultrapassado e o PDI não está concluído/cancelado/expirado.
+ * Executada diariamente à meia-noite.
+ */
+async function updatePDIStatus() {
+    try {
+        const pool = await getDatabasePool();
+        // Descobrir qual coluna de prazo existe (PrazoConclusao ou PrazoRevisao)
+        const prazoCheck = await pool.request().query(`
+            SELECT CASE WHEN EXISTS (
+                SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
+            ) THEN 1 ELSE 0 END AS hasPrazoConclusao
+        `);
+
+        const hasPrazoConclusao = prazoCheck.recordset[0]?.hasPrazoConclusao === 1;
+        const prazoColumn = hasPrazoConclusao ? 'PrazoConclusao' : 'PrazoRevisao';
+
+        // Expirar PDIs cujo prazo passou e que não estão concluídos/cancelados/expirados
+        const expirarResult = await pool.request().query(`
+            UPDATE PDIs
+            SET Status = 'Expirado', DataAtualizacao = GETDATE()
+            WHERE ${prazoColumn} IS NOT NULL
+              AND CAST(${prazoColumn} AS DATE) < CAST(GETDATE() AS DATE)
+              AND Status NOT IN ('Concluído', 'Cancelado', 'Expirado')
+        `);
+
+        const totalExpirados = expirarResult.rowsAffected[0];
+
+        console.log(`[JOB][PDI] Status ok - Expirados: ${totalExpirados}`);
+    } catch (error) {
+        if (!error.message.toLowerCase().includes("invalid object name 'pdis'")) {
+            console.error('❌ [JOB] Erro ao atualizar status dos PDIs:', error);
+        }
+    }
+}
+
 
 module.exports = {
     updatePesquisaStatus,
-    updateObjetivoStatus
+    updateObjetivoStatus,
+    updatePDIStatus
 };

@@ -29,7 +29,7 @@ async function getDatabasePool() {
     }
     try {
         pool = await sql.connect(dbConfig);
-        console.log('✅ Conectado ao SQL Server');
+        console.log('[DB] Conectado ao SQL Server');
         return pool;
     } catch (error) {
         console.error('❌ Erro ao conectar ao SQL Server:', error);

@@ -197,7 +197,6 @@ class AvaliacoesManager {
             }
         }
 
-        console.log(`-> Avaliação de ${diasPrazo} dias criada para: ${funcionario.NomeCompleto} (Fecha em: ${dataLimite.toLocaleDateString('pt-BR')})`);
     }
 
     /**
@@ -512,12 +511,8 @@ class AvaliacoesManager {
             }
             
             const user = userResult.recordset[0];
-            console.log(`🔍 Buscando gestor para: ${user.NomeCompleto} (ID: ${userId})`);
-            console.log(`   DEPARTAMENTO: ${user.DEPARTAMENTO}`);
-            console.log(`   hierarchyPath: ${user.hierarchyPath}`);
             
             if (!user.DEPARTAMENTO || !user.hierarchyPath) {
-                console.log(`⚠️ DEPARTAMENTO ou hierarchyPath ausente`);
                 return null;
             }
             
@@ -525,18 +520,13 @@ class AvaliacoesManager {
             const hierarchyPath = user.hierarchyPath;
             const pathParts = hierarchyPath.split(' > ').map(p => p.trim());
             
-            console.log(`   Path dividido:`, pathParts);
-            
             const deptIndex = pathParts.indexOf(departamento);
-            console.log(`   Índice do departamento no path: ${deptIndex}`);
             
             if (deptIndex <= 0) {
-                console.log(`⚠️ Departamento não encontrado no path ou é o primeiro (sem gestor acima)`);
                 return null;
             }
             
             const gestorDepartamento = pathParts[deptIndex - 1];
-            console.log(`   Departamento do gestor: ${gestorDepartamento}`);
             
             const gestorResult = await pool.request()
                 .input('gestorDept', sql.VarChar, gestorDepartamento)
@@ -544,11 +534,9 @@ class AvaliacoesManager {
             
             if (gestorResult.recordset.length > 0) {
                 const gestor = gestorResult.recordset[0];
-                console.log(`✅ Gestor encontrado: ${gestor.NomeCompleto} (ID: ${gestor.Id})`);
                 return gestor.Id;
             }
             
-            console.log(`❌ Nenhum usuário encontrado com DEPARTAMENTO = ${gestorDepartamento}`);
             return null;
         } catch (error) {
             console.error(`❌ Erro ao buscar gestor para userId ${userId}:`, error.message);

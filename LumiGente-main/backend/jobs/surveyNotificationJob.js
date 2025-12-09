@@ -9,8 +9,6 @@ const { notifySurveyClosingSoon, notifySurveyClosed } = require('../services/sur
  */
 function startSurveyNotificationJob() {
     cron.schedule('0 * * * *', async () => {
-        console.log('🔔 Verificando pesquisas próximas do encerramento...');
-        
         try {
             const pool = await getDatabasePool();
             
@@ -42,9 +40,7 @@ function startSurveyNotificationJob() {
                     `);
             }
             
-            if (result.recordset.length > 0) {
-                console.log(`✅ ${result.recordset.length} notificações de encerramento enviadas`);
-            }
+            console.log(`[JOB][PESQUISAS] Closing soon ok - Enviadas: ${result.recordset.length}`);
         } catch (error) {
             console.error('❌ Erro no job de notificações:', error);
         }
@@ -52,8 +48,6 @@ function startSurveyNotificationJob() {
     
     // Job para verificar pesquisas encerradas
     cron.schedule('*/30 * * * *', async () => {
-        console.log('🔔 Verificando pesquisas encerradas...');
-        
         try {
             const pool = await getDatabasePool();
             
@@ -79,15 +73,13 @@ function startSurveyNotificationJob() {
                     `);
             }
             
-            if (result.recordset.length > 0) {
-                console.log(`✅ ${result.recordset.length} notificações de encerramento enviadas`);
-            }
+            console.log(`[JOB][PESQUISAS] Closed ok - Enviadas: ${result.recordset.length}`);
         } catch (error) {
             console.error('❌ Erro no job de pesquisas encerradas:', error);
         }
     });
     
-    console.log('✅ Job de notificações de pesquisas iniciado');
+    console.log('[JOB][PESQUISAS] Notificacoes agendadas');
 }
 
 /**
