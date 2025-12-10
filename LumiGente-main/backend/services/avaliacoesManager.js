@@ -1,6 +1,4 @@
-const sql = require('mssql');
-const { getDatabasePool } = require('../config/db'); // Importa a conexão centralizada
-const OracleConnectionHelper = require('../utils/oracleConnectionHelper');
+const { getDatabasePool } = require('../config/db');
 const { getTipoAvaliacaoIdByDias } = require('./avaliacoesSetup');
 
 /**
@@ -18,14 +16,13 @@ class AvaliacoesManager {
 
             // Buscar usuários que devem ter avaliações (ativos e não externos)
             // Usa a data de admissão da TAB_HIST_SRA (funcionários com STATUS_GERAL = 'ATIVO')
-            // ALTERAÇÃO: Removido JOIN com HIERARQUIA_CC para evitar erros de conexão Oracle na query principal
-            const primaryQuery = `
+            const [novosFuncionarios] = await pool.execute(`
                 SELECT 
                     u.Id, 
                     u.Matricula, 
                     u.NomeCompleto, 
                     s.DTA_ADMISSAO as DataAdmissao,
-                    DATEDIFF(DAY, s.DTA_ADMISSAO, GETDATE()) as DiasNaEmpresa,
+                    DATEDIFF(NOW(), s.DTA_ADMISSAO) as DiasNaEmpresa,
                     NULL as GestorId
                 FROM Users u
                 INNER JOIN TAB_HIST_SRA s ON s.CPF = u.CPF AND s.MATRICULA = u.Matricula AND s.STATUS_GERAL = 'ATIVO'
@@ -33,36 +30,13 @@ class AvaliacoesManager {
                     u.IsActive = 1 
                     AND (u.IsExternal IS NULL OR u.IsExternal = 0)
                     AND s.DTA_ADMISSAO IS NOT NULL
-                    AND DATEDIFF(DAY, s.DTA_ADMISSAO, GETDATE()) <= 100
-            `;
-
-            const fallbackQuery = `
-                SELECT 
-                    u.Id, 
-                    u.Matricula, 
-                    u.NomeCompleto, 
-                    u.created_at as DataAdmissao,
-                    DATEDIFF(DAY, u.created_at, GETDATE()) as DiasNaEmpresa,
-                    NULL as GestorId
-                FROM Users u
-                WHERE 
-                    u.IsActive = 1 
-                    AND (u.IsExternal IS NULL OR u.IsExternal = 0)
-                    AND u.created_at IS NOT NULL
-                    AND DATEDIFF(DAY, u.created_at, GETDATE()) <= 100
-            `;
-
-            const novosFuncionarios = await OracleConnectionHelper.executeWithFallback(
-                pool,
-                primaryQuery,
-                fallbackQuery,
-                2 // máximo 2 tentativas
-            );
+                    AND DATEDIFF(NOW(), s.DTA_ADMISSAO) <= 100
+            `);
 
             let criadas45 = 0;
             let criadas90 = 0;
 
-            for (const func of novosFuncionarios.recordset) {
+            for (const func of novosFuncionarios) {
                 const diasNaEmpresa = func.DiasNaEmpresa;
 
                 // Tentar buscar gestor atualizado
@@ -88,24 +62,24 @@ class AvaliacoesManager {
                     
                     // Se tem menos de 45 dias, cria ambas as avaliações
                     if (diasNaEmpresa < 45) {
-                        const avaliacao45existente = await pool.request()
-                            .input('userId', sql.Int, func.Id)
-                            .input('tipoId', sql.Int, tipo45Id)
-                            .query('SELECT Id FROM Avaliacoes WHERE UserId = @userId AND TipoAvaliacaoId = @tipoId');
+                        const [avaliacao45existente] = await pool.execute(
+                            'SELECT Id FROM Avaliacoes WHERE UserId = ? AND TipoAvaliacaoId = ?',
+                            [func.Id, tipo45Id]
+                        );
 
-                        if (avaliacao45existente.recordset.length === 0) {
+                        if (avaliacao45existente.length === 0) {
                             await this.criarAvaliacao(func, tipo45Id);
                             criadas45++;
                         }
                     }
                     
                     // Sempre cria avaliação de 90 dias para quem tem menos de 90 dias
-                    const avaliacao90existente = await pool.request()
-                        .input('userId', sql.Int, func.Id)
-                        .input('tipoId', sql.Int, tipo90Id)
-                        .query('SELECT Id FROM Avaliacoes WHERE UserId = @userId AND TipoAvaliacaoId = @tipoId');
+                    const [avaliacao90existente] = await pool.execute(
+                        'SELECT Id FROM Avaliacoes WHERE UserId = ? AND TipoAvaliacaoId = ?',
+                        [func.Id, tipo90Id]
+                    );
 
-                    if (avaliacao90existente.recordset.length === 0) {
+                    if (avaliacao90existente.length === 0) {
                         await this.criarAvaliacao(func, tipo90Id);
                         criadas90++;
                     }
@@ -131,25 +105,21 @@ class AvaliacoesManager {
         const pool = await getDatabasePool();
         
         // Buscar informações do tipo de avaliação para obter os dias dinamicamente
-        const tipoAvaliacao = await pool.request()
-            .input('tipoId', sql.Int, tipoAvaliacaoId)
-            .query(`
-                SELECT Id, DiasMinimos, DiasMaximos, Nome 
-                FROM TiposAvaliacao 
-                WHERE Id = @tipoId
-            `);
+        const [tipoAvaliacaoRows] = await pool.execute(`
+            SELECT Id, DiasMinimos, DiasMaximos, Nome 
+            FROM TiposAvaliacao 
+            WHERE Id = ?
+        `, [tipoAvaliacaoId]);
         
-        if (tipoAvaliacao.recordset.length === 0) {
+        if (tipoAvaliacaoRows.length === 0) {
             throw new Error(`Tipo de avaliação com ID ${tipoAvaliacaoId} não encontrado`);
         }
         
-        const tipo = tipoAvaliacao.recordset[0];
-        // Usar DiasMinimos se disponível, senão tentar extrair do nome ou usar padrão
+        const tipo = tipoAvaliacaoRows[0];
         let diasPrazo = tipo.DiasMinimos || tipo.DiasMaximos;
         if (!diasPrazo) {
-            // Tentar extrair do nome (ex: "Avaliação de 45 dias" -> 45)
             const match = tipo.Nome.match(/(\d+)/);
-            diasPrazo = match ? parseInt(match[1]) : 45; // Default para 45 se não encontrar
+            diasPrazo = match ? parseInt(match[1]) : 45;
         }
         
         const diasAntecipacao = 10;
@@ -169,74 +139,51 @@ class AvaliacoesManager {
         const statusInicial = hoje >= dataAbertura ? 'Pendente' : 'Agendada';
 
         // Criar a avaliação
-        const insertResult = await pool.request()
-            .input('userId', sql.Int, funcionario.Id)
-            .input('gestorId', sql.Int, funcionario.GestorId || null)
-            .input('matricula', sql.VarChar, funcionario.Matricula || '')
-            .input('dataAdmissao', sql.Date, funcionario.DataAdmissao)
-            .input('tipoId', sql.Int, tipoAvaliacaoId)
-            .input('dataLimite', sql.Date, dataLimite)
-            .input('status', sql.VarChar, statusInicial)
-            .query(`
-                INSERT INTO Avaliacoes (UserId, GestorId, Matricula, DataAdmissao, TipoAvaliacaoId, DataLimiteResposta, StatusAvaliacao, DataCriacao)
-                OUTPUT INSERTED.Id
-                VALUES (@userId, @gestorId, @matricula, @dataAdmissao, @tipoId, @dataLimite, @status, GETDATE())
-            `);
+        const [insertResult] = await pool.execute(`
+            INSERT INTO Avaliacoes (UserId, GestorId, Matricula, DataAdmissao, TipoAvaliacaoId, DataLimiteResposta, StatusAvaliacao, DataCriacao)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        `, [funcionario.Id, funcionario.GestorId || null, funcionario.Matricula || '', funcionario.DataAdmissao, tipoAvaliacaoId, dataLimite, statusInicial]);
 
-        const avaliacaoId = insertResult.recordset[0].Id;
+        const avaliacaoId = insertResult.insertId;
 
         // Copiar perguntas do template padrão para criar snapshot da avaliação
-        // Determinar tabelas baseado nos dias (45 ou 90)
         const tabelaQuestionario = diasPrazo === 45 ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
         const tabelaOpcoes = diasPrazo === 45 ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
         
-        const perguntas = await pool.request()
-            .query(`SELECT * FROM ${tabelaQuestionario} ORDER BY Ordem`);
+        const [perguntas] = await pool.execute(`SELECT * FROM ${tabelaQuestionario} ORDER BY Ordem`);
 
-        for (const pergunta of perguntas.recordset) {
-            const insertPergunta = await pool.request()
-                .input('avaliacaoId', sql.Int, avaliacaoId)
-                .input('pergunta', sql.NText, pergunta.Pergunta)
-                .input('tipoPergunta', sql.VarChar, pergunta.TipoPergunta)
-                .input('ordem', sql.Int, pergunta.Ordem)
-                .input('obrigatoria', sql.Bit, pergunta.Obrigatoria)
-                .input('escalaMinima', sql.Int, pergunta.EscalaMinima)
-                .input('escalaMaxima', sql.Int, pergunta.EscalaMaxima)
-                .input('escalaLabelMinima', sql.NVarChar, pergunta.EscalaLabelMinima)
-                .input('escalaLabelMaxima', sql.NVarChar, pergunta.EscalaLabelMaxima)
-                .query(`
-                    INSERT INTO PerguntasAvaliacao 
-                    (AvaliacaoId, Pergunta, TipoPergunta, Ordem, Obrigatoria, 
-                     EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima, CriadoEm)
-                    OUTPUT INSERTED.Id
-                    VALUES (@avaliacaoId, @pergunta, @tipoPergunta, @ordem, @obrigatoria,
-                            @escalaMinima, @escalaMaxima, @escalaLabelMinima, @escalaLabelMaxima, GETDATE())
-                `);
+        for (const pergunta of perguntas) {
+            const [insertPergunta] = await pool.execute(`
+                INSERT INTO PerguntasAvaliacao 
+                (AvaliacaoId, Pergunta, TipoPergunta, Ordem, Obrigatoria, 
+                 EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima, CriadoEm)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            `, [avaliacaoId, pergunta.Pergunta, pergunta.TipoPergunta, pergunta.Ordem, pergunta.Obrigatoria,
+                pergunta.EscalaMinima, pergunta.EscalaMaxima, pergunta.EscalaLabelMinima, pergunta.EscalaLabelMaxima]);
 
-            const perguntaAvaliacaoId = insertPergunta.recordset[0].Id;
+            const perguntaAvaliacaoId = insertPergunta.insertId;
 
             if (pergunta.TipoPergunta === 'multipla_escolha') {
-                const opcoes = await pool.request()
-                    .input('perguntaId', sql.Int, pergunta.Id)
-                    .query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId ORDER BY Ordem`);
+                const [opcoes] = await pool.execute(
+                    `SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = ? ORDER BY Ordem`,
+                    [pergunta.Id]
+                );
 
-                for (const opcao of opcoes.recordset) {
-                    await pool.request()
-                        .input('perguntaAvaliacaoId', sql.Int, perguntaAvaliacaoId)
-                        .input('textoOpcao', sql.NVarChar, opcao.TextoOpcao)
-                        .input('ordem', sql.Int, opcao.Ordem)
-                        .query(`INSERT INTO OpcoesPerguntasAvaliacao (PerguntaAvaliacaoId, TextoOpcao, Ordem) VALUES (@perguntaAvaliacaoId, @textoOpcao, @ordem)`);
+                for (const opcao of opcoes) {
+                    await pool.execute(
+                        `INSERT INTO OpcoesPerguntasAvaliacao (PerguntaAvaliacaoId, TextoOpcao, Ordem) VALUES (?, ?, ?)`,
+                        [perguntaAvaliacaoId, opcao.TextoOpcao, opcao.Ordem]
+                    );
                 }
             }
         }
-
     }
 
     /**
      * Busca as avaliações associadas a um usuário (como avaliado ou avaliador).
      */
     static async buscarAvaliacoesUsuario(pool, userId, temPermissaoAdmin) {
-        const query = `
+        const [rows] = await pool.execute(`
             SELECT 
                 a.*, 
                 t.Nome as TipoAvaliacao, 
@@ -248,7 +195,7 @@ class AvaliacoesManager {
             JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
             JOIN Users u ON a.UserId = u.Id
             LEFT JOIN Users g ON a.GestorId = g.Id
-            WHERE a.UserId = @userId OR a.GestorId = @userId
+            WHERE a.UserId = ? OR a.GestorId = ?
             ORDER BY 
                 CASE a.StatusAvaliacao 
                     WHEN 'Pendente' THEN 1 
@@ -258,13 +205,9 @@ class AvaliacoesManager {
                     ELSE 5 
                 END, 
                 COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) ASC
-        `;
+        `, [userId, userId]);
 
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(query);
-
-        return result.recordset;
+        return rows;
     }
 
     /**
@@ -272,16 +215,14 @@ class AvaliacoesManager {
      */
     static async getAvaliacao(avaliacaoId) {
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('id', sql.Int, avaliacaoId)
-            .query(`
-                SELECT 
-                    *,
-                    COALESCE(NovaDataLimiteResposta, DataLimiteResposta) as DataLimiteResposta
-                FROM Avaliacoes 
-                WHERE Id = @id
-            `);
-        return result.recordset[0];
+        const [rows] = await pool.execute(`
+            SELECT 
+                *,
+                COALESCE(NovaDataLimiteResposta, DataLimiteResposta) as DataLimiteResposta
+            FROM Avaliacoes 
+            WHERE Id = ?
+        `, [avaliacaoId]);
+        return rows[0];
     }
 
     /**
@@ -290,17 +231,15 @@ class AvaliacoesManager {
     static async validarPermissaoResposta(pool, avaliacaoId, userId, tipoRespondente) {
         console.log('🔍 Validando permissão - avaliacaoId:', avaliacaoId, 'userId:', userId, 'tipo:', tipoRespondente);
         
-        const result = await pool.request()
-            .input('id', sql.Int, avaliacaoId)
-            .query(`
-                SELECT 
-                    *,
-                    COALESCE(NovaDataLimiteResposta, DataLimiteResposta) as DataLimiteResposta
-                FROM Avaliacoes 
-                WHERE Id = @id
-            `);
+        const [rows] = await pool.execute(`
+            SELECT 
+                *,
+                COALESCE(NovaDataLimiteResposta, DataLimiteResposta) as DataLimiteResposta
+            FROM Avaliacoes 
+            WHERE Id = ?
+        `, [avaliacaoId]);
         
-        const avaliacao = result.recordset[0];
+        const avaliacao = rows[0];
         console.log('📋 Avaliação encontrada:', avaliacao ? 'Sim' : 'Não');
 
         if (!avaliacao) {
@@ -352,24 +291,24 @@ class AvaliacoesManager {
     static async buscarPerguntasAvaliacao(avaliacaoId) {
         const pool = await getDatabasePool();
         
-        // Buscar perguntas do snapshot da avaliação
-        const perguntas = await pool.request()
-            .input('avaliacaoId', sql.Int, avaliacaoId)
-            .query('SELECT * FROM PerguntasAvaliacao WHERE AvaliacaoId = @avaliacaoId ORDER BY Ordem');
+        const [perguntas] = await pool.execute(
+            'SELECT * FROM PerguntasAvaliacao WHERE AvaliacaoId = ? ORDER BY Ordem',
+            [avaliacaoId]
+        );
         
-        // Para cada pergunta, buscar suas opções se for múltipla escolha
-        for (const pergunta of perguntas.recordset) {
+        for (const pergunta of perguntas) {
             if (pergunta.TipoPergunta === 'multipla_escolha') {
-                const opcoes = await pool.request()
-                    .input('perguntaId', sql.Int, pergunta.Id)
-                    .query('SELECT * FROM OpcoesPerguntasAvaliacao WHERE PerguntaAvaliacaoId = @perguntaId ORDER BY Ordem');
-                pergunta.Opcoes = opcoes.recordset;
+                const [opcoes] = await pool.execute(
+                    'SELECT * FROM OpcoesPerguntasAvaliacao WHERE PerguntaAvaliacaoId = ? ORDER BY Ordem',
+                    [pergunta.Id]
+                );
+                pergunta.Opcoes = opcoes;
             } else {
                 pergunta.Opcoes = [];
             }
         }
         
-        return perguntas.recordset;
+        return perguntas;
     }
 
     /**
@@ -377,23 +316,23 @@ class AvaliacoesManager {
      */
     static async buscarRespostasPorUsuario(avaliacaoId, userId) {
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('avaliacaoId', sql.Int, avaliacaoId)
-            .input('userId', sql.Int, userId)
-            .query('SELECT * FROM RespostasAvaliacoes WHERE AvaliacaoId = @avaliacaoId AND RespondidoPor = @userId ORDER BY PerguntaId');
-        return result.recordset;
+        const [rows] = await pool.execute(
+            'SELECT * FROM RespostasAvaliacoes WHERE AvaliacaoId = ? AND RespondidoPor = ? ORDER BY PerguntaId',
+            [avaliacaoId, userId]
+        );
+        return rows;
     }
 
     /**
-     * Busca as respostas da "outra parte" em uma avaliação (a do gestor se quem pede é o colaborador, e vice-versa).
+     * Busca as respostas da "outra parte" em uma avaliação.
      */
     static async buscarRespostasOutraParte(avaliacaoId, userId) {
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('avaliacaoId', sql.Int, avaliacaoId)
-            .input('userId', sql.Int, userId)
-            .query('SELECT * FROM RespostasAvaliacoes WHERE AvaliacaoId = @avaliacaoId AND RespondidoPor != @userId ORDER BY PerguntaId');
-        return result.recordset;
+        const [rows] = await pool.execute(
+            'SELECT * FROM RespostasAvaliacoes WHERE AvaliacaoId = ? AND RespondidoPor != ? ORDER BY PerguntaId',
+            [avaliacaoId, userId]
+        );
+        return rows;
     }
 
     /**
@@ -402,19 +341,19 @@ class AvaliacoesManager {
     static async salvarRespostaAvaliacao(pool, respostaData) {
         const { avaliacaoId, perguntaId, resposta, respondidoPor, tipoRespondente } = respostaData;
         
-        // Buscar tipo da avaliação e texto da pergunta
-        const avaliacaoResult = await pool.request()
-            .input('id', sql.Int, avaliacaoId)
-            .query('SELECT TipoAvaliacaoId FROM Avaliacoes WHERE Id = @id');
+        const [avaliacaoRows] = await pool.execute(
+            'SELECT TipoAvaliacaoId FROM Avaliacoes WHERE Id = ?',
+            [avaliacaoId]
+        );
         
-        // Buscar tipo de avaliação para determinar os dias
-        const tipoAvalResult = await pool.request()
-            .input('tipoId', sql.Int, avaliacaoResult.recordset[0].TipoAvaliacaoId)
-            .query('SELECT DiasMinimos, DiasMaximos, Nome FROM TiposAvaliacao WHERE Id = @tipoId');
+        const [tipoAvalRows] = await pool.execute(
+            'SELECT DiasMinimos, DiasMaximos, Nome FROM TiposAvaliacao WHERE Id = ?',
+            [avaliacaoRows[0].TipoAvaliacaoId]
+        );
         
         let diasTipo = null;
-        if (tipoAvalResult.recordset.length > 0) {
-            const tipo = tipoAvalResult.recordset[0];
+        if (tipoAvalRows.length > 0) {
+            const tipo = tipoAvalRows[0];
             diasTipo = tipo.DiasMinimos || tipo.DiasMaximos;
             if (!diasTipo) {
                 const match = tipo.Nome.match(/(\d+)/);
@@ -423,27 +362,18 @@ class AvaliacoesManager {
         }
         const tipoQuestionario = diasTipo === 45 ? '45' : '90';
         
-        // Buscar texto e tipo da pergunta
-        const perguntaResult = await pool.request()
-            .input('perguntaId', sql.Int, perguntaId)
-            .query('SELECT Pergunta, TipoPergunta FROM PerguntasAvaliacao WHERE Id = @perguntaId');
+        const [perguntaRows] = await pool.execute(
+            'SELECT Pergunta, TipoPergunta FROM PerguntasAvaliacao WHERE Id = ?',
+            [perguntaId]
+        );
         
-        const textoPergunta = perguntaResult.recordset[0]?.Pergunta || '';
-        const tipoPergunta = perguntaResult.recordset[0]?.TipoPergunta || 'texto';
+        const textoPergunta = perguntaRows[0]?.Pergunta || '';
+        const tipoPergunta = perguntaRows[0]?.TipoPergunta || 'texto';
 
-        await pool.request()
-            .input('avaliacaoId', sql.Int, avaliacaoId)
-            .input('perguntaId', sql.Int, perguntaId)
-            .input('pergunta', sql.NText, textoPergunta)
-            .input('tipoPergunta', sql.VarChar, tipoPergunta)
-            .input('resposta', sql.NText, resposta)
-            .input('respondidoPor', sql.Int, respondidoPor)
-            .input('tipoRespondente', sql.NVarChar, tipoRespondente)
-            .input('tipoQuestionario', sql.VarChar, tipoQuestionario)
-            .query(`
-                INSERT INTO RespostasAvaliacoes (AvaliacaoId, PerguntaId, Pergunta, TipoPergunta, Resposta, RespondidoPor, TipoRespondente, TipoQuestionario)
-                VALUES (@avaliacaoId, @perguntaId, @pergunta, @tipoPergunta, @resposta, @respondidoPor, @tipoRespondente, @tipoQuestionario)
-            `);
+        await pool.execute(`
+            INSERT INTO RespostasAvaliacoes (AvaliacaoId, PerguntaId, Pergunta, TipoPergunta, Resposta, RespondidoPor, TipoRespondente, TipoQuestionario)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [avaliacaoId, perguntaId, textoPergunta, tipoPergunta, resposta, respondidoPor, tipoRespondente, tipoQuestionario]);
     }
 
     /**
@@ -455,20 +385,21 @@ class AvaliacoesManager {
         let campoData = tipoRespondente === 'colaborador' ? 'DataRespostaColaborador' : 'DataRespostaGestor';
         let campoConcluida = tipoRespondente === 'colaborador' ? 'RespostaColaboradorConcluida' : 'RespostaGestorConcluida';
 
-        await pool.request()
-            .input('id', sql.Int, avaliacaoId)
-            .query(`
-                UPDATE Avaliacoes 
-                SET ${campoConcluida} = 1, ${campoData} = GETDATE()
-                WHERE Id = @id
-            `);
+        await pool.execute(`
+            UPDATE Avaliacoes 
+            SET ${campoConcluida} = 1, ${campoData} = NOW()
+            WHERE Id = ?
+        `, [avaliacaoId]);
         
         console.log('✅ Campo', campoConcluida, 'marcado como concluído');
         
-        const checkCompletion = await pool.request().input('id', sql.Int, avaliacaoId).query('SELECT RespostaColaboradorConcluida, RespostaGestorConcluida FROM Avaliacoes WHERE Id = @id');
+        const [checkCompletion] = await pool.execute(
+            'SELECT RespostaColaboradorConcluida, RespostaGestorConcluida FROM Avaliacoes WHERE Id = ?',
+            [avaliacaoId]
+        );
         
-        if (checkCompletion.recordset[0].RespostaColaboradorConcluida && checkCompletion.recordset[0].RespostaGestorConcluida) {
-            await pool.request().input('id', sql.Int, avaliacaoId).query(`UPDATE Avaliacoes SET StatusAvaliacao = 'Concluida' WHERE Id = @id`);
+        if (checkCompletion[0].RespostaColaboradorConcluida && checkCompletion[0].RespostaGestorConcluida) {
+            await pool.execute(`UPDATE Avaliacoes SET StatusAvaliacao = 'Concluida' WHERE Id = ?`, [avaliacaoId]);
             console.log('✅ Ambas as partes responderam - Status alterado para Concluida');
         }
     }
@@ -476,31 +407,29 @@ class AvaliacoesManager {
     /**
      * Busca o questionário template padrão (45 ou 90 dias) para exibição.
      */
-    static async buscarQuestionarioPadrao(pool, tipo) { // tipo '45' ou '90'
+    static async buscarQuestionarioPadrao(pool, tipo) {
         const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
         const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
 
-        const perguntas = await pool.request()
-            .query(`SELECT * FROM ${tabelaQuestionario} ORDER BY Ordem`);
+        const [perguntas] = await pool.execute(`SELECT * FROM ${tabelaQuestionario} ORDER BY Ordem`);
         
-        for (const pergunta of perguntas.recordset) {
+        for (const pergunta of perguntas) {
             if (pergunta.TipoPergunta === 'multipla_escolha') {
-                const opcoes = await pool.request()
-                    .input('perguntaId', sql.Int, pergunta.Id)
-                    .query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId ORDER BY Ordem`);
-                pergunta.Opcoes = opcoes.recordset;
+                const [opcoes] = await pool.execute(
+                    `SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = ? ORDER BY Ordem`,
+                    [pergunta.Id]
+                );
+                pergunta.Opcoes = opcoes;
             }
         }
         
-        return perguntas.recordset;
+        return perguntas;
     }
 
     /**
      * Atualiza as perguntas de um questionário template padrão.
-     * Não usado mais - templates são gerenciados via CRUD nas tabelas QuestionarioPadrao45/90
      */
     static async atualizarQuestionarioPadrao(pool, tipo, perguntas) {
-        // Método mantido para compatibilidade, mas não deve ser usado
         console.warn('⚠️ Método atualizarQuestionarioPadrao não deve ser usado. Use o CRUD de templates.');
         return { success: false, message: 'Use o CRUD de templates para gerenciar questionários' };
     }
@@ -509,17 +438,13 @@ class AvaliacoesManager {
      * Reabre uma avaliação que foi expirada.
      */
     static async reabrirAvaliacao(pool, avaliacaoId, novaDataLimite) {
-        // Converter a string de data para formato DATE válido
-        // Formato esperado: "YYYY-MM-DD"
         const dataLimpa = novaDataLimite.trim().replace(/\s+/g, '').replace(/-+/g, '-');
         
-        // Validar formato YYYY-MM-DD
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(dataLimpa)) {
             throw new Error('Formato de data inválido. Use YYYY-MM-DD');
         }
         
-        // Criar objeto Date para validação
         const [ano, mes, dia] = dataLimpa.split('-');
         const anoInt = parseInt(ano);
         const mesInt = parseInt(mes);
@@ -533,14 +458,11 @@ class AvaliacoesManager {
             throw new Error('Data inválida fornecida');
         }
 
-        await pool.request()
-            .input('id', sql.Int, avaliacaoId)
-            .input('novaData', sql.Date, dataLimpa)
-            .query(`
-                UPDATE Avaliacoes
-                SET NovaDataLimiteResposta = @novaData, StatusAvaliacao = 'Pendente', AtualizadoEm = GETDATE()
-                WHERE Id = @id AND StatusAvaliacao = 'Expirada'
-            `);
+        await pool.execute(`
+            UPDATE Avaliacoes
+            SET NovaDataLimiteResposta = ?, StatusAvaliacao = 'Pendente', AtualizadoEm = NOW()
+            WHERE Id = ? AND StatusAvaliacao = 'Expirada'
+        `, [dataLimpa, avaliacaoId]);
     }
 
     /**
@@ -548,23 +470,24 @@ class AvaliacoesManager {
      */
     static async buscarGestor(pool, userId) {
         try {
-            const userResult = await pool.request()
-                .input('userId', sql.Int, userId)
-                .query('SELECT Id, NomeCompleto, DEPARTAMENTO, hierarchyPath FROM Users WHERE Id = @userId AND IsActive = 1');
+            const [userRows] = await pool.execute(
+                'SELECT Id, NomeCompleto, Departamento, HierarchyPath FROM Users WHERE Id = ? AND IsActive = 1',
+                [userId]
+            );
             
-            if (userResult.recordset.length === 0) {
+            if (userRows.length === 0) {
                 console.log(`❌ Usuário ${userId} não encontrado`);
                 return null;
             }
             
-            const user = userResult.recordset[0];
+            const user = userRows[0];
             
-            if (!user.DEPARTAMENTO || !user.hierarchyPath) {
+            if (!user.Departamento || !user.HierarchyPath) {
                 return null;
             }
             
-            const departamento = user.DEPARTAMENTO;
-            const hierarchyPath = user.hierarchyPath;
+            const departamento = user.Departamento;
+            const hierarchyPath = user.HierarchyPath;
             const pathParts = hierarchyPath.split(' > ').map(p => p.trim());
             
             const deptIndex = pathParts.indexOf(departamento);
@@ -575,12 +498,13 @@ class AvaliacoesManager {
             
             const gestorDepartamento = pathParts[deptIndex - 1];
             
-            const gestorResult = await pool.request()
-                .input('gestorDept', sql.VarChar, gestorDepartamento)
-                .query('SELECT Id, NomeCompleto FROM Users WHERE DEPARTAMENTO = @gestorDept AND IsActive = 1');
+            const [gestorRows] = await pool.execute(
+                'SELECT Id, NomeCompleto FROM Users WHERE Departamento = ? AND IsActive = 1',
+                [gestorDepartamento]
+            );
             
-            if (gestorResult.recordset.length > 0) {
-                const gestor = gestorResult.recordset[0];
+            if (gestorRows.length > 0) {
+                const gestor = gestorRows[0];
                 return gestor.Id;
             }
             

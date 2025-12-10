@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 
 // =================================================================
@@ -13,32 +13,30 @@ async function setupTables(req, res) {
         const pool = await getDatabasePool();
         
         // Criar tabela de mensagens de chat se não existir
-        await pool.request().query(`
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ChatMessages' AND xtype='U')
-            CREATE TABLE ChatMessages (
-                Id INT IDENTITY(1,1) PRIMARY KEY,
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ChatMessages (
+                Id INT AUTO_INCREMENT PRIMARY KEY,
                 FeedbackId INT NOT NULL,
                 UserId INT NOT NULL,
                 Message TEXT NOT NULL,
-                CreatedAt DATETIME DEFAULT GETDATE(),
-                IsRead BIT DEFAULT 0,
+                CreatedAt DATETIME DEFAULT NOW(),
+                IsRead TINYINT(1) DEFAULT 0,
                 FOREIGN KEY (FeedbackId) REFERENCES Feedbacks(Id),
                 FOREIGN KEY (UserId) REFERENCES Users(Id)
-            )
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         `);
         
         // Criar tabela de status de leitura se não existir
-        await pool.request().query(`
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ChatReadStatus' AND xtype='U')
-            CREATE TABLE ChatReadStatus (
-                Id INT IDENTITY(1,1) PRIMARY KEY,
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ChatReadStatus (
+                Id INT AUTO_INCREMENT PRIMARY KEY,
                 FeedbackId INT NOT NULL,
                 UserId INT NOT NULL,
-                LastReadAt DATETIME DEFAULT GETDATE(),
+                LastReadAt DATETIME DEFAULT NOW(),
                 FOREIGN KEY (FeedbackId) REFERENCES Feedbacks(Id),
                 FOREIGN KEY (UserId) REFERENCES Users(Id),
-                UNIQUE(FeedbackId, UserId)
-            )
+                UNIQUE KEY unique_feedback_user (FeedbackId, UserId)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         `);
         
         res.json({ success: true, message: 'Tabelas de chat configuradas com sucesso' });
@@ -59,34 +57,29 @@ async function getMessages(req, res) {
         const pool = await getDatabasePool();
         
         // Buscar mensagens do feedback
-        const messagesResult = await pool.request()
-            .input('feedbackId', sql.Int, feedbackId)
-            .query(`
-                SELECT 
-                    cm.Id,
-                    cm.Message,
-                    cm.CreatedAt,
-                    cm.IsRead,
-                    u.NomeCompleto as UserName,
-                    u.Matricula,
-                    CASE WHEN cm.UserId = @userId THEN 1 ELSE 0 END as IsOwnMessage
-                FROM ChatMessages cm
-                INNER JOIN Users u ON cm.UserId = u.Id
-                WHERE cm.FeedbackId = @feedbackId
-                ORDER BY cm.CreatedAt ASC
-            `);
+        const [messagesResult] = await pool.query(`
+            SELECT 
+                cm.Id,
+                cm.Message,
+                cm.CreatedAt,
+                cm.IsRead,
+                u.NomeCompleto as UserName,
+                u.Matricula,
+                CASE WHEN cm.UserId = ? THEN 1 ELSE 0 END as IsOwnMessage
+            FROM ChatMessages cm
+            INNER JOIN Users u ON cm.UserId = u.Id
+            WHERE cm.FeedbackId = ?
+            ORDER BY cm.CreatedAt ASC
+        `, [userId, feedbackId]);
         
         // Marcar mensagens como lidas para o usuário atual
-        await pool.request()
-            .input('feedbackId', sql.Int, feedbackId)
-            .input('userId', sql.Int, userId)
-            .query(`
-                UPDATE ChatMessages 
-                SET IsRead = 1 
-                WHERE FeedbackId = @feedbackId AND UserId != @userId AND IsRead = 0
-            `);
+        await pool.query(`
+            UPDATE ChatMessages 
+            SET IsRead = 1 
+            WHERE FeedbackId = ? AND UserId != ? AND IsRead = 0
+        `, [feedbackId, userId]);
         
-        res.json(messagesResult.recordset);
+        res.json(messagesResult);
     } catch (error) {
         console.error('Erro ao buscar mensagens:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
@@ -109,28 +102,28 @@ async function sendMessage(req, res) {
         const pool = await getDatabasePool();
         
         // Inserir nova mensagem
-        const result = await pool.request()
-            .input('feedbackId', sql.Int, feedbackId)
-            .input('userId', sql.Int, userId)
-            .input('message', sql.Text, message.trim())
-            .query(`
-                INSERT INTO ChatMessages (FeedbackId, UserId, Message)
-                OUTPUT INSERTED.Id, INSERTED.CreatedAt
-                VALUES (@feedbackId, @userId, @message)
-            `);
+        const [result] = await pool.query(`
+            INSERT INTO ChatMessages (FeedbackId, UserId, Message)
+            VALUES (?, ?, ?)
+        `, [feedbackId, userId, message.trim()]);
         
-        const newMessage = result.recordset[0];
+        const newMessageId = result.insertId;
+        
+        // Buscar a mensagem inserida
+        const [newMessageResult] = await pool.query(`
+            SELECT Id, CreatedAt FROM ChatMessages WHERE Id = ?
+        `, [newMessageId]);
+        
+        const newMessage = newMessageResult[0];
         
         // Buscar dados do usuário para retornar na resposta
-        const userResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT NomeCompleto as UserName, Matricula
-                FROM Users
-                WHERE Id = @userId
-            `);
+        const [userResult] = await pool.query(`
+            SELECT NomeCompleto as UserName, Matricula
+            FROM Users
+            WHERE Id = ?
+        `, [userId]);
         
-        const user = userResult.recordset[0];
+        const user = userResult[0];
         
         res.json({
             Id: newMessage.Id,
@@ -158,25 +151,18 @@ async function markAsRead(req, res) {
         const pool = await getDatabasePool();
         
         // Marcar mensagens como lidas
-        await pool.request()
-            .input('feedbackId', sql.Int, feedbackId)
-            .input('userId', sql.Int, userId)
-            .query(`
-                UPDATE ChatMessages 
-                SET IsRead = 1 
-                WHERE FeedbackId = @feedbackId AND UserId != @userId AND IsRead = 0
-            `);
+        await pool.query(`
+            UPDATE ChatMessages 
+            SET IsRead = 1 
+            WHERE FeedbackId = ? AND UserId != ? AND IsRead = 0
+        `, [feedbackId, userId]);
         
-        // Atualizar status de leitura
-        await pool.request()
-            .input('feedbackId', sql.Int, feedbackId)
-            .input('userId', sql.Int, userId)
-            .query(`
-                IF EXISTS (SELECT 1 FROM ChatReadStatus WHERE FeedbackId = @feedbackId AND UserId = @userId)
-                    UPDATE ChatReadStatus SET LastReadAt = GETDATE() WHERE FeedbackId = @feedbackId AND UserId = @userId
-                ELSE
-                    INSERT INTO ChatReadStatus (FeedbackId, UserId) VALUES (@feedbackId, @userId)
-            `);
+        // Atualizar status de leitura usando INSERT ... ON DUPLICATE KEY UPDATE
+        await pool.query(`
+            INSERT INTO ChatReadStatus (FeedbackId, UserId, LastReadAt)
+            VALUES (?, ?, NOW())
+            ON DUPLICATE KEY UPDATE LastReadAt = NOW()
+        `, [feedbackId, userId]);
         
         res.json({ success: true });
     } catch (error) {

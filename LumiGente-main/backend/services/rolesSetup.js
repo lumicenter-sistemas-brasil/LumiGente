@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 
 /**
@@ -10,52 +10,52 @@ async function ensureRolesExist() {
         const pool = await getDatabasePool();
 
         // Verificar se a tabela Roles existe
-        const rolesTableCheck = await pool.request().query(`
-            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Roles'
+        const [rolesTableCheck] = await pool.query(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Roles'
         `);
 
-        if (rolesTableCheck.recordset[0].existe === 0) {
+        if (rolesTableCheck[0].existe === 0) {
             // Tabela não existe - criar com estrutura e inserir dados padrão
-            await pool.request().query(`
+            await pool.query(`
                 CREATE TABLE Roles (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
                     Name VARCHAR(50) NOT NULL,
                     Description VARCHAR(255),
-                    created_at DATETIME DEFAULT GETDATE()
-                );
+                    created_at DATETIME DEFAULT NOW()
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             `);
             
-            await pool.request().query(`
+            await pool.query(`
                 INSERT INTO Roles (Name, Description) VALUES
                 ('admin', 'Administrador do sistema'),
                 ('public', 'Usuário comum'),
-                ('manager', 'Gestor');
+                ('manager', 'Gestor')
             `);
             
             console.log('  -> Tabela Roles criada e populada com dados padrão');
         } else {
             // Tabela existe - verificar se está vazia e inserir dados se necessário
-            const rolesCountCheck = await pool.request().query(`
+            const [rolesCountCheck] = await pool.query(`
                 SELECT COUNT(*) as total FROM Roles
             `);
 
-            if (rolesCountCheck.recordset[0].total === 0) {
+            if (rolesCountCheck[0].total === 0) {
                 // Tabela existe mas está vazia - inserir dados padrão
-                await pool.request().query(`
+                await pool.query(`
                     INSERT INTO Roles (Name, Description) VALUES
                     ('admin', 'Administrador do sistema'),
                     ('public', 'Usuário comum'),
-                    ('manager', 'Gestor');
+                    ('manager', 'Gestor')
                 `);
                 
                 console.log('  -> Tabela Roles estava vazia - dados padrão inseridos');
             } else {
                 // Verificar se os roles essenciais existem
-                const rolesCheck = await pool.request().query(`
+                const [rolesCheck] = await pool.query(`
                     SELECT Name FROM Roles WHERE Name IN ('admin', 'public', 'manager')
                 `);
                 
-                const existingRoles = rolesCheck.recordset.map(r => r.Name);
+                const existingRoles = rolesCheck.map(r => r.Name);
                 const requiredRoles = [
                     { name: 'admin', description: 'Administrador do sistema' },
                     { name: 'public', description: 'Usuário comum' },
@@ -66,10 +66,10 @@ async function ensureRolesExist() {
                 if (missingRoles.length > 0) {
                     // Inserir roles faltantes
                     for (const role of missingRoles) {
-                        await pool.request()
-                            .input('name', sql.VarChar, role.name)
-                            .input('description', sql.VarChar, role.description)
-                            .query(`INSERT INTO Roles (Name, Description) VALUES (@name, @description)`);
+                        await pool.query(
+                            `INSERT INTO Roles (Name, Description) VALUES (?, ?)`,
+                            [role.name, role.description]
+                        );
                     }
                     
                     const missingNames = missingRoles.map(r => r.name);
@@ -95,12 +95,10 @@ async function ensureRolesExist() {
 async function getRoleIdByName(roleName) {
     try {
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('name', sql.VarChar, roleName)
-            .query('SELECT Id FROM Roles WHERE Name = @name');
+        const [result] = await pool.query('SELECT Id FROM Roles WHERE Name = ?', [roleName]);
         
-        if (result.recordset.length > 0) {
-            return result.recordset[0].Id;
+        if (result.length > 0) {
+            return result[0].Id;
         }
         
         return null;
@@ -111,4 +109,3 @@ async function getRoleIdByName(roleName) {
 }
 
 module.exports = { ensureRolesExist, getRoleIdByName };
-

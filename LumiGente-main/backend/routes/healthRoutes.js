@@ -1,45 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabasePool } = require('../config/db');
-const OracleConnectionHelper = require('../utils/oracleConnectionHelper');
-const oracleMonitor = require('../services/oracleMonitor');
 
 /**
- * Endpoint para verificar a saúde do sistema e conectividade Oracle
+ * Endpoint para verificar a saúde do sistema
  */
 router.get('/health', async (req, res) => {
     try {
         const pool = await getDatabasePool();
         
-        // Testa conexão SQL Server local
-        const sqlServerTest = await pool.request().query('SELECT 1 as test');
-        
-        // Testa conexão Oracle linked server e atualiza monitor
-        const oracleTest = await oracleMonitor.checkOracleHealth();
+        // Testa conexão MySQL
+        const [rows] = await pool.execute('SELECT 1 as test');
         
         const healthStatus = {
             timestamp: new Date().toISOString(),
             status: 'healthy',
             services: {
-                sqlServer: {
+                mysql: {
                     status: 'connected',
-                    message: 'SQL Server conectado'
-                },
-                oracle: {
-                    status: oracleTest.connected ? 'connected' : 'disconnected',
-                    isDown: oracleTest.isDown,
-                    consecutiveFailures: oracleTest.consecutiveFailures,
-                    lastCheck: oracleTest.lastCheck,
-                    message: oracleTest.error || 'Oracle linked server status'
+                    message: 'MySQL conectado'
                 }
             }
         };
-        
-        // Se Oracle está desconectado, marca como degraded mas não como erro
-        if (!oracleTest.connected) {
-            healthStatus.status = 'degraded';
-            healthStatus.message = 'Sistema funcionando com limitações (Oracle indisponível)';
-        }
         
         res.json(healthStatus);
     } catch (error) {
@@ -48,13 +30,9 @@ router.get('/health', async (req, res) => {
             status: 'error',
             message: error.message,
             services: {
-                sqlServer: {
+                mysql: {
                     status: 'error',
                     message: error.message
-                },
-                oracle: {
-                    status: 'unknown',
-                    message: 'Não foi possível testar devido a erro no SQL Server'
                 }
             }
         });
@@ -62,54 +40,22 @@ router.get('/health', async (req, res) => {
 });
 
 /**
- * Endpoint para forçar teste de conectividade Oracle
+ * Endpoint para verificar status do banco
  */
-router.post('/test-oracle', async (req, res) => {
+router.get('/db-status', async (req, res) => {
     try {
-        const result = await oracleMonitor.checkOracleHealth();
+        const pool = await getDatabasePool();
+        
+        // Verificar conexão e obter algumas estatísticas básicas
+        const [dbInfo] = await pool.execute('SELECT VERSION() as version, DATABASE() as current_db');
         
         res.json({
             timestamp: new Date().toISOString(),
-            oracle: result
-        });
-    } catch (error) {
-        res.status(500).json({
-            timestamp: new Date().toISOString(),
-            error: error.message
-        });
-    }
-});
-
-/**
- * Endpoint para resetar o status do monitor Oracle
- */
-router.post('/reset-oracle-status', async (req, res) => {
-    try {
-        oracleMonitor.resetStatus();
-        
-        res.json({
-            timestamp: new Date().toISOString(),
-            message: 'Status do Oracle monitor resetado com sucesso',
-            status: oracleMonitor.getStatus()
-        });
-    } catch (error) {
-        res.status(500).json({
-            timestamp: new Date().toISOString(),
-            error: error.message
-        });
-    }
-});
-
-/**
- * Endpoint para obter status detalhado do Oracle
- */
-router.get('/oracle-status', async (req, res) => {
-    try {
-        const status = oracleMonitor.getStatus();
-        
-        res.json({
-            timestamp: new Date().toISOString(),
-            oracle: status
+            database: {
+                status: 'connected',
+                version: dbInfo[0].version,
+                currentDatabase: dbInfo[0].current_db
+            }
         });
     } catch (error) {
         res.status(500).json({

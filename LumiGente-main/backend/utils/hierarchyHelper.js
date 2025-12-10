@@ -7,7 +7,7 @@
  * @module hierarchyHelper
  */
 
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 
 /**
  * Calcula o nível hierárquico baseado no HierarchyPath
@@ -110,17 +110,13 @@ async function getHierarchyLevelFromDB(hierarchyPath, matricula, departamento, p
         const departments = trimmedPath.split('>').map(d => d.trim()).filter(d => d.length > 0);
         
         // 1. Verificar se o usuário é responsável por algum departamento
-        const queryResponsavel = `
+        const [resultResponsavel] = await pool.query(`
             SELECT COUNT(*) as Total
             FROM HIERARQUIA_CC 
-            WHERE RESPONSAVEL_ATUAL = @matricula
-        `;
+            WHERE RESPONSAVEL_ATUAL = ?
+        `, [matricula]);
         
-        const resultResponsavel = await pool.request()
-            .input('matricula', sql.VarChar, matricula)
-            .query(queryResponsavel);
-        
-        const isResponsavel = resultResponsavel.recordset[0].Total > 0;
+        const isResponsavel = resultResponsavel[0].Total > 0;
         
         if (isResponsavel) {
             // 2. Se é responsável, encontrar a posição do departamento no path
@@ -370,4 +366,3 @@ module.exports = {
     canUserSeeOther,
     compareHierarchyLevels
 };
-

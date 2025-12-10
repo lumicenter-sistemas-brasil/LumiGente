@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 const AnalyticsManager = require('../services/analyticsManager');
 const HierarchyManager = require('../services/hierarchyManager');
@@ -15,31 +15,25 @@ exports.getUserMetrics = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
 
-        const feedbacksResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT COUNT(*) as count FROM Feedbacks 
-                WHERE to_user_id = @userId AND created_at >= DATEADD(day, -30, GETDATE())
-            `);
+        const [feedbacksResult] = await pool.query(`
+            SELECT COUNT(*) as count FROM Feedbacks 
+            WHERE to_user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        `, [userId]);
 
-        const recognitionsResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT COUNT(*) as count FROM Recognitions 
-                WHERE to_user_id = @userId AND created_at >= DATEADD(day, -30, GETDATE())
-            `);
+        const [recognitionsResult] = await pool.query(`
+            SELECT COUNT(*) as count FROM Recognitions 
+            WHERE to_user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        `, [userId]);
 
-        const sentFeedbacksResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT COUNT(*) as count FROM Feedbacks 
-                WHERE from_user_id = @userId AND created_at >= DATEADD(day, -30, GETDATE())
-            `);
+        const [sentFeedbacksResult] = await pool.query(`
+            SELECT COUNT(*) as count FROM Feedbacks 
+            WHERE from_user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        `, [userId]);
 
         res.json({
-            feedbacksReceived: feedbacksResult.recordset[0].count || 0,
-            recognitionsReceived: recognitionsResult.recordset[0].count || 0,
-            feedbacksSent: sentFeedbacksResult.recordset[0].count || 0,
+            feedbacksReceived: feedbacksResult[0].count || 0,
+            recognitionsReceived: recognitionsResult[0].count || 0,
+            feedbacksSent: sentFeedbacksResult[0].count || 0,
         });
     } catch (error) {
         console.error('Erro ao buscar métricas do usuário:', error);
@@ -213,15 +207,16 @@ exports.getEmployeeInfo = async (req, res) => {
         const { employeeId } = req.params;
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .input('employeeId', sql.Int, employeeId)
-            .query(`SELECT Id, NomeCompleto, Departamento, LastLogin, IsActive FROM Users WHERE Id = @employeeId`);
+        const [result] = await pool.query(
+            `SELECT Id, NomeCompleto, Departamento, LastLogin, IsActive FROM Users WHERE Id = ?`,
+            [employeeId]
+        );
         
-        if (result.recordset.length === 0) {
+        if (result.length === 0) {
             return res.status(404).json({ error: 'Colaborador não encontrado' });
         }
         
-        res.json(result.recordset[0]);
+        res.json(result[0]);
     } catch (error) {
         console.error('Erro ao buscar dados do colaborador:', error);
         res.status(500).json({ error: 'Erro ao buscar dados do colaborador' });
@@ -236,19 +231,17 @@ exports.getEmployeeFeedbacks = async (req, res) => {
         const { employeeId } = req.params;
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .input('employeeId', sql.Int, employeeId)
-            .query(`
-                SELECT f.*, u1.NomeCompleto as from_name, u2.NomeCompleto as to_name,
-                       CASE WHEN f.to_user_id = @employeeId THEN 'received' ELSE 'sent' END as direction
-                FROM Feedbacks f
-                JOIN Users u1 ON f.from_user_id = u1.Id
-                JOIN Users u2 ON f.to_user_id = u2.Id
-                WHERE f.to_user_id = @employeeId OR f.from_user_id = @employeeId
-                ORDER BY f.created_at DESC
-            `);
+        const [result] = await pool.query(`
+            SELECT f.*, u1.NomeCompleto as from_name, u2.NomeCompleto as to_name,
+                   CASE WHEN f.to_user_id = ? THEN 'received' ELSE 'sent' END as direction
+            FROM Feedbacks f
+            JOIN Users u1 ON f.from_user_id = u1.Id
+            JOIN Users u2 ON f.to_user_id = u2.Id
+            WHERE f.to_user_id = ? OR f.from_user_id = ?
+            ORDER BY f.created_at DESC
+        `, [employeeId, employeeId, employeeId]);
         
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar feedbacks do colaborador:', error);
         res.status(500).json({ error: 'Erro ao buscar feedbacks do colaborador' });
@@ -287,7 +280,7 @@ exports.getTeamMetrics = async (req, res) => {
         }
 
         // Buscar métricas da equipe
-        const placeholders = teamMemberIds.map((_, index) => `@userId${index}`).join(',');
+        const placeholders = teamMemberIds.map(() => '?').join(',');
         
         const metricsQuery = `
             SELECT 
@@ -295,35 +288,30 @@ exports.getTeamMetrics = async (req, res) => {
                 COUNT(DISTINCT CASE WHEN u.IsActive = 1 THEN u.Id END) as activeMembers,
                 COUNT(DISTINCT f.Id) as totalFeedbacks,
                 COUNT(DISTINCT r.Id) as totalRecognitions,
-                AVG(CAST(h.score AS FLOAT)) as avgMood,
+                AVG(CAST(h.score AS DECIMAL(10,2))) as avgMood,
                 COUNT(DISTINCT o.Id) as activeObjectives
             FROM Users u
             LEFT JOIN Feedbacks f ON (f.from_user_id = u.Id OR f.to_user_id = u.Id) 
-                AND f.created_at >= DATEADD(day, -30, GETDATE())
+                AND f.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             LEFT JOIN Recognitions r ON (r.from_user_id = u.Id OR r.to_user_id = u.Id) 
-                AND r.created_at >= DATEADD(day, -30, GETDATE())
+                AND r.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             LEFT JOIN DailyMood h ON h.user_id = u.Id 
-                AND h.created_at >= DATEADD(day, -30, GETDATE())
+                AND h.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             LEFT JOIN Objetivos o ON (o.criado_por = u.Id OR EXISTS(
                 SELECT 1 FROM ObjetivoResponsaveis orr WHERE orr.objetivo_id = o.Id AND orr.responsavel_id = u.Id
             )) AND o.status = 'Ativo'
             WHERE u.Id IN (${placeholders})
         `;
 
-        const request = pool.request();
-        teamMemberIds.forEach((userId, index) => {
-            request.input(`userId${index}`, sql.Int, userId);
-        });
-
-        const result = await request.query(metricsQuery);
+        const [result] = await pool.query(metricsQuery, teamMemberIds);
         
         res.json({
-            totalMembers: result.recordset[0].totalMembers || 0,
-            activeMembers: result.recordset[0].activeMembers || 0,
-            totalFeedbacks: result.recordset[0].totalFeedbacks || 0,
-            totalRecognitions: result.recordset[0].totalRecognitions || 0,
-            avgMood: result.recordset[0].avgMood ? Math.round(result.recordset[0].avgMood * 10) / 10 : 0,
-            activeObjectives: result.recordset[0].activeObjectives || 0
+            totalMembers: result[0].totalMembers || 0,
+            activeMembers: result[0].activeMembers || 0,
+            totalFeedbacks: result[0].totalFeedbacks || 0,
+            totalRecognitions: result[0].totalRecognitions || 0,
+            avgMood: result[0].avgMood ? Math.round(result[0].avgMood * 10) / 10 : 0,
+            activeObjectives: result[0].activeObjectives || 0
         });
     } catch (error) {
         console.error('Erro ao buscar métricas da equipe:', error);
@@ -360,7 +348,7 @@ exports.getTeamStatus = async (req, res) => {
             });
         }
 
-        const placeholders = teamMemberIds.map((_, index) => `@userId${index}`).join(',');
+        const placeholders = teamMemberIds.map(() => '?').join(',');
         
         const statusQuery = `
             SELECT 
@@ -370,35 +358,30 @@ exports.getTeamStatus = async (req, res) => {
                 u.LastLogin,
                 u.IsActive,
                 CASE 
-                    WHEN u.LastLogin >= DATEADD(day, -7, GETDATE()) THEN 'Ativo'
-                    WHEN u.LastLogin >= DATEADD(day, -30, GETDATE()) THEN 'Inativo'
+                    WHEN u.LastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'Ativo'
+                    WHEN u.LastLogin >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 'Inativo'
                     ELSE 'Muito Inativo'
                 END as status,
                 COUNT(DISTINCT f.Id) as recentFeedbacks,
                 COUNT(DISTINCT o.Id) as activeObjectives,
-                AVG(CAST(h.score AS FLOAT)) as avgMood
+                AVG(CAST(h.score AS DECIMAL(10,2))) as avgMood
             FROM Users u
             LEFT JOIN Feedbacks f ON (f.from_user_id = u.Id OR f.to_user_id = u.Id) 
-                AND f.created_at >= DATEADD(day, -30, GETDATE())
+                AND f.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             LEFT JOIN Objetivos o ON (o.criado_por = u.Id OR EXISTS(
                 SELECT 1 FROM ObjetivoResponsaveis orr WHERE orr.objetivo_id = o.Id AND orr.responsavel_id = u.Id
             )) AND o.status = 'Ativo'
             LEFT JOIN DailyMood h ON h.user_id = u.Id 
-                AND h.created_at >= DATEADD(day, -30, GETDATE())
+                AND h.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             WHERE u.Id IN (${placeholders})
             GROUP BY u.Id, u.NomeCompleto, u.Departamento, u.LastLogin, u.IsActive
             ORDER BY u.NomeCompleto
         `;
 
-        const request = pool.request();
-        teamMemberIds.forEach((userId, index) => {
-            request.input(`userId${index}`, sql.Int, userId);
-        });
-
-        const result = await request.query(statusQuery);
+        const [result] = await pool.query(statusQuery, teamMemberIds);
         
         // Calcular contadores de status
-        const users = result.recordset.map(user => ({
+        const users = result.map(user => ({
             ...user,
             avgMood: user.avgMood ? Math.round(user.avgMood * 10) / 10 : null
         }));
@@ -436,7 +419,7 @@ exports.getDepartments = async (req, res) => {
     try {
         const pool = await getDatabasePool();
         
-        const result = await pool.request().query(`
+        const [result] = await pool.query(`
             SELECT DISTINCT Departamento, COUNT(*) as totalUsers
             FROM Users 
             WHERE IsActive = 1 AND Departamento IS NOT NULL AND Departamento != ''
@@ -444,7 +427,7 @@ exports.getDepartments = async (req, res) => {
             ORDER BY Departamento
         `);
         
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar departamentos:', error);
         res.status(500).json({ error: 'Erro ao buscar departamentos' });
@@ -575,7 +558,7 @@ exports.getTemporalAnalysis = async (req, res) => {
 exports.getDepartmentsList = async (req, res) => {
     try {
         const pool = await getDatabasePool();
-        const result = await pool.request().query(`
+        const [result] = await pool.query(`
             SELECT DISTINCT 
                 Departamento as name, 
                 Departamento as value,
@@ -585,7 +568,7 @@ exports.getDepartmentsList = async (req, res) => {
             GROUP BY Departamento 
             ORDER BY Departamento
         `);
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar lista de departamentos:', error);
         res.status(500).json({ error: 'Erro ao buscar lista de departamentos' });
@@ -609,5 +592,3 @@ exports.getHistoricoDados = async (req, res) => {
         res.status(500).json({ error: 'Erro ao buscar dados históricos' });
     }
 };
-
-

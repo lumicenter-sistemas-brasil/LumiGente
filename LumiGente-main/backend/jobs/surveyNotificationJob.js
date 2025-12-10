@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 const { notifySurveyClosingSoon, notifySurveyClosed } = require('../services/surveyNotificationService');
 
@@ -13,34 +13,31 @@ function startSurveyNotificationJob() {
             const pool = await getDatabasePool();
             
             // Buscar pesquisas que encerram em 6 horas e ainda não foram notificadas
-            const result = await pool.request().query(`
+            const [result] = await pool.query(`
                 SELECT Id, titulo, data_encerramento
                 FROM Surveys
                 WHERE status = 'Ativa'
                   AND data_encerramento IS NOT NULL
-                  AND data_encerramento > GETDATE()
-                  AND data_encerramento <= DATEADD(HOUR, 6, GETDATE())
-                  AND DATEDIFF(HOUR, data_inicio, data_encerramento) >= 6
+                  AND data_encerramento > NOW()
+                  AND data_encerramento <= DATE_ADD(NOW(), INTERVAL 6 HOUR)
+                  AND TIMESTAMPDIFF(HOUR, data_inicio, data_encerramento) >= 6
                   AND NOT EXISTS (
                       SELECT 1 FROM SurveyNotificationLog 
                       WHERE survey_id = Surveys.Id AND notification_type = 'CLOSING_SOON'
                   )
             `);
             
-            for (const survey of result.recordset) {
+            for (const survey of result) {
                 await notifySurveyClosingSoon(survey.Id);
                 
                 // Registrar que a notificação foi enviada
-                await pool.request()
-                    .input('surveyId', sql.Int, survey.Id)
-                    .input('type', sql.VarChar, 'CLOSING_SOON')
-                    .query(`
-                        INSERT INTO SurveyNotificationLog (survey_id, notification_type, sent_at)
-                        VALUES (@surveyId, @type, GETDATE())
-                    `);
+                await pool.query(`
+                    INSERT INTO SurveyNotificationLog (survey_id, notification_type, sent_at)
+                    VALUES (?, ?, NOW())
+                `, [survey.Id, 'CLOSING_SOON']);
             }
             
-            console.log(`[JOB][PESQUISAS] Closing soon ok - Enviadas: ${result.recordset.length}`);
+            console.log(`[JOB][PESQUISAS] Closing soon ok - Enviadas: ${result.length}`);
         } catch (error) {
             console.error('❌ Erro no job de notificações:', error);
         }
@@ -51,7 +48,7 @@ function startSurveyNotificationJob() {
         try {
             const pool = await getDatabasePool();
             
-            const result = await pool.request().query(`
+            const [result] = await pool.query(`
                 SELECT Id, titulo
                 FROM Surveys
                 WHERE status = 'Encerrada'
@@ -61,19 +58,16 @@ function startSurveyNotificationJob() {
                   )
             `);
             
-            for (const survey of result.recordset) {
+            for (const survey of result) {
                 await notifySurveyClosed(survey.Id);
                 
-                await pool.request()
-                    .input('surveyId', sql.Int, survey.Id)
-                    .input('type', sql.VarChar, 'CLOSED')
-                    .query(`
-                        INSERT INTO SurveyNotificationLog (survey_id, notification_type, sent_at)
-                        VALUES (@surveyId, @type, GETDATE())
-                    `);
+                await pool.query(`
+                    INSERT INTO SurveyNotificationLog (survey_id, notification_type, sent_at)
+                    VALUES (?, ?, NOW())
+                `, [survey.Id, 'CLOSED']);
             }
             
-            console.log(`[JOB][PESQUISAS] Closed ok - Enviadas: ${result.recordset.length}`);
+            console.log(`[JOB][PESQUISAS] Closed ok - Enviadas: ${result.length}`);
         } catch (error) {
             console.error('❌ Erro no job de pesquisas encerradas:', error);
         }
@@ -88,15 +82,14 @@ function startSurveyNotificationJob() {
 async function ensureSurveyNotificationLogExists() {
     try {
         const pool = await getDatabasePool();
-        await pool.request().query(`
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SurveyNotificationLog' AND xtype='U')
-            CREATE TABLE SurveyNotificationLog (
-                Id INT IDENTITY(1,1) PRIMARY KEY,
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS SurveyNotificationLog (
+                Id INT AUTO_INCREMENT PRIMARY KEY,
                 survey_id INT NOT NULL,
                 notification_type VARCHAR(50) NOT NULL,
-                sent_at DATETIME DEFAULT GETDATE(),
+                sent_at DATETIME DEFAULT NOW(),
                 FOREIGN KEY (survey_id) REFERENCES Surveys(Id)
-            )
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         `);
     } catch (error) {
         console.error('Erro ao criar tabela SurveyNotificationLog:', error);

@@ -1,9 +1,8 @@
 const schedule = require('node-schedule');
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 const { updatePesquisaStatus, updateObjetivoStatus, updatePDIStatus } = require('./updateStatus'); // Funções de atualização
 const AvaliacoesManager = require('../services/avaliacoesManager');
-const oracleMonitor = require('../services/oracleMonitor');
 const { atualizarStatusAvaliacoes } = require('./avaliacoesStatusJob');
 
 /**
@@ -12,22 +11,10 @@ const { atualizarStatusAvaliacoes } = require('./avaliacoesStatusJob');
  */
 async function verificarAvaliacoesAutomaticamente() {
     try {
-        // Verifica saúde do Oracle antes de executar
-        const oracleStatus = await oracleMonitor.checkOracleHealth();
-        if (oracleStatus.isDown) {
-            console.warn('[JOB][AVALIACOES] Oracle fallback');
-        }
-        
         const resultado = await AvaliacoesManager.verificarECriarAvaliacoes();
         console.log(`[JOB][AVALIACOES] Criacao ok - 45d: ${resultado.criadas45dias}, 90d: ${resultado.criadas90dias}`);
     } catch (error) {
-        // Log do erro mas não interrompe o sistema
-        if (error.message && error.message.includes('OraOLEDB.Oracle')) {
-            console.warn('[JOB][AVALIACOES] Oracle fallback');
-            await oracleMonitor.checkOracleHealth(); // Atualiza status do monitor
-        } else {
-            console.error('[JOB][AVALIACOES] Criacao erro:', error.message || error);
-        }
+        console.error('[JOB][AVALIACOES] Criacao erro:', error.message || error);
         // Não re-lança o erro para evitar crash do sistema
     }
 }
@@ -42,7 +29,7 @@ async function verificarStatusAvaliacoes() {
         console.log('[JOB][AVALIACOES] Status ok');
     } catch (error) {
         // Ignora erro se a tabela não existir ainda
-        if (!error.message.toLowerCase().includes("invalid object name 'avaliacoes'")) {
+        if (!error.message || !error.message.toLowerCase().includes("avaliacoes")) {
             console.error('❌ [JOB] Erro ao verificar status de avaliações:', error);
         }
     }
@@ -78,11 +65,6 @@ function setupScheduledJobs() {
     const avaliacaoStatusTime = '0 0 * * *'; // Meia-noite
     setTimeout(verificarStatusAvaliacoes, 15000); // Roda 15s após o início
     schedule.scheduleJob(avaliacaoStatusTime, verificarStatusAvaliacoes);
-
-    // --- Job de Monitoramento Oracle (a cada 5 minutos) ---
-    schedule.scheduleJob('*/5 * * * *', async () => {
-        await oracleMonitor.checkOracleHealth();
-    });
 
     console.log('[SCHEDULE] Tarefas configuradas.');
 }

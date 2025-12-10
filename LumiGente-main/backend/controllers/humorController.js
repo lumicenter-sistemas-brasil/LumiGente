@@ -1,4 +1,3 @@
-const sql = require('mssql');
 const { getDatabasePool } = require('../config/db');
 const { createNotification } = require('./notificationController');
 
@@ -9,31 +8,27 @@ const { createNotification } = require('./notificationController');
 async function addPointsToUser(pool, userId, action, points) {
     try {
         const today = new Date().toISOString().split('T')[0];
-        const alreadyEarnedResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('action', sql.VarChar, action)
-            .input('today', sql.Date, today)
-            .query(`SELECT COUNT(*) as count FROM Gamification WHERE UserId = @userId AND Action = @action AND CAST(CreatedAt AS DATE) = @today`);
+        const [alreadyEarnedResult] = await pool.execute(
+            `SELECT COUNT(*) as count FROM Gamification WHERE UserId = ? AND Action = ? AND CAST(CreatedAt AS DATE) = ?`,
+            [userId, action, today]
+        );
 
-        if (alreadyEarnedResult.recordset[0].count > 0) {
+        if (alreadyEarnedResult[0].count > 0) {
             return { success: false, points: 0, message: 'Pontos para esta ação já concedidos hoje.' };
         }
 
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('action', sql.VarChar, action)
-            .input('points', sql.Int, points)
-            .query(`INSERT INTO Gamification (UserId, Action, Points) VALUES (@userId, @action, @points)`);
+        await pool.execute(
+            `INSERT INTO Gamification (UserId, Action, Points) VALUES (?, ?, ?)`,
+            [userId, action, points]
+        );
 
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('points', sql.Int, points)
-            .query(`
-                IF EXISTS (SELECT 1 FROM UserPoints WHERE UserId = @userId)
-                    UPDATE UserPoints SET TotalPoints = TotalPoints + @points, LastUpdated = GETDATE() WHERE UserId = @userId
-                ELSE
-                    INSERT INTO UserPoints (UserId, TotalPoints) VALUES (@userId, @points)
-            `);
+        // MySQL não tem IF EXISTS em statement único, usar INSERT ... ON DUPLICATE KEY UPDATE
+        const [existsCheck] = await pool.execute(`SELECT 1 FROM UserPoints WHERE UserId = ?`, [userId]);
+        if (existsCheck.length > 0) {
+            await pool.execute(`UPDATE UserPoints SET TotalPoints = TotalPoints + ?, LastUpdated = NOW() WHERE UserId = ?`, [points, userId]);
+        } else {
+            await pool.execute(`INSERT INTO UserPoints (UserId, TotalPoints) VALUES (?, ?)`, [userId, points]);
+        }
 
         return { success: true, points, message: `+${points} pontos!` };
     } catch (error) {
@@ -60,44 +55,42 @@ exports.registrarHumor = async (req, res) => {
         }
 
         const pool = await getDatabasePool();
-        const today = new Date();
+        const today = new Date().toISOString().split('T')[0];
         
-        const existingResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('today', sql.Date, today)
-            .query(`SELECT Id FROM DailyMood WHERE user_id = @userId AND CAST(created_at AS DATE) = @today`);
+        const [existingResult] = await pool.execute(
+            `SELECT Id FROM DailyMood WHERE user_id = ? AND CAST(created_at AS DATE) = ?`,
+            [userId, today]
+        );
 
-        if (existingResult.recordset.length > 0) {
+        if (existingResult.length > 0) {
             // Atualiza registro existente
-            await pool.request()
-                .input('id', sql.Int, existingResult.recordset[0].Id)
-                .input('score', sql.Int, score)
-                .input('description', sql.NText, description || null)
-                .query(`UPDATE DailyMood SET score = @score, description = @description, updated_at = GETDATE() WHERE Id = @id`);
+            await pool.execute(
+                `UPDATE DailyMood SET score = ?, description = ?, updated_at = NOW() WHERE Id = ?`,
+                [score, description || null, existingResult[0].Id]
+            );
             
             res.json({ success: true, message: 'Humor atualizado com sucesso', pointsEarned: 0 });
         } else {
             // Cria novo registro
-            await pool.request()
-                .input('userId', sql.Int, userId)
-                .input('score', sql.Int, score)
-                .input('description', sql.NText, description || null)
-                .query(`INSERT INTO DailyMood (user_id, score, description) VALUES (@userId, @score, @description)`);
+            await pool.execute(
+                `INSERT INTO DailyMood (user_id, score, description) VALUES (?, ?, ?)`,
+                [userId, score, description || null]
+            );
 
             const pointsResult = await addPointsToUser(pool, userId, 'humor_respondido', 5);
             
             // Notificar colegas do mesmo setor
-            const userInfo = await pool.request().input('userId', sql.Int, userId).query('SELECT NomeCompleto, Departamento FROM Users WHERE Id = @userId');
-            const userName = userInfo.recordset[0]?.NomeCompleto || 'Um colega';
-            const userDept = userInfo.recordset[0]?.Departamento;
+            const [userInfo] = await pool.execute('SELECT NomeCompleto, Departamento FROM Users WHERE Id = ?', [userId]);
+            const userName = userInfo[0]?.NomeCompleto || 'Um colega';
+            const userDept = userInfo[0]?.Departamento;
             
             if (userDept) {
-                const colleagues = await pool.request()
-                    .input('dept', sql.NVarChar, userDept)
-                    .input('userId', sql.Int, userId)
-                    .query('SELECT Id FROM Users WHERE Departamento = @dept AND Id != @userId AND IsActive = 1');
+                const [colleagues] = await pool.execute(
+                    'SELECT Id FROM Users WHERE Departamento = ? AND Id != ? AND IsActive = 1',
+                    [userDept, userId]
+                );
                 
-                for (const colleague of colleagues.recordset) {
+                for (const colleague of colleagues) {
                     await createNotification(colleague.Id, 'mood_update', `${userName} registrou o humor do dia`, null);
                 }
             }
@@ -122,16 +115,26 @@ exports.getHumorDoDia = async (req, res) => {
     try {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
+        const today = new Date().toISOString().split('T')[0];
 
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('today', sql.Date, new Date())
-            .query(`SELECT score, description, created_at FROM DailyMood WHERE user_id = @userId AND CAST(created_at AS DATE) = @today`);
+        const [result] = await pool.execute(
+            `SELECT 
+                score, 
+                description, 
+                CONCAT(
+                    DATE_FORMAT(COALESCE(updated_at, created_at), '%Y-%m-%d'),
+                    'T',
+                    DATE_FORMAT(COALESCE(updated_at, created_at), '%H:%i:%s')
+                ) as updated_at 
+             FROM DailyMood 
+             WHERE user_id = ? AND CAST(COALESCE(updated_at, created_at) AS DATE) = ?`,
+            [userId, today]
+        );
 
-        if (result.recordset.length > 0) {
-            res.json(result.recordset[0]);
+        if (result.length > 0) {
+            res.json(result[0]);
         } else {
-            res.json(null); // Retorna null se não houver registro para o dia
+            res.json(null);
         }
     } catch (error) {
         console.error('Erro ao buscar humor do dia:', error);
@@ -146,22 +149,20 @@ exports.getColleaguesToday = async (req, res) => {
     try {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
+        const today = new Date().toISOString().split('T')[0];
 
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('today', sql.Date, new Date())
-            .query(`
-                SELECT dm.score, dm.description, u.NomeCompleto as user_name
-                FROM DailyMood dm
-                JOIN Users u ON dm.user_id = u.Id
-                WHERE u.Departamento = (SELECT Departamento FROM Users WHERE Id = @userId)
-                  AND u.Id != @userId
-                  AND CAST(dm.created_at AS DATE) = @today
-                  AND u.IsActive = 1
-                ORDER BY u.NomeCompleto
-            `);
+        const [result] = await pool.execute(`
+            SELECT dm.score, dm.description, u.NomeCompleto as user_name
+            FROM DailyMood dm
+            JOIN Users u ON dm.user_id = u.Id
+            WHERE u.Departamento = (SELECT Departamento FROM Users WHERE Id = ?)
+              AND u.Id != ?
+              AND CAST(dm.created_at AS DATE) = ?
+              AND u.IsActive = 1
+            ORDER BY u.NomeCompleto
+        `, [userId, userId, today]);
 
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar humor dos colegas:', error);
         res.status(500).json({ error: 'Erro ao buscar humor dos colegas' });
@@ -175,20 +176,22 @@ exports.getHumorHistory = async (req, res) => {
     try {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('sevenDaysAgo', sql.Date, sevenDaysAgo)
-            .query(`
-                SELECT score, description, created_at 
-                FROM DailyMood 
-                WHERE user_id = @userId AND CAST(created_at AS DATE) >= @sevenDaysAgo
-                ORDER BY created_at DESC
-            `);
+        const [result] = await pool.execute(`
+            SELECT 
+                score, 
+                description, 
+                CONCAT(
+                    DATE_FORMAT(COALESCE(updated_at, created_at), '%Y-%m-%d'),
+                    'T',
+                    DATE_FORMAT(COALESCE(updated_at, created_at), '%H:%i:%s')
+                ) as updated_at 
+            FROM DailyMood 
+            WHERE user_id = ? AND COALESCE(updated_at, created_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ORDER BY COALESCE(updated_at, created_at) DESC
+        `, [userId]);
 
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar histórico de humor:', error);
         res.status(500).json({ error: 'Erro interno do servidor ao buscar histórico de humor' });
@@ -202,30 +205,21 @@ exports.getTeamMetrics = async (req, res) => {
     try {
         const managerId = req.session.user.userId;
         const pool = await getDatabasePool();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        // Esta query é complexa e depende da sua estrutura de hierarquia.
-        // A query original do server.js foi mantida aqui.
-        const result = await pool.request()
-            .input('managerId', sql.Int, managerId)
-            .input('sevenDaysAgo', sql.Date, sevenDaysAgo)
-            .query(`
-                SELECT 
-                    AVG(CAST(dm.score AS FLOAT)) as teamAverage,
-                    COUNT(DISTINCT dm.user_id) as teamMembers
-                FROM DailyMood dm
-                JOIN Users u ON dm.user_id = u.Id
-                -- A cláusula JOIN/WHERE para identificar a equipe do gestor vai aqui.
-                -- Exemplo simplificado:
-                WHERE u.Departamento = (SELECT Departamento FROM Users WHERE Id = @managerId)
-                  AND CAST(dm.created_at AS DATE) >= @sevenDaysAgo
-                  AND u.IsActive = 1
-            `);
+        const [result] = await pool.execute(`
+            SELECT 
+                AVG(CAST(dm.score AS DECIMAL(10,2))) as teamAverage,
+                COUNT(DISTINCT dm.user_id) as teamMembers
+            FROM DailyMood dm
+            JOIN Users u ON dm.user_id = u.Id
+            WHERE u.Departamento = (SELECT Departamento FROM Users WHERE Id = ?)
+              AND dm.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND u.IsActive = 1
+        `, [managerId]);
         
         const metrics = {
-            teamAverage: result.recordset[0].teamAverage || 0,
-            teamMembers: result.recordset[0].teamMembers || 0
+            teamAverage: result[0].teamAverage || 0,
+            teamMembers: result[0].teamMembers || 0
         };
 
         res.json(metrics);
@@ -236,33 +230,36 @@ exports.getTeamMetrics = async (req, res) => {
 };
 
 /**
- * GET /api/humor/team-history - Busca o histórico de humor da equipe nos últimos 7 dias (acesso de gestor).
- * Inclui o próprio gestor e seus subordinados.
+ * GET /api/humor/team-history - Busca o histórico de humor da equipe nos últimos 7 dias.
  */
 exports.getTeamHistory = async (req, res) => {
     try {
         const managerId = req.session.user.userId;
         const pool = await getDatabasePool();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        const result = await pool.request()
-            .input('managerId', sql.Int, managerId)
-            .input('sevenDaysAgo', sql.Date, sevenDaysAgo)
-            .query(`
-                SELECT dm.score, dm.description, dm.created_at, u.NomeCompleto as user_name, u.Departamento as department
-                FROM DailyMood dm
-                JOIN Users u ON dm.user_id = u.Id
-                WHERE (
-                    u.Departamento = (SELECT Departamento FROM Users WHERE Id = @managerId)
-                    OR u.Id = @managerId
-                )
-                  AND CAST(dm.created_at AS DATE) >= @sevenDaysAgo
-                  AND u.IsActive = 1
-                ORDER BY dm.created_at DESC
-            `);
+        const [result] = await pool.execute(`
+            SELECT 
+                dm.score, 
+                dm.description, 
+                CONCAT(
+                    DATE_FORMAT(COALESCE(dm.updated_at, dm.created_at), '%Y-%m-%d'),
+                    'T',
+                    DATE_FORMAT(COALESCE(dm.updated_at, dm.created_at), '%H:%i:%s')
+                ) as updated_at, 
+                u.NomeCompleto as user_name, 
+                u.Departamento as department
+            FROM DailyMood dm
+            JOIN Users u ON dm.user_id = u.Id
+            WHERE (
+                u.Departamento = (SELECT Departamento FROM Users WHERE Id = ?)
+                OR u.Id = ?
+            )
+              AND COALESCE(dm.updated_at, dm.created_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND u.IsActive = 1
+            ORDER BY COALESCE(dm.updated_at, dm.created_at) DESC
+        `, [managerId, managerId]);
         
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar histórico da equipe:', error);
         res.status(500).json({ error: 'Erro ao buscar histórico da equipe' });
@@ -270,37 +267,38 @@ exports.getTeamHistory = async (req, res) => {
 };
 
 /**
- * GET /api/humor/empresa - Busca dados de humor de toda a empresa (acesso de gestor).
+ * GET /api/humor/empresa - Busca dados de humor de toda a empresa.
  */
 exports.getHumorEmpresa = async (req, res) => {
     try {
         const pool = await getDatabasePool();
         const { departamento, periodo } = req.query;
         
-        let dateFilter = '';
-        if (periodo) {
-            const days = parseInt(periodo) || 30;
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - days);
-            dateFilter = `AND CAST(dm.created_at AS DATE) >= '${startDate.toISOString().split('T')[0]}'`;
-        }
-        
-        let deptFilter = '';
-        if (departamento && departamento !== 'todos') {
-            deptFilter = `AND u.Departamento = '${departamento}'`;
-        }
-        
-        const result = await pool.request().query(`
+        let query = `
             SELECT 
-                AVG(CAST(dm.score AS FLOAT)) as avgScore,
+                AVG(CAST(dm.score AS DECIMAL(10,2))) as avgScore,
                 COUNT(*) as totalRecords,
                 COUNT(DISTINCT dm.user_id) as uniqueUsers
             FROM DailyMood dm
             JOIN Users u ON dm.user_id = u.Id
-            WHERE u.IsActive = 1 ${dateFilter} ${deptFilter}
-        `);
+            WHERE u.IsActive = 1
+        `;
+        const params = [];
         
-        res.json(result.recordset[0] || { avgScore: 0, totalRecords: 0, uniqueUsers: 0 });
+        if (periodo) {
+            const days = parseInt(periodo) || 30;
+            query += ` AND dm.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)`;
+            params.push(days);
+        }
+        
+        if (departamento && departamento !== 'todos') {
+            query += ` AND u.Departamento = ?`;
+            params.push(departamento);
+        }
+        
+        const [result] = await pool.execute(query, params);
+        
+        res.json(result[0] || { avgScore: 0, totalRecords: 0, uniqueUsers: 0 });
     } catch (error) {
         console.error('Erro ao buscar humor da empresa:', error);
         res.status(500).json({ error: 'Erro ao buscar humor da empresa' });
@@ -308,34 +306,35 @@ exports.getHumorEmpresa = async (req, res) => {
 };
 
 /**
- * GET /api/humor/metrics - Busca métricas gerais de humor (acesso de gestor).
+ * GET /api/humor/metrics - Busca métricas gerais de humor.
  */
 exports.getHumorMetrics = async (req, res) => {
     try {
         const pool = await getDatabasePool();
         const { periodo } = req.query;
         
-        let dateFilter = '';
-        if (periodo) {
-            const days = parseInt(periodo) || 30;
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - days);
-            dateFilter = `AND CAST(dm.created_at AS DATE) >= '${startDate.toISOString().split('T')[0]}'`;
-        }
-        
-        const result = await pool.request().query(`
+        let query = `
             SELECT 
                 u.Departamento,
-                AVG(CAST(dm.score AS FLOAT)) as avgScore,
+                AVG(CAST(dm.score AS DECIMAL(10,2))) as avgScore,
                 COUNT(*) as totalRecords
             FROM DailyMood dm
             JOIN Users u ON dm.user_id = u.Id
-            WHERE u.IsActive = 1 ${dateFilter}
-            GROUP BY u.Departamento
-            ORDER BY avgScore DESC
-        `);
+            WHERE u.IsActive = 1
+        `;
+        const params = [];
         
-        res.json(result.recordset);
+        if (periodo) {
+            const days = parseInt(periodo) || 30;
+            query += ` AND dm.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)`;
+            params.push(days);
+        }
+        
+        query += ` GROUP BY u.Departamento ORDER BY avgScore DESC`;
+        
+        const [result] = await pool.execute(query, params);
+        
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar métricas de humor:', error);
         res.status(500).json({ error: 'Erro ao buscar métricas de humor' });

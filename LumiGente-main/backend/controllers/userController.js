@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { getDatabasePool } = require('../config/db');
@@ -55,26 +55,28 @@ async function isUserManager(user) {
         console.log(`🔍 Verificando se usuário é gestor: CPF = ${user.CPF}`);
 
         // Verificar se o usuário aparece como CPF_RESPONSAVEL (gestor direto)
-        const directManagerResult = await pool.request()
-            .input('cpf', sql.VarChar, user.CPF)
-            .query(`SELECT COUNT(*) as count FROM HIERARQUIA_CC WHERE CPF_RESPONSAVEL = @cpf`);
+        const [directManagerResult] = await pool.query(
+            `SELECT COUNT(*) as count FROM HIERARQUIA_CC WHERE CPF_RESPONSAVEL = ?`,
+            [user.CPF]
+        );
         
-        const isDirectManager = directManagerResult.recordset[0].count > 0;
+        const isDirectManager = directManagerResult[0].count > 0;
 
         // Verificar se o usuário está em um nível superior da hierarquia
-        const userDeptResult = await pool.request()
-            .input('departamento', sql.VarChar, user.Departamento || user.departamento)
-            .query(`SELECT DISTINCT HIERARQUIA_COMPLETA FROM HIERARQUIA_CC WHERE DEPTO_ATUAL = @departamento`);
+        const [userDeptResult] = await pool.query(
+            `SELECT DISTINCT HIERARQUIA_COMPLETA FROM HIERARQUIA_CC WHERE DEPTO_ATUAL = ?`,
+            [user.Departamento || user.departamento]
+        );
 
         let isUpperManager = false;
-        if (userDeptResult.recordset.length > 0) {
-            const userHierarchy = userDeptResult.recordset[0].HIERARQUIA_COMPLETA;
-            const subordinatesResult = await pool.request()
-                .input('hierarquia', sql.VarChar, `%${userHierarchy}%`)
-                .input('departamento', sql.VarChar, user.Departamento || user.departamento)
-                .query(`SELECT COUNT(*) as count FROM HIERARQUIA_CC WHERE HIERARQUIA_COMPLETA LIKE @hierarquia AND DEPTO_ATUAL != @departamento`);
+        if (userDeptResult.length > 0) {
+            const userHierarchy = userDeptResult[0].HIERARQUIA_COMPLETA;
+            const [subordinatesResult] = await pool.query(
+                `SELECT COUNT(*) as count FROM HIERARQUIA_CC WHERE HIERARQUIA_COMPLETA LIKE ? AND DEPTO_ATUAL != ?`,
+                [`%${userHierarchy}%`, user.Departamento || user.departamento]
+            );
             
-            if (subordinatesResult.recordset[0].count > 0) {
+            if (subordinatesResult[0].count > 0) {
                 isUpperManager = true;
             }
         }
@@ -96,20 +98,22 @@ async function getUserHierarchyInfo(user) {
         const pool = await getDatabasePool();
         
         // Departamentos onde é responsável direto
-        const directResult = await pool.request()
-            .input('cpf', sql.VarChar, user.CPF)
-            .query(`SELECT *, 'DIRETO' as TIPO_GESTAO FROM HIERARQUIA_CC WHERE CPF_RESPONSAVEL = @cpf`);
+        const [directResult] = await pool.query(
+            `SELECT *, 'DIRETO' as TIPO_GESTAO FROM HIERARQUIA_CC WHERE CPF_RESPONSAVEL = ?`,
+            [user.CPF]
+        );
 
-        let allManagedDepts = [...directResult.recordset];
+        let allManagedDepts = [...directResult];
         
         // Departamentos subordinados
         const userDept = user.Departamento || user.departamento;
         if (userDept) {
-            const subordinatesResult = await pool.request()
-                .input('departamento', sql.VarChar, userDept)
-                .query(`SELECT *, 'HIERARQUIA' as TIPO_GESTAO FROM HIERARQUIA_CC WHERE HIERARQUIA_COMPLETA LIKE '%' + @departamento + '%' AND DEPTO_ATUAL != @departamento`);
+            const [subordinatesResult] = await pool.query(
+                `SELECT *, 'HIERARQUIA' as TIPO_GESTAO FROM HIERARQUIA_CC WHERE HIERARQUIA_COMPLETA LIKE CONCAT('%', ?, '%') AND DEPTO_ATUAL != ?`,
+                [userDept, userDept]
+            );
             
-            for (const subDept of subordinatesResult.recordset) {
+            for (const subDept of subordinatesResult) {
                 if (!allManagedDepts.some(d => d.DEPTO_ATUAL === subDept.DEPTO_ATUAL)) {
                     allManagedDepts.push(subDept);
                 }
@@ -155,12 +159,13 @@ exports.getCurrentUser = async (req, res) => {
         // Sincroniza email da sessão com o banco para refletir reversões realizadas via link externo
         try {
             const pool = await getDatabasePool();
-            const result = await pool.request()
-                .input('userId', sql.Int, req.session.user.userId)
-                .query('SELECT Email FROM Users WHERE Id = @userId');
+            const [result] = await pool.query(
+                'SELECT Email FROM Users WHERE Id = ?',
+                [req.session.user.userId]
+            );
 
-            if (result.recordset.length > 0) {
-                const currentEmail = result.recordset[0].Email;
+            if (result.length > 0) {
+                const currentEmail = result[0].Email;
                 if (currentEmail && currentEmail !== req.session.user.email) {
                     req.session.user.email = currentEmail;
                 }
@@ -337,18 +342,15 @@ exports.getSubordinates = async (req, res) => {
         const currentUser = req.session.user;
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .input('matricula', sql.VarChar, currentUser.matricula)
-            .input('cpf', sql.VarChar, currentUser.cpf)
-            .query(`
-                SELECT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF, u.LastLogin
-                FROM Users u
-                JOIN HIERARQUIA_CC h ON u.Matricula = h.RESPONSAVEL_ATUAL AND u.CPF = h.CPF_RESPONSAVEL
-                WHERE h.RESPONSAVEL_ATUAL = @matricula AND h.CPF_RESPONSAVEL = @cpf AND u.IsActive = 1
-                ORDER BY u.NomeCompleto
-            `);
+        const [result] = await pool.query(`
+            SELECT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF, u.LastLogin
+            FROM Users u
+            JOIN HIERARQUIA_CC h ON u.Matricula = h.RESPONSAVEL_ATUAL AND u.CPF = h.CPF_RESPONSAVEL
+            WHERE h.RESPONSAVEL_ATUAL = ? AND h.CPF_RESPONSAVEL = ? AND u.IsActive = 1
+            ORDER BY u.NomeCompleto
+        `, [currentUser.matricula, currentUser.cpf]);
 
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar subordinados:', error);
         res.status(500).json({ error: 'Erro ao buscar subordinados' });
@@ -364,15 +366,10 @@ exports.updateProfile = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
 
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('nomeCompleto', sql.VarChar, nomeCompleto)
-            .input('nome', sql.VarChar, nome)
-            .input('departamento', sql.VarChar, departamento)
-            .query(`
-                UPDATE Users SET NomeCompleto = @nomeCompleto, nome = @nome, Departamento = @departamento, updated_at = GETDATE()
-                WHERE Id = @userId
-            `);
+        await pool.query(`
+            UPDATE Users SET NomeCompleto = ?, nome = ?, Departamento = ?, updated_at = NOW()
+            WHERE Id = ?
+        `, [nomeCompleto, nome, departamento, userId]);
         
         // Atualizar sessão
         req.session.user.nomeCompleto = nomeCompleto;
@@ -400,30 +397,28 @@ exports.initiatePasswordChange = async (req, res) => {
 
         const pool = await getDatabasePool();
         console.log('🔍 Buscando informações do usuário para troca de senha...');
-        const userResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT 
-                    PasswordHash,
-                    Email,
-                    PreviousEmail,
-                    NomeCompleto,
-                    LastLogin,
-                    LastPasswordChange
-                FROM Users 
-                WHERE Id = @userId
-            `);
+        const [userResult] = await pool.query(`
+            SELECT 
+                PasswordHash,
+                Email,
+                PreviousEmail,
+                NomeCompleto,
+                LastLogin,
+                LastPasswordChange
+            FROM Users 
+            WHERE Id = ?
+        `, [userId]);
         
         console.log('📧 Emails do usuário:', {
-            Email: userResult.recordset[0]?.Email,
-            PreviousEmail: userResult.recordset[0]?.PreviousEmail
+            Email: userResult[0]?.Email,
+            PreviousEmail: userResult[0]?.PreviousEmail
         });
         
-        if (userResult.recordset.length === 0) {
+        if (userResult.length === 0) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
         
-        const user = userResult.recordset[0];
+        const user = userResult[0];
 
         // Verificar se há um processo de alteração em andamento
         if (user.PendingPasswordHash) {
@@ -474,23 +469,16 @@ exports.initiatePasswordChange = async (req, res) => {
             cancelExpiresIn
         });
 
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('pendingHash', sql.VarChar, newPasswordHash)
-            .input('token', sql.VarChar, verifyToken)
-            .input('expiresAt', sql.DateTime, new Date(Date.now() + verifyExpiresInMs))
-            .input('cancelToken', sql.VarChar, cancelJwt)
-            .input('cancelExpires', sql.DateTime, new Date(Date.now() + cancelExpiresInMs))
-            .query(`
-                UPDATE Users 
-                SET PendingPasswordHash = @pendingHash,
-                    PasswordChangeToken = @token,
-                    PasswordChangeExpires = @expiresAt,
-                    PasswordChangeCancelToken = @cancelToken,
-                    PasswordChangeCancelExpires = @cancelExpires,
-                    updated_at = GETDATE()
-                WHERE Id = @userId
-            `);
+        await pool.query(`
+            UPDATE Users 
+            SET PendingPasswordHash = ?,
+                PasswordChangeToken = ?,
+                PasswordChangeExpires = ?,
+                PasswordChangeCancelToken = ?,
+                PasswordChangeCancelExpires = ?,
+                updated_at = NOW()
+            WHERE Id = ?
+        `, [newPasswordHash, verifyToken, new Date(Date.now() + verifyExpiresInMs), cancelJwt, new Date(Date.now() + cancelExpiresInMs), userId]);
             
         console.log('✅ Informações de alteração de senha salvas com sucesso');
 
@@ -564,19 +552,17 @@ exports.verifyPasswordChange = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Buscar informações do usuário
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT PendingPasswordHash, PasswordChangeToken, PasswordChangeExpires, PasswordHash, 
-                       Email, PreviousEmail, NomeCompleto
-                FROM Users WHERE Id = @userId
-            `);
+        const [result] = await pool.query(`
+            SELECT PendingPasswordHash, PasswordChangeToken, PasswordChangeExpires, PasswordHash, 
+                   Email, PreviousEmail, NomeCompleto
+            FROM Users WHERE Id = ?
+        `, [userId]);
         
-        if (result.recordset.length === 0 || !result.recordset[0].PasswordChangeToken) {
+        if (result.length === 0 || !result[0].PasswordChangeToken) {
             return res.status(400).json({ error: 'Token inválido' });
         }
         
-        const user = result.recordset[0];
+        const user = result[0];
         if (new Date() > new Date(user.PasswordChangeExpires)) {
             return res.status(400).json({ error: 'Token expirado' });
         }
@@ -608,27 +594,21 @@ exports.verifyPasswordChange = async (req, res) => {
 
                 // Mover senha atual para histórico e aplicar nova senha
                 // Armazenar token de reversão em PasswordRevertToken
-                await pool.request()
-                    .input('userId', sql.Int, userId)
-                    .input('oldHash', sql.VarChar, user.PasswordHash)
-                    .input('newHash', sql.VarChar, user.PendingPasswordHash)
-                    .input('revertToken', sql.VarChar, revertJwt)
-                    .input('revertExpires', sql.DateTime, new Date(Date.now() + revertExpiresInMs))
-                    .query(`
-                        UPDATE Users 
-                        SET PreviousPasswordHash = PasswordHash,
-                            PasswordHash = PendingPasswordHash,
-                            PendingPasswordHash = NULL,
-                            PasswordChangeToken = NULL,
-                            PasswordChangeExpires = NULL,
-                            PasswordChangeCancelToken = NULL,
-                            PasswordChangeCancelExpires = NULL,
-                            PasswordRevertToken = @revertToken,
-                            PasswordRevertExpires = @revertExpires,
-                            LastPasswordChange = GETDATE(),
-                            updated_at = GETDATE()
-                        WHERE Id = @userId
-                    `);
+                await pool.query(`
+                    UPDATE Users 
+                    SET PreviousPasswordHash = PasswordHash,
+                        PasswordHash = PendingPasswordHash,
+                        PendingPasswordHash = NULL,
+                        PasswordChangeToken = NULL,
+                        PasswordChangeExpires = NULL,
+                        PasswordChangeCancelToken = NULL,
+                        PasswordChangeCancelExpires = NULL,
+                        PasswordRevertToken = ?,
+                        PasswordRevertExpires = ?,
+                        LastPasswordChange = NOW(),
+                        updated_at = NOW()
+                    WHERE Id = ?
+                `, [revertJwt, new Date(Date.now() + revertExpiresInMs), userId]);
 
                 console.log('✅ Senha alterada com sucesso. Enviando emails de confirmação...');
 
@@ -768,20 +748,18 @@ exports.revertPasswordChange = async (req, res) => {
             return html ? res.status(400).send(html) : res.status(400).json({ error: 'Token inválido ou expirado' });
         }
 
-        const userResult = await pool.request()
-            .input('userId', sql.Int, decoded.userId)
-            .query(`
-                SELECT Id, PreviousPasswordHash, PasswordRevertToken, PasswordRevertExpires, NomeCompleto
-                FROM Users 
-                WHERE Id = @userId
-            `);
+        const [userResult] = await pool.query(`
+            SELECT Id, PreviousPasswordHash, PasswordRevertToken, PasswordRevertExpires, NomeCompleto
+            FROM Users 
+            WHERE Id = ?
+        `, [decoded.userId]);
 
-        if (userResult.recordset.length === 0) {
+        if (userResult.length === 0) {
             const html = htmlResponse('Usuário não encontrado', 'Não foi possível encontrar o usuário.', false);
             return html ? res.status(404).send(html) : res.status(404).json({ error: 'Usuário não encontrado' });
         }
 
-        const user = userResult.recordset[0];
+        const user = userResult[0];
 
         if (!user.PasswordRevertToken || new Date() > new Date(user.PasswordRevertExpires)) {
             const html = htmlResponse('Link expirado', 'O prazo para reverter a senha terminou. Por segurança, o link de reversão expira após 7 dias.', false);
@@ -799,19 +777,16 @@ exports.revertPasswordChange = async (req, res) => {
         }
 
         // Reverter para a senha anterior
-        await pool.request()
-            .input('userId', sql.Int, user.Id)
-            .input('previousHash', sql.VarChar, user.PreviousPasswordHash)
-            .query(`
-                UPDATE Users 
-                SET PasswordHash = @previousHash,
-                    PreviousPasswordHash = NULL,
-                    PasswordRevertToken = NULL,
-                    PasswordRevertExpires = NULL,
-                    LastPasswordChange = GETDATE(),
-                    updated_at = GETDATE()
-                WHERE Id = @userId
-            `);
+        await pool.query(`
+            UPDATE Users 
+            SET PasswordHash = ?,
+                PreviousPasswordHash = NULL,
+                PasswordRevertToken = NULL,
+                PasswordRevertExpires = NULL,
+                LastPasswordChange = NOW(),
+                updated_at = NOW()
+            WHERE Id = ?
+        `, [user.PreviousPasswordHash, user.Id]);
 
         // Invalidar todas as sessões do usuário
         await invalidateUserSessions(user.Id, req);
@@ -903,19 +878,17 @@ exports.cancelPasswordChange = async (req, res) => {
             return html ? res.status(400).send(html) : res.status(400).json({ error: 'Token inválido ou expirado' });
         }
 
-        const userResult = await pool.request()
-            .input('userId', sql.Int, decoded.userId)
-            .query(`
-                SELECT Id, PendingPasswordHash, PreviousPasswordHash, 
-                       PasswordChangeCancelToken, PasswordChangeCancelExpires 
-                FROM Users 
-                WHERE Id = @userId
-            `);
+        const [userResult] = await pool.query(`
+            SELECT Id, PendingPasswordHash, PreviousPasswordHash, 
+                   PasswordChangeCancelToken, PasswordChangeCancelExpires 
+            FROM Users 
+            WHERE Id = ?
+        `, [decoded.userId]);
 
-        if (userResult.recordset.length === 0) {
+        if (userResult.length === 0) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
-        const user = userResult.recordset[0];
+        const user = userResult[0];
 
         if (!user.PasswordChangeCancelToken || new Date() > new Date(user.PasswordChangeCancelExpires)) {
             const html = htmlResponse('Token expirado', 'O prazo do link de cancelamento terminou. Se necessário, tente alterar sua senha novamente.', false);
@@ -933,19 +906,17 @@ exports.cancelPasswordChange = async (req, res) => {
         }
 
         // Cancelar alteração ANTES da confirmação (PendingPasswordHash ainda existe)
-        await pool.request()
-            .input('userId', sql.Int, user.Id)
-            .input('invalidToken', sql.VarChar, crypto.randomBytes(32).toString('hex')) // Token aleatório inválido
-            .query(`
-                UPDATE Users 
-                SET PendingPasswordHash = NULL,
-                    PasswordChangeToken = @invalidToken, -- Invalida o token imediatamente
-                    PasswordChangeExpires = DATEADD(minute, -5, GETDATE()), -- Expira o token
-                    PasswordChangeCancelToken = NULL,
-                    PasswordChangeCancelExpires = NULL,
-                    updated_at = GETDATE()
-                WHERE Id = @userId
-            `);
+        const invalidToken = crypto.randomBytes(32).toString('hex');
+        await pool.query(`
+            UPDATE Users 
+            SET PendingPasswordHash = NULL,
+                PasswordChangeToken = ?,
+                PasswordChangeExpires = DATE_SUB(NOW(), INTERVAL 5 MINUTE),
+                PasswordChangeCancelToken = NULL,
+                PasswordChangeCancelExpires = NULL,
+                updated_at = NOW()
+            WHERE Id = ?
+        `, [invalidToken, user.Id]);
             
         // Log de segurança
         console.log('🔒 Alteração de senha cancelada antes da confirmação. Usuário:', user.Id);
@@ -995,23 +966,24 @@ exports.requestEmailVerification = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Verificar se o email já está cadastrado para outro usuário
-        const emailCheck = await pool.request()
-            .input('email', sql.VarChar, email)
-            .input('userId', sql.Int, userId)
-            .query('SELECT Id FROM Users WHERE Email = @email AND Id != @userId');
+        const [emailCheck] = await pool.query(
+            'SELECT Id FROM Users WHERE Email = ? AND Id != ?',
+            [email, userId]
+        );
         
-        if (emailCheck.recordset.length > 0) {
+        if (emailCheck.length > 0) {
             return res.status(400).json({ error: 'Este email já está vinculado a outro usuário' });
         }
-        const userResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query('SELECT NomeCompleto, Email FROM Users WHERE Id = @userId');
+        const [userResult] = await pool.query(
+            'SELECT NomeCompleto, Email FROM Users WHERE Id = ?',
+            [userId]
+        );
         
-        if (userResult.recordset.length === 0) {
+        if (userResult.length === 0) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
         
-        const user = userResult.recordset[0];
+        const user = userResult[0];
 
         // Não permitir solicitar token para o mesmo email já cadastrado no usuário
         if (user.Email && user.Email.toLowerCase() === email.toLowerCase()) {
@@ -1041,21 +1013,18 @@ exports.requestEmailVerification = async (req, res) => {
         })();
         const cancelJwt = jwt.sign({ userId, token: cancelTokenRaw }, process.env.JWT_SECRET, { expiresIn: cancelExpiresIn });
 
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('token', sql.VarChar, jwtToken)
-            .input('email', sql.VarChar, email)
-            .input('expiresAt', sql.DateTime, new Date(Date.now() + expiresInMs))
-            .input('cancelToken', sql.VarChar, cancelJwt)
-            .input('cancelExpires', sql.DateTime, new Date(Date.now() + cancelExpiresInMs))
-            .query('UPDATE Users SET EmailVerificationToken = @token, EmailVerificationExpires = @expiresAt, PendingEmail = @email, EmailChangeCancelToken = @cancelToken, EmailChangeCancelExpires = @cancelExpires WHERE Id = @userId');
+        await pool.query(
+            'UPDATE Users SET EmailVerificationToken = ?, EmailVerificationExpires = ?, PendingEmail = ?, EmailChangeCancelToken = ?, EmailChangeCancelExpires = ? WHERE Id = ?',
+            [jwtToken, new Date(Date.now() + expiresInMs), email, cancelJwt, new Date(Date.now() + cancelExpiresInMs), userId]
+        );
         
         try {
             const emailService = require('../services/emailService');
-            await emailService.sendEmailVerification(email, token, user.NomeCompleto);
+            const cleanNome = (user.NomeCompleto || '').trim();
+            await emailService.sendEmailVerification(email, token, cleanNome);
             if (user.Email) {
                 // Enviar o JWT de cancelamento (o endpoint espera um token assinado)
-                await emailService.sendEmailChangeAlert(user.Email, cancelJwt, user.NomeCompleto, email);
+                await emailService.sendEmailChangeAlert(user.Email, cancelJwt, cleanNome, email);
             }
             res.json({ success: true, message: 'Token enviado. Verifique o novo email.' });
         } catch (emailError) {
@@ -1077,15 +1046,16 @@ exports.verifyEmailToken = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query('SELECT EmailVerificationToken, EmailVerificationExpires, PendingEmail FROM Users WHERE Id = @userId');
+        const [result] = await pool.query(
+            'SELECT EmailVerificationToken, EmailVerificationExpires, PendingEmail FROM Users WHERE Id = ?',
+            [userId]
+        );
         
-        if (result.recordset.length === 0 || !result.recordset[0].EmailVerificationToken) {
+        if (result.length === 0 || !result[0].EmailVerificationToken) {
             return res.status(400).json({ error: 'Token inválido' });
         }
         
-        const user = result.recordset[0];
+        const user = result[0];
         if (new Date() > new Date(user.EmailVerificationExpires)) {
             return res.status(400).json({ error: 'Token expirado' });
         }
@@ -1097,13 +1067,14 @@ exports.verifyEmailToken = async (req, res) => {
             
             if (decoded.tokenHash === tokenHash) {
                 // Mover email atual para PreviousEmail e aplicar PendingEmail como novo Email
-                await pool.request()
-                    .input('userId', sql.Int, userId)
-                    .query('UPDATE Users SET PreviousEmail = Email WHERE Id = @userId');
-                await pool.request()
-                    .input('userId', sql.Int, userId)
-                    .input('email', sql.VarChar, user.PendingEmail)
-                    .query('UPDATE Users SET Email = @email, EmailVerified = 1, EmailVerificationToken = NULL, EmailVerificationExpires = NULL, PendingEmail = NULL, updated_at = GETDATE() WHERE Id = @userId');
+                await pool.query(
+                    'UPDATE Users SET PreviousEmail = Email WHERE Id = ?',
+                    [userId]
+                );
+                await pool.query(
+                    'UPDATE Users SET Email = ?, EmailVerified = 1, EmailVerificationToken = NULL, EmailVerificationExpires = NULL, PendingEmail = NULL, updated_at = NOW() WHERE Id = ?',
+                    [user.PendingEmail, userId]
+                );
 
                 req.session.user.email = user.PendingEmail;
                 return res.json({ success: true, message: 'Email alterado com sucesso.' });
@@ -1125,7 +1096,7 @@ exports.verifyEmailToken = async (req, res) => {
 exports.cancelEmailChange = async (req, res) => {
     try {
         // Função utilitária para derrubar todas as sessões do usuário (MemoryStore ou stores compatíveis)
-        const invalidateUserSessions = async (userId) => {
+        const invalidateUserSessionsLocal = async (userId) => {
             try {
                 const store = req.sessionStore;
                 if (!store || typeof store.all !== 'function' || typeof store.destroy !== 'function') {
@@ -1213,12 +1184,13 @@ exports.cancelEmailChange = async (req, res) => {
             return html ? res.status(400).send(html) : res.status(400).json({ error: 'Token inválido ou expirado' });
         }
 
-        const userResult = await pool.request()
-            .input('userId', sql.Int, decoded.userId)
-            .query('SELECT Id, Email, PreviousEmail, PendingEmail, EmailChangeCancelToken, EmailChangeCancelExpires FROM Users WHERE Id = @userId');
+        const [userResult] = await pool.query(
+            'SELECT Id, Email, PreviousEmail, PendingEmail, EmailChangeCancelToken, EmailChangeCancelExpires FROM Users WHERE Id = ?',
+            [decoded.userId]
+        );
 
-        if (userResult.recordset.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
-        const user = userResult.recordset[0];
+        if (userResult.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+        const user = userResult[0];
 
         if (!user.EmailChangeCancelToken || new Date() > new Date(user.EmailChangeCancelExpires)) {
             const html = htmlResponse('Token expirado', 'O prazo do link de cancelamento terminou. Caso precise, solicite uma nova alteração de email.', false);
@@ -1233,21 +1205,22 @@ exports.cancelEmailChange = async (req, res) => {
 
         if (user.PendingEmail) {
             // Cancelar alteração antes de aplicar
-            await pool.request()
-                .input('userId', sql.Int, user.Id)
-                .query('UPDATE Users SET PendingEmail = NULL, EmailVerificationToken = NULL, EmailVerificationExpires = NULL, EmailChangeCancelToken = NULL, EmailChangeCancelExpires = NULL, updated_at = GETDATE() WHERE Id = @userId');
-            await invalidateUserSessions(user.Id);
+            await pool.query(
+                'UPDATE Users SET PendingEmail = NULL, EmailVerificationToken = NULL, EmailVerificationExpires = NULL, EmailChangeCancelToken = NULL, EmailChangeCancelExpires = NULL, updated_at = NOW() WHERE Id = ?',
+                [user.Id]
+            );
+            await invalidateUserSessionsLocal(user.Id);
             const html = htmlResponse('Solicitação cancelada', 'A alteração de email pendente foi cancelada e nenhuma mudança foi aplicada.');
             return html ? res.send(html) : res.json({ success: true, message: 'Solicitação de alteração de email cancelada.' });
         }
 
         if (user.PreviousEmail) {
             // Reverter após a mudança
-            await pool.request()
-                .input('userId', sql.Int, user.Id)
-                .input('email', sql.VarChar, user.PreviousEmail)
-                .query('UPDATE Users SET Email = @email, PreviousEmail = NULL, EmailChangeCancelToken = NULL, EmailChangeCancelExpires = NULL, updated_at = GETDATE() WHERE Id = @userId');
-            await invalidateUserSessions(user.Id);
+            await pool.query(
+                'UPDATE Users SET Email = ?, PreviousEmail = NULL, EmailChangeCancelToken = NULL, EmailChangeCancelExpires = NULL, updated_at = NOW() WHERE Id = ?',
+                [user.PreviousEmail, user.Id]
+            );
+            await invalidateUserSessionsLocal(user.Id);
             const html = htmlResponse('Alteração revertida', 'Seu email foi restaurado para o endereço anterior com sucesso.');
             return html ? res.send(html) : res.json({ success: true, message: 'Alteração revertida. O email antigo foi restaurado.' });
         }
@@ -1276,10 +1249,10 @@ exports.updateEmail = async (req, res) => {
         }
 
         const pool = await getDatabasePool();
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('email', sql.VarChar, email)
-            .query('UPDATE Users SET Email = @email, updated_at = GETDATE() WHERE Id = @userId');
+        await pool.query(
+            'UPDATE Users SET Email = ?, updated_at = NOW() WHERE Id = ?',
+            [email, userId]
+        );
         
         req.session.user.email = email;
         res.json({ success: true, message: 'Email cadastrado com sucesso' });
@@ -1309,17 +1282,15 @@ exports.forgotPassword = async (req, res) => {
         console.log('🔍 Buscan usuário para recuperação de senha:', cpfLimpo);
         
         // Buscar usuário por CPF
-        const userResult = await pool.request()
-            .input('cpf', sql.VarChar, cpfLimpo)
-            .query(`
-                SELECT Id, NomeCompleto, Email, PreviousEmail, CPF
-                FROM Users 
-                WHERE REPLACE(REPLACE(REPLACE(CPF, '.', ''), '-', ''), ' ', '') = @cpf
-                AND IsActive = 1
-            `);
+        const [userResult] = await pool.query(`
+            SELECT Id, NomeCompleto, Email, PreviousEmail, CPF
+            FROM Users 
+            WHERE REPLACE(REPLACE(REPLACE(CPF, '.', ''), '-', ''), ' ', '') = ?
+            AND IsActive = 1
+        `, [cpfLimpo]);
         
         // Por segurança, sempre retornar sucesso (mesmo se CPF não existir)
-        if (userResult.recordset.length === 0) {
+        if (userResult.length === 0) {
             console.log('⚠️ CPF não encontrado, mas retornando sucesso por segurança');
             return res.json({ 
                 success: true, 
@@ -1328,7 +1299,7 @@ exports.forgotPassword = async (req, res) => {
             });
         }
         
-        const user = userResult.recordset[0];
+        const user = userResult[0];
         
         // Verificar se tem pelo menos um email
         if (!user.Email && !user.PreviousEmail) {
@@ -1352,11 +1323,10 @@ exports.forgotPassword = async (req, res) => {
         const jwtToken = jwt.sign({ userId: user.Id, tokenHash }, process.env.JWT_SECRET, { expiresIn });
         
         // Salvar token no banco
-        await pool.request()
-            .input('userId', sql.Int, user.Id)
-            .input('token', sql.VarChar, jwtToken)
-            .input('expiresAt', sql.DateTime, new Date(Date.now() + expiresInMs))
-            .query('UPDATE Users SET PasswordResetToken = @token, PasswordResetExpires = @expiresAt WHERE Id = @userId');
+        await pool.query(
+            'UPDATE Users SET PasswordResetToken = ?, PasswordResetExpires = ? WHERE Id = ?',
+            [jwtToken, new Date(Date.now() + expiresInMs), user.Id]
+        );
         
         console.log('✅ Token gerado e salvo no banco');
         
@@ -1431,20 +1401,18 @@ exports.verifyForgotPassword = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Buscar usuário
-        const userResult = await pool.request()
-            .input('cpf', sql.VarChar, cpfLimpo)
-            .query(`
-                SELECT Id, PasswordResetToken, PasswordResetExpires, NomeCompleto
-                FROM Users 
-                WHERE REPLACE(REPLACE(REPLACE(CPF, '.', ''), '-', ''), ' ', '') = @cpf
-                AND IsActive = 1
-            `);
+        const [userResult] = await pool.query(`
+            SELECT Id, PasswordResetToken, PasswordResetExpires, NomeCompleto
+            FROM Users 
+            WHERE REPLACE(REPLACE(REPLACE(CPF, '.', ''), '-', ''), ' ', '') = ?
+            AND IsActive = 1
+        `, [cpfLimpo]);
         
-        if (userResult.recordset.length === 0) {
+        if (userResult.length === 0) {
             return res.status(400).json({ error: 'CPF não encontrado' });
         }
         
-        const user = userResult.recordset[0];
+        const user = userResult[0];
         
         if (!user.PasswordResetToken) {
             return res.status(400).json({ error: 'Token inválido. Solicite um novo token.' });
@@ -1469,18 +1437,15 @@ exports.verifyForgotPassword = async (req, res) => {
         
         // Alterar senha
         const newPasswordHash = await bcrypt.hash(newPassword, parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10);
-        await pool.request()
-            .input('userId', sql.Int, user.Id)
-            .input('passwordHash', sql.VarChar, newPasswordHash)
-            .query(`
-                UPDATE Users 
-                SET PasswordHash = @passwordHash, 
-                    PasswordResetToken = NULL, 
-                    PasswordResetExpires = NULL,
-                    LastPasswordChange = GETDATE(),
-                    updated_at = GETDATE() 
-                WHERE Id = @userId
-            `);
+        await pool.query(`
+            UPDATE Users 
+            SET PasswordHash = ?, 
+                PasswordResetToken = NULL, 
+                PasswordResetExpires = NULL,
+                LastPasswordChange = NOW(),
+                updated_at = NOW() 
+            WHERE Id = ?
+        `, [newPasswordHash, user.Id]);
         
         console.log('✅ Senha redefinida com sucesso para usuário:', user.NomeCompleto);
         
@@ -1500,15 +1465,16 @@ exports.requestPasswordReset = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
         
-        const userResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query('SELECT Email, NomeCompleto FROM Users WHERE Id = @userId');
+        const [userResult] = await pool.query(
+            'SELECT Email, NomeCompleto FROM Users WHERE Id = ?',
+            [userId]
+        );
         
-        if (userResult.recordset.length === 0 || !userResult.recordset[0].Email) {
+        if (userResult.length === 0 || !userResult[0].Email) {
             return res.status(400).json({ error: 'Email não cadastrado. Por favor, cadastre um email primeiro.' });
         }
         
-        const user = userResult.recordset[0];
+        const user = userResult[0];
         const jwt = require('jsonwebtoken');
         
         // Gerar token seguro de 6 dígitos usando crypto
@@ -1519,11 +1485,10 @@ exports.requestPasswordReset = async (req, res) => {
         const expiresInMs = expiresIn.endsWith('m') ? parseInt(expiresIn) * 60 * 1000 : parseInt(expiresIn) * 1000;
         const jwtToken = jwt.sign({ userId, tokenHash }, process.env.JWT_SECRET, { expiresIn });
         
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('token', sql.VarChar, jwtToken)
-            .input('expiresAt', sql.DateTime, new Date(Date.now() + expiresInMs))
-            .query('UPDATE Users SET PasswordResetToken = @token, PasswordResetExpires = @expiresAt WHERE Id = @userId');
+        await pool.query(
+            'UPDATE Users SET PasswordResetToken = ?, PasswordResetExpires = ? WHERE Id = ?',
+            [jwtToken, new Date(Date.now() + expiresInMs), userId]
+        );
         
         try {
             const emailService = require('../services/emailService');
@@ -1548,15 +1513,16 @@ exports.verifyResetToken = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query('SELECT PasswordResetToken, PasswordResetExpires FROM Users WHERE Id = @userId');
+        const [result] = await pool.query(
+            'SELECT PasswordResetToken, PasswordResetExpires FROM Users WHERE Id = ?',
+            [userId]
+        );
         
-        if (result.recordset.length === 0 || !result.recordset[0].PasswordResetToken) {
+        if (result.length === 0 || !result[0].PasswordResetToken) {
             return res.status(400).json({ error: 'Token inválido' });
         }
         
-        const user = result.recordset[0];
+        const user = result[0];
         if (new Date() > new Date(user.PasswordResetExpires)) {
             return res.status(400).json({ error: 'Token expirado' });
         }
@@ -1593,15 +1559,16 @@ exports.resetPassword = async (req, res) => {
         }
         
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query('SELECT PasswordResetToken, PasswordResetExpires FROM Users WHERE Id = @userId');
+        const [result] = await pool.query(
+            'SELECT PasswordResetToken, PasswordResetExpires FROM Users WHERE Id = ?',
+            [userId]
+        );
         
-        if (result.recordset.length === 0 || !result.recordset[0].PasswordResetToken) {
+        if (result.length === 0 || !result[0].PasswordResetToken) {
             return res.status(400).json({ error: 'Token inválido' });
         }
         
-        const user = result.recordset[0];
+        const user = result[0];
         if (new Date() > new Date(user.PasswordResetExpires)) {
             return res.status(400).json({ error: 'Token expirado' });
         }
@@ -1619,10 +1586,10 @@ exports.resetPassword = async (req, res) => {
         }
         
         const newPasswordHash = await bcrypt.hash(newPassword, parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10);
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('passwordHash', sql.VarChar, newPasswordHash)
-            .query('UPDATE Users SET PasswordHash = @passwordHash, PasswordResetToken = NULL, PasswordResetExpires = NULL, updated_at = GETDATE() WHERE Id = @userId');
+        await pool.query(
+            'UPDATE Users SET PasswordHash = ?, PasswordResetToken = NULL, PasswordResetExpires = NULL, updated_at = NOW() WHERE Id = ?',
+            [newPasswordHash, userId]
+        );
         
         res.json({ success: true, message: 'Senha alterada com sucesso' });
     } catch (error) {

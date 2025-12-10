@@ -313,7 +313,15 @@ exports.sendEmailChangeAlert = async (currentEmail, cancelToken, userName, newEm
     if (!transporter) {
         throw new Error('Serviço de email não configurado');
     }
-    const cancelUrl = `${process.env.APP_BASE_URL || ''}/api/usuario/cancel-email-change?token=${encodeURIComponent(cancelToken)}`;
+    
+    // Limpar espaços extras do nome
+    const cleanUserName = (userName || '').trim();
+    const cleanNewEmail = (newEmail || '').trim();
+    
+    // Construir URL completa
+    const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3057';
+    const cancelUrl = `${baseUrl}/api/usuario/cancel-email-change?token=${encodeURIComponent(cancelToken)}`;
+    
     const mailOptions = {
         from: `"LumiGente" <${process.env.EMAIL_USER}>`,
         to: currentEmail,
@@ -331,11 +339,11 @@ exports.sendEmailChangeAlert = async (currentEmail, cancelToken, userName, newEm
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
         <tr><td style="padding:40px 30px 0;text-align:center;"><img src="cid:logo" alt="LumiGente" style="max-width:180px;height:auto;"></td></tr>
         <tr><td style="padding:40px 30px;">
-          <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">Olá, <strong>${userName}</strong>!</p>
-          <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">Recebemos uma solicitação para alterar o email da sua conta para <strong>${newEmail}</strong>.</p>
+          <p style="color:#1f2937;font-size:16px;line-height:1.6;margin:0 0 20px 0;">Olá, <strong>${cleanUserName}</strong>!</p>
+          <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 20px 0;">Recebemos uma solicitação para alterar o email da sua conta para <strong>${cleanNewEmail}</strong>.</p>
           <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 24px 0;">Se <strong>não foi você</strong>, clique no botão abaixo para cancelar essa alteração e manter seu email atual.</p>
           <div style="text-align:center;margin:28px 0;">
-            <a href="${cancelUrl}" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;">Cancelar alteração de email</a>
+            <a href="${cancelUrl}" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;font-size:15px;">Cancelar alteração de email</a>
           </div>
           <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:20px 0 0 0;text-align:center;">Se foi você quem solicitou, ignore este email. Este link expira em 2 minutos.</p>
         </td></tr>

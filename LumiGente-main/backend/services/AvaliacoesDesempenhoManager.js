@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 const AvaliacoesManager = require('./avaliacoesManager');
 
@@ -6,72 +6,51 @@ class AvaliacoesDesempenhoManager {
 
     static async criarAvaliacao(dados) {
         const pool = await getDatabasePool();
-        const { userIds, titulo, dataLimite, criadoPor, perguntas } = dados;
-
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
 
         try {
+            const { userIds, titulo, dataLimite, criadoPor, perguntas } = dados;
             const avaliacoesCriadas = [];
 
             for (const userId of userIds) {
                 let gestorId = null;
                 try {
-                    gestorId = await AvaliacoesManager.buscarGestor(transaction, userId);
+                    gestorId = await AvaliacoesManager.buscarGestor(connection, userId);
                 } catch (err) {
                     console.warn(`⚠️ Não foi possível buscar gestor para userId ${userId}: ${err.message}`);
                 }
 
-                const result = await transaction.request()
-                    .input('userId', sql.Int, userId)
-                    .input('gestorId', sql.Int, gestorId)
-                    .input('titulo', sql.NVarChar, titulo)
-                    .input('dataLimite', sql.DateTime, dataLimite)
-                    .input('criadoPor', sql.Int, criadoPor)
-                    .query(`
-                        INSERT INTO AvaliacoesDesempenho 
-                        (UserId, GestorId, Titulo, DataLimiteAutoAvaliacao, DataLimiteGestor, CriadoPor, Status)
-                        OUTPUT INSERTED.Id
-                        VALUES (@userId, @gestorId, @titulo, @dataLimite, @dataLimite, @criadoPor, 'Pendente')
-                    `);
+                const [result] = await connection.query(`
+                    INSERT INTO AvaliacoesDesempenho 
+                    (UserId, GestorId, Titulo, DataLimiteAutoAvaliacao, DataLimiteGestor, CriadoPor, Status)
+                    VALUES (?, ?, ?, ?, ?, ?, 'Pendente')
+                `, [userId, gestorId, titulo, dataLimite, dataLimite, criadoPor]);
 
-                const avaliacaoId = result.recordset[0].Id;
+                const avaliacaoId = result.insertId;
                 avaliacoesCriadas.push(avaliacaoId);
 
                 if (perguntas && Array.isArray(perguntas) && perguntas.length > 0) {
                     console.log(`📝 Criando ${perguntas.length} perguntas personalizadas para avaliação ${avaliacaoId}`);
 
                     for (const pergunta of perguntas) {
-                        const perguntaResult = await transaction.request()
-                            .input('avaliacaoId', sql.Int, avaliacaoId)
-                            .input('texto', sql.NText, pergunta.texto)
-                            .input('tipo', sql.NVarChar, pergunta.tipo)
-                            .input('obrigatoria', sql.Bit, pergunta.obrigatoria)
-                            .input('ordem', sql.Int, pergunta.ordem)
-                            .input('escalaMinima', sql.Int, pergunta.escalaMinima || null)
-                            .input('escalaMaxima', sql.Int, pergunta.escalaMaxima || null)
-                            .input('escalaLabelMinima', sql.NVarChar, pergunta.escalaLabelMinima || null)
-                            .input('escalaLabelMaxima', sql.NVarChar, pergunta.escalaLabelMaxima || null)
-                            .query(`
-                                INSERT INTO PerguntasAvaliacaoDesempenho 
-                                (AvaliacaoId, Texto, Tipo, Obrigatoria, Ordem, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima)
-                                OUTPUT INSERTED.Id
-                                VALUES (@avaliacaoId, @texto, @tipo, @obrigatoria, @ordem, @escalaMinima, @escalaMaxima, @escalaLabelMinima, @escalaLabelMaxima)
-                            `);
+                        const [perguntaResult] = await connection.query(`
+                            INSERT INTO PerguntasAvaliacaoDesempenho 
+                            (AvaliacaoId, Texto, Tipo, Obrigatoria, Ordem, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `, [avaliacaoId, pergunta.texto, pergunta.tipo, pergunta.obrigatoria ? 1 : 0, pergunta.ordem, 
+                            pergunta.escalaMinima || null, pergunta.escalaMaxima || null, 
+                            pergunta.escalaLabelMinima || null, pergunta.escalaLabelMaxima || null]);
 
-                        const perguntaId = perguntaResult.recordset[0].Id;
+                        const perguntaId = perguntaResult.insertId;
 
                         if (pergunta.tipo === 'multipla_escolha' && pergunta.opcoes && Array.isArray(pergunta.opcoes)) {
                             for (let i = 0; i < pergunta.opcoes.length; i++) {
-                                await transaction.request()
-                                    .input('perguntaId', sql.Int, perguntaId)
-                                    .input('textoOpcao', sql.NVarChar, pergunta.opcoes[i])
-                                    .input('ordem', sql.Int, i + 1)
-                                    .query(`
-                                        INSERT INTO OpcoesPerguntasAvaliacaoDesempenho 
-                                        (PerguntaId, TextoOpcao, Ordem)
-                                        VALUES (@perguntaId, @textoOpcao, @ordem)
-                                    `);
+                                await connection.query(`
+                                    INSERT INTO OpcoesPerguntasAvaliacaoDesempenho 
+                                    (PerguntaId, TextoOpcao, Ordem)
+                                    VALUES (?, ?, ?)
+                                `, [perguntaId, pergunta.opcoes[i], i + 1]);
                             }
                         }
                     }
@@ -80,10 +59,9 @@ class AvaliacoesDesempenhoManager {
                     // Buscar perguntas do questionário padrão
                     console.log('ℹ️ Nenhuma pergunta personalizada fornecida. Buscando questionário padrão...');
 
-                    const perguntasPadraoResult = await transaction.request()
-                        .query('SELECT * FROM PerguntasDesempenho WHERE Ativo = 1 ORDER BY Ordem');
-
-                    const perguntasPadrao = perguntasPadraoResult.recordset;
+                    const [perguntasPadrao] = await connection.query(
+                        'SELECT * FROM PerguntasDesempenho WHERE Ativo = 1 ORDER BY Ordem'
+                    );
 
                     if (perguntasPadrao.length === 0) {
                         throw new Error('Nenhuma pergunta foi adicionada e não há questionário padrão definido.');
@@ -92,24 +70,15 @@ class AvaliacoesDesempenhoManager {
                     console.log(`📝 Usando ${perguntasPadrao.length} perguntas do questionário padrão para avaliação ${avaliacaoId}`);
 
                     for (const p of perguntasPadrao) {
-                        const perguntaResult = await transaction.request()
-                            .input('avaliacaoId', sql.Int, avaliacaoId)
-                            .input('texto', sql.NText, p.Texto)
-                            .input('tipo', sql.NVarChar, p.Tipo)
-                            .input('obrigatoria', sql.Bit, p.Obrigatoria)
-                            .input('ordem', sql.Int, p.Ordem)
-                            .input('escalaMinima', sql.Int, p.EscalaMinima || null)
-                            .input('escalaMaxima', sql.Int, p.EscalaMaxima || null)
-                            .input('escalaLabelMinima', sql.NVarChar, p.EscalaLabelMinima || null)
-                            .input('escalaLabelMaxima', sql.NVarChar, p.EscalaLabelMaxima || null)
-                            .query(`
-                                INSERT INTO PerguntasAvaliacaoDesempenho 
-                                (AvaliacaoId, Texto, Tipo, Obrigatoria, Ordem, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima)
-                                OUTPUT INSERTED.Id
-                                VALUES (@avaliacaoId, @texto, @tipo, @obrigatoria, @ordem, @escalaMinima, @escalaMaxima, @escalaLabelMinima, @escalaLabelMaxima)
-                            `);
+                        const [perguntaResult] = await connection.query(`
+                            INSERT INTO PerguntasAvaliacaoDesempenho 
+                            (AvaliacaoId, Texto, Tipo, Obrigatoria, Ordem, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `, [avaliacaoId, p.Texto, p.Tipo, p.Obrigatoria ? 1 : 0, p.Ordem,
+                            p.EscalaMinima || null, p.EscalaMaxima || null,
+                            p.EscalaLabelMinima || null, p.EscalaLabelMaxima || null]);
 
-                        const perguntaId = perguntaResult.recordset[0].Id;
+                        const perguntaId = perguntaResult.insertId;
 
                         // Processar opções se houver (JSON string no banco)
                         if (p.Tipo === 'multipla_escolha' && p.Opcoes) {
@@ -123,15 +92,11 @@ class AvaliacoesDesempenhoManager {
 
                             if (Array.isArray(opcoes)) {
                                 for (let i = 0; i < opcoes.length; i++) {
-                                    await transaction.request()
-                                        .input('perguntaId', sql.Int, perguntaId)
-                                        .input('textoOpcao', sql.NVarChar, opcoes[i])
-                                        .input('ordem', sql.Int, i + 1)
-                                        .query(`
-                                            INSERT INTO OpcoesPerguntasAvaliacaoDesempenho 
-                                            (PerguntaId, TextoOpcao, Ordem)
-                                            VALUES (@perguntaId, @textoOpcao, @ordem)
-                                        `);
+                                    await connection.query(`
+                                        INSERT INTO OpcoesPerguntasAvaliacaoDesempenho 
+                                        (PerguntaId, TextoOpcao, Ordem)
+                                        VALUES (?, ?, ?)
+                                    `, [perguntaId, opcoes[i], i + 1]);
                                 }
                             }
                         }
@@ -139,11 +104,13 @@ class AvaliacoesDesempenhoManager {
                 }
             }
 
-            await transaction.commit();
+            await connection.commit();
+            connection.release();
             console.log(`✅ ${avaliacoesCriadas.length} avaliações criadas com sucesso`);
             return avaliacoesCriadas;
         } catch (error) {
-            await transaction.rollback();
+            await connection.rollback();
+            connection.release();
             console.error('❌ Erro ao criar avaliação:', error);
             throw error;
         }
@@ -153,7 +120,7 @@ class AvaliacoesDesempenhoManager {
         const pool = await getDatabasePool();
         let query = `
             SELECT a.*, u.NomeCompleto, u.NomeCompleto as NomeColaborador, g.NomeCompleto as NomeGestor, 
-                   ISNULL(u.DescricaoDepartamento, u.Departamento) as Departamento,
+                   COALESCE(u.DescricaoDepartamento, u.Departamento) as Departamento,
                    (SELECT COUNT(*) FROM RespostasDesempenho r WHERE r.AvaliacaoId = a.Id AND r.RespostaColaborador IS NOT NULL) as RespostasColaboradorCount,
                    (SELECT COUNT(*) FROM RespostasDesempenho r WHERE r.AvaliacaoId = a.Id AND r.RespostaGestor IS NOT NULL) as RespostasGestorCount,
                    (SELECT COUNT(*) FROM PerguntasAvaliacaoDesempenho p WHERE p.AvaliacaoId = a.Id) as PerguntasEspecificasCount
@@ -163,27 +130,26 @@ class AvaliacoesDesempenhoManager {
             WHERE 1=1
         `;
 
-        const request = pool.request();
+        const params = [];
 
         if (filtros.userId) {
-            query += ' AND a.UserId = @userId';
-            request.input('userId', sql.Int, filtros.userId);
+            query += ' AND a.UserId = ?';
+            params.push(filtros.userId);
         }
 
         if (filtros.gestorId) {
-            query += ' AND a.GestorId = @gestorId';
-            request.input('gestorId', sql.Int, filtros.gestorId);
+            query += ' AND a.GestorId = ?';
+            params.push(filtros.gestorId);
         }
 
         if (filtros.status) {
-            query += ' AND a.Status = @status';
-            request.input('status', sql.NVarChar, filtros.status);
+            query += ' AND a.Status = ?';
+            params.push(filtros.status);
         }
 
         query += ' ORDER BY a.DataCriacao DESC';
 
-        const result = await request.query(query);
-        const avaliacoes = result.recordset;
+        const [avaliacoes] = await pool.query(query, params);
 
         return avaliacoes.map(av => {
             const total = av.PerguntasEspecificasCount || 1;
@@ -219,21 +185,19 @@ class AvaliacoesDesempenhoManager {
 
     static async getAvaliacao(id, userId = null) {
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`
-                SELECT a.*, u.NomeCompleto, u.NomeCompleto as NomeColaborador, g.NomeCompleto as NomeGestor,
-                       ISNULL(u.DescricaoDepartamento, u.Departamento) as Departamento,
-                       (SELECT COUNT(*) FROM RespostasDesempenho r WHERE r.AvaliacaoId = a.Id AND r.RespostaColaborador IS NOT NULL) as RespostasColaboradorCount,
-                       (SELECT COUNT(*) FROM RespostasDesempenho r WHERE r.AvaliacaoId = a.Id AND r.RespostaGestor IS NOT NULL) as RespostasGestorCount,
-                       (SELECT COUNT(*) FROM PerguntasAvaliacaoDesempenho p WHERE p.AvaliacaoId = a.Id) as PerguntasEspecificasCount
-                FROM AvaliacoesDesempenho a
-                INNER JOIN Users u ON a.UserId = u.Id
-                LEFT JOIN Users g ON a.GestorId = g.Id
-                WHERE a.Id = @id
-            `);
+        const [result] = await pool.query(`
+            SELECT a.*, u.NomeCompleto, u.NomeCompleto as NomeColaborador, g.NomeCompleto as NomeGestor,
+                   COALESCE(u.DescricaoDepartamento, u.Departamento) as Departamento,
+                   (SELECT COUNT(*) FROM RespostasDesempenho r WHERE r.AvaliacaoId = a.Id AND r.RespostaColaborador IS NOT NULL) as RespostasColaboradorCount,
+                   (SELECT COUNT(*) FROM RespostasDesempenho r WHERE r.AvaliacaoId = a.Id AND r.RespostaGestor IS NOT NULL) as RespostasGestorCount,
+                   (SELECT COUNT(*) FROM PerguntasAvaliacaoDesempenho p WHERE p.AvaliacaoId = a.Id) as PerguntasEspecificasCount
+            FROM AvaliacoesDesempenho a
+            INNER JOIN Users u ON a.UserId = u.Id
+            LEFT JOIN Users g ON a.GestorId = g.Id
+            WHERE a.Id = ?
+        `, [id]);
 
-        const av = result.recordset[0];
+        const av = result[0];
         if (!av) return null;
 
         const total = av.PerguntasEspecificasCount || 1;
@@ -268,54 +232,49 @@ class AvaliacoesDesempenhoManager {
 
     static async salvarRespostas(avaliacaoId, respostas, tipoRespondente) {
         const pool = await getDatabasePool();
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
 
         try {
             const campoResposta = tipoRespondente === 'colaborador' ? 'RespostaColaborador' : 'RespostaGestor';
             const campoData = tipoRespondente === 'colaborador' ? 'DataRespostaColaborador' : 'DataRespostaGestor';
 
-            // Verificar se a avaliação tem perguntas específicas
-            const perguntasEspecificasResult = await transaction.request()
-                .input('avaliacaoId', sql.Int, avaliacaoId)
-                .query('SELECT COUNT(*) as Total FROM PerguntasAvaliacaoDesempenho WHERE AvaliacaoId = @avaliacaoId');
-
-            const temPerguntasEspecificas = perguntasEspecificasResult.recordset[0].Total > 0;
-
             for (const resp of respostas) {
-                const check = await transaction.request()
-                    .input('avaliacaoId', sql.Int, avaliacaoId)
-                    .input('perguntaId', sql.Int, resp.perguntaId)
-                    .query('SELECT Id FROM RespostasDesempenho WHERE AvaliacaoId = @avaliacaoId AND PerguntaId = @perguntaId');
+                const [check] = await connection.query(
+                    'SELECT Id FROM RespostasDesempenho WHERE AvaliacaoId = ? AND PerguntaId = ?',
+                    [avaliacaoId, resp.perguntaId]
+                );
 
-                if (check.recordset.length > 0) {
-                    await transaction.request()
-                        .input('id', sql.Int, check.recordset[0].Id)
-                        .input('resposta', sql.NVarChar, resp.resposta)
-                        .query(`UPDATE RespostasDesempenho SET ${campoResposta} = @resposta, ${campoData} = GETDATE() WHERE Id = @id`);
+                if (check.length > 0) {
+                    await connection.query(
+                        `UPDATE RespostasDesempenho SET ${campoResposta} = ?, ${campoData} = NOW() WHERE Id = ?`,
+                        [resp.resposta, check[0].Id]
+                    );
                 } else {
-                    await transaction.request()
-                        .input('avaliacaoId', sql.Int, avaliacaoId)
-                        .input('perguntaId', sql.Int, resp.perguntaId)
-                        .input('resposta', sql.NVarChar, resp.resposta)
-                        .query(`INSERT INTO RespostasDesempenho (AvaliacaoId, PerguntaId, ${campoResposta}, ${campoData}) VALUES (@avaliacaoId, @perguntaId, @resposta, GETDATE())`);
+                    await connection.query(
+                        `INSERT INTO RespostasDesempenho (AvaliacaoId, PerguntaId, ${campoResposta}, ${campoData}) VALUES (?, ?, ?, NOW())`,
+                        [avaliacaoId, resp.perguntaId, resp.resposta]
+                    );
                 }
             }
 
-            const totalPerguntasResult = await transaction.request()
-                .input('avaliacaoId', sql.Int, avaliacaoId)
-                .query('SELECT COUNT(*) as Total FROM PerguntasAvaliacaoDesempenho WHERE AvaliacaoId = @avaliacaoId');
-            const totalPerguntas = totalPerguntasResult.recordset[0].Total;
+            const [totalPerguntasResult] = await connection.query(
+                'SELECT COUNT(*) as Total FROM PerguntasAvaliacaoDesempenho WHERE AvaliacaoId = ?',
+                [avaliacaoId]
+            );
+            const totalPerguntas = totalPerguntasResult[0].Total;
 
-            const respostasColabResult = await transaction.request()
-                .input('avaliacaoId', sql.Int, avaliacaoId)
-                .query('SELECT COUNT(*) as Total FROM RespostasDesempenho WHERE AvaliacaoId = @avaliacaoId AND RespostaColaborador IS NOT NULL');
-            const respostasColab = respostasColabResult.recordset[0].Total;
+            const [respostasColabResult] = await connection.query(
+                'SELECT COUNT(*) as Total FROM RespostasDesempenho WHERE AvaliacaoId = ? AND RespostaColaborador IS NOT NULL',
+                [avaliacaoId]
+            );
+            const respostasColab = respostasColabResult[0].Total;
 
-            const respostasGestorResult = await transaction.request()
-                .input('avaliacaoId', sql.Int, avaliacaoId)
-                .query('SELECT COUNT(*) as Total FROM RespostasDesempenho WHERE AvaliacaoId = @avaliacaoId AND RespostaGestor IS NOT NULL');
-            const respostasGestor = respostasGestorResult.recordset[0].Total;
+            const [respostasGestorResult] = await connection.query(
+                'SELECT COUNT(*) as Total FROM RespostasDesempenho WHERE AvaliacaoId = ? AND RespostaGestor IS NOT NULL',
+                [avaliacaoId]
+            );
+            const respostasGestor = respostasGestorResult[0].Total;
 
             const colabConcluiu = respostasColab >= totalPerguntas;
             const gestorConcluiu = respostasGestor >= totalPerguntas;
@@ -331,15 +290,13 @@ class AvaliacoesDesempenhoManager {
                 novoStatus = 'Pendente';
             }
 
-            await transaction.request()
-                .input('id', sql.Int, avaliacaoId)
-                .input('status', sql.NVarChar, novoStatus)
-                .query('UPDATE AvaliacoesDesempenho SET Status = @status WHERE Id = @id');
+            await connection.query('UPDATE AvaliacoesDesempenho SET Status = ? WHERE Id = ?', [novoStatus, avaliacaoId]);
 
-
-            await transaction.commit();
+            await connection.commit();
+            connection.release();
         } catch (error) {
-            await transaction.rollback();
+            await connection.rollback();
+            connection.release();
             throw error;
         }
     }
@@ -348,145 +305,130 @@ class AvaliacoesDesempenhoManager {
         const pool = await getDatabasePool();
         const { respostas, consideracoesFinais } = dadosCalibragem;
 
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
 
         try {
             // Salvar respostas calibradas
             for (const resp of respostas) {
-                await transaction.request()
-                    .input('avaliacaoId', sql.Int, avaliacaoId)
-                    .input('perguntaId', sql.Int, resp.perguntaId)
-                    .input('resposta', sql.NVarChar, resp.resposta)
-                    .input('justificativa', sql.NVarChar, resp.justificativa || null)
-                    .query(`
-                        UPDATE RespostasDesempenho 
-                        SET RespostaCalibrada = @resposta, JustificativaCalibrada = @justificativa, DataRespostaCalibrada = GETDATE() 
-                        WHERE AvaliacaoId = @avaliacaoId AND PerguntaId = @perguntaId
-                    `);
+                await connection.query(`
+                    UPDATE RespostasDesempenho 
+                    SET RespostaCalibrada = ?, JustificativaCalibrada = ?, DataRespostaCalibrada = NOW() 
+                    WHERE AvaliacaoId = ? AND PerguntaId = ?
+                `, [resp.resposta, resp.justificativa || null, avaliacaoId, resp.perguntaId]);
             }
 
             // Salvar considerações finais
             if (consideracoesFinais) {
-                const check = await transaction.request()
-                    .input('avaliacaoId', sql.Int, avaliacaoId)
-                    .query('SELECT Id FROM CalibragemConsideracoes WHERE AvaliacaoId = @avaliacaoId');
+                const [check] = await connection.query(
+                    'SELECT Id FROM CalibragemConsideracoes WHERE AvaliacaoId = ?',
+                    [avaliacaoId]
+                );
 
-                if (check.recordset.length > 0) {
-                    await transaction.request()
-                        .input('avaliacaoId', sql.Int, avaliacaoId)
-                        .input('consideracoes', sql.NVarChar, consideracoesFinais)
-                        .query('UPDATE CalibragemConsideracoes SET ConsideracoesFinais = @consideracoes, DataAtualizacao = GETDATE() WHERE AvaliacaoId = @avaliacaoId');
+                if (check.length > 0) {
+                    await connection.query(
+                        'UPDATE CalibragemConsideracoes SET ConsideracoesFinais = ?, DataAtualizacao = NOW() WHERE AvaliacaoId = ?',
+                        [consideracoesFinais, avaliacaoId]
+                    );
                 } else {
-                    await transaction.request()
-                        .input('avaliacaoId', sql.Int, avaliacaoId)
-                        .input('consideracoes', sql.NVarChar, consideracoesFinais)
-                        .input('criadoPor', sql.Int, criadoPor)
-                        .query('INSERT INTO CalibragemConsideracoes (AvaliacaoId, ConsideracoesFinais, CriadoPor) VALUES (@avaliacaoId, @consideracoes, @criadoPor)');
+                    await connection.query(
+                        'INSERT INTO CalibragemConsideracoes (AvaliacaoId, ConsideracoesFinais, CriadoPor) VALUES (?, ?, ?)',
+                        [avaliacaoId, consideracoesFinais, criadoPor]
+                    );
                 }
             }
 
-            await transaction.request()
-                .input('id', sql.Int, avaliacaoId)
-                .query(`UPDATE AvaliacoesDesempenho SET Status = 'Aguardando Feedback' WHERE Id = @id`);
+            await connection.query(`UPDATE AvaliacoesDesempenho SET Status = 'Aguardando Feedback' WHERE Id = ?`, [avaliacaoId]);
 
-            await transaction.commit();
+            await connection.commit();
+            connection.release();
         } catch (error) {
-            await transaction.rollback();
+            await connection.rollback();
+            connection.release();
             throw error;
         }
     }
 
     static async salvarFeedback(avaliacaoId, feedback, gestorId) {
         const pool = await getDatabasePool();
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
 
         try {
-            await transaction.request()
-                .input('avaliacaoId', sql.Int, avaliacaoId)
-                .input('feedback', sql.NVarChar, feedback)
-                .input('gestorId', sql.Int, gestorId)
-                .query(`INSERT INTO FeedbacksAvaliacaoDesempenho (AvaliacaoId, FeedbackGestor, GestorId) VALUES (@avaliacaoId, @feedback, @gestorId)`);
+            await connection.query(
+                `INSERT INTO FeedbacksAvaliacaoDesempenho (AvaliacaoId, FeedbackGestor, GestorId) VALUES (?, ?, ?)`,
+                [avaliacaoId, feedback, gestorId]
+            );
 
-            await transaction.request()
-                .input('id', sql.Int, avaliacaoId)
-                .query(`UPDATE AvaliacoesDesempenho SET Status = 'Aguardando PDI' WHERE Id = @id`);
+            await connection.query(`UPDATE AvaliacoesDesempenho SET Status = 'Aguardando PDI' WHERE Id = ?`, [avaliacaoId]);
 
-            await transaction.commit();
+            await connection.commit();
+            connection.release();
         } catch (error) {
-            await transaction.rollback();
+            await connection.rollback();
+            connection.release();
             throw error;
         }
     }
 
     static async salvarFeedbackPDI(avaliacaoId, feedbackGestor, pdi, gestorId) {
         const pool = await getDatabasePool();
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
 
         try {
             // Buscar dados da avaliação
-            const avaliacaoResult = await transaction.request()
-                .input('id', sql.Int, avaliacaoId)
-                .query('SELECT UserId, GestorId FROM AvaliacoesDesempenho WHERE Id = @id');
+            const [avaliacaoResult] = await connection.query(
+                'SELECT UserId, GestorId FROM AvaliacoesDesempenho WHERE Id = ?',
+                [avaliacaoId]
+            );
 
-            if (avaliacaoResult.recordset.length === 0) {
+            if (avaliacaoResult.length === 0) {
                 throw new Error('Avaliação não encontrada');
             }
 
-            const avaliacao = avaliacaoResult.recordset[0];
+            const avaliacao = avaliacaoResult[0];
 
             // Salvar feedback
-            await transaction.request()
-                .input('avaliacaoId', sql.Int, avaliacaoId)
-                .input('feedback', sql.NVarChar, feedbackGestor)
-                .input('gestorId', sql.Int, gestorId)
-                .query(`INSERT INTO FeedbacksAvaliacaoDesempenho (AvaliacaoId, FeedbackGestor, GestorId) VALUES (@avaliacaoId, @feedback, @gestorId)`);
+            await connection.query(
+                `INSERT INTO FeedbacksAvaliacaoDesempenho (AvaliacaoId, FeedbackGestor, GestorId) VALUES (?, ?, ?)`,
+                [avaliacaoId, feedbackGestor, gestorId]
+            );
 
-            // Criar PDI
             // Verificar qual coluna existe (PrazoConclusao ou PrazoRevisao)
-            const colunaCheck = await transaction.request().query(`
+            const [colunaCheck] = await connection.query(`
                 SELECT COUNT(*) as existe
                 FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
             `);
-            const usarPrazoConclusao = colunaCheck.recordset[0].existe > 0;
+            const usarPrazoConclusao = colunaCheck[0].existe > 0;
             const colunaPrazo = usarPrazoConclusao ? 'PrazoConclusao' : 'PrazoRevisao';
             
-            const pdiResult = await transaction.request()
-                .input('userId', sql.Int, avaliacao.UserId)
-                .input('gestorId', sql.Int, avaliacao.GestorId)
-                .input('avaliacaoId', sql.Int, avaliacaoId)
-                .input('titulo', sql.NVarChar, pdi.titulo || `PDI - Avaliação ${avaliacaoId}`)
-                .input('objetivos', sql.NText, pdi.objetivos)
-                .input('acoes', sql.NText, pdi.acoes)
-                .input('prazo', sql.Date, pdi.prazoRevisao || pdi.prazoConclusao)
-                .query(`
-                    INSERT INTO PDIs (UserId, GestorId, AvaliacaoId, Titulo, Objetivos, Acoes, ${colunaPrazo}, Status, Progresso)
-                    OUTPUT INSERTED.Id
-                    VALUES (@userId, @gestorId, @avaliacaoId, @titulo, @objetivos, @acoes, @prazo, 'Ativo', 0)
-                `);
+            const [pdiResult] = await connection.query(`
+                INSERT INTO PDIs (UserId, GestorId, AvaliacaoId, Titulo, Objetivos, Acoes, ${colunaPrazo}, Status, Progresso)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'Ativo', 0)
+            `, [avaliacao.UserId, avaliacao.GestorId, avaliacaoId, 
+                pdi.titulo || `PDI - Avaliação ${avaliacaoId}`, pdi.objetivos, pdi.acoes, 
+                pdi.prazoRevisao || pdi.prazoConclusao]);
 
             // Atualizar status da avaliação
-            await transaction.request()
-                .input('id', sql.Int, avaliacaoId)
-                .query(`UPDATE AvaliacoesDesempenho SET Status = 'Concluida' WHERE Id = @id`);
+            await connection.query(`UPDATE AvaliacoesDesempenho SET Status = 'Concluida' WHERE Id = ?`, [avaliacaoId]);
 
-            await transaction.commit();
-            return pdiResult.recordset[0].Id;
+            await connection.commit();
+            connection.release();
+            return pdiResult.insertId;
         } catch (error) {
-            await transaction.rollback();
+            await connection.rollback();
+            connection.release();
             throw error;
         }
     }
 
     static async listarPerguntas() {
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .query('SELECT * FROM PerguntasDesempenho WHERE Ativo = 1 ORDER BY Ordem');
+        const [result] = await pool.query('SELECT * FROM PerguntasDesempenho WHERE Ativo = 1 ORDER BY Ordem');
 
-        return result.recordset.map(p => {
+        return result.map(p => {
             if (p.Opcoes && typeof p.Opcoes === 'string') {
                 try {
                     p.Opcoes = JSON.parse(p.Opcoes);
@@ -502,24 +444,23 @@ class AvaliacoesDesempenhoManager {
         const pool = await getDatabasePool();
 
         // Primeiro, verificar se a avaliação tem perguntas específicas
-        const perguntasEspecificasResult = await pool.request()
-            .input('avaliacaoId', sql.Int, avaliacaoId)
-            .query('SELECT COUNT(*) as Total FROM PerguntasAvaliacaoDesempenho WHERE AvaliacaoId = @avaliacaoId');
+        const [perguntasEspecificasResult] = await pool.query(
+            'SELECT COUNT(*) as Total FROM PerguntasAvaliacaoDesempenho WHERE AvaliacaoId = ?',
+            [avaliacaoId]
+        );
 
-        const temPerguntasEspecificas = perguntasEspecificasResult.recordset[0].Total > 0;
+        const temPerguntasEspecificas = perguntasEspecificasResult[0].Total > 0;
 
         if (temPerguntasEspecificas) {
             // Buscar respostas com perguntas específicas da avaliação
-            const result = await pool.request()
-                .input('avaliacaoId', sql.Int, avaliacaoId)
-                .query(`
-                    SELECT r.*, p.Texto as PerguntaTexto, p.Tipo as TipoPergunta
-                    FROM RespostasDesempenho r 
-                    INNER JOIN PerguntasAvaliacaoDesempenho p ON r.PerguntaId = p.Id
-                    WHERE r.AvaliacaoId = @avaliacaoId
-                    ORDER BY p.Ordem
-                `);
-            return result.recordset;
+            const [result] = await pool.query(`
+                SELECT r.*, p.Texto as PerguntaTexto, p.Tipo as TipoPergunta
+                FROM RespostasDesempenho r 
+                INNER JOIN PerguntasAvaliacaoDesempenho p ON r.PerguntaId = p.Id
+                WHERE r.AvaliacaoId = ?
+                ORDER BY p.Ordem
+            `, [avaliacaoId]);
+            return result;
         }
 
         return [];
@@ -529,118 +470,94 @@ class AvaliacoesDesempenhoManager {
         const pool = await getDatabasePool();
         const { texto, tipo, opcoes, obrigatoria, ordem, escalaMinima, escalaMaxima, escalaLabelMinima, escalaLabelMaxima } = dados;
 
-        const result = await pool.request()
-            .input('texto', sql.NVarChar, texto)
-            .input('tipo', sql.VarChar, tipo)
-            .input('opcoes', sql.NVarChar, opcoes ? JSON.stringify(opcoes) : null)
-            .input('obrigatoria', sql.Bit, obrigatoria ? 1 : 0)
-            .input('ordem', sql.Int, ordem || 0)
-            .input('escalaMinima', sql.Int, escalaMinima)
-            .input('escalaMaxima', sql.Int, escalaMaxima)
-            .input('escalaLabelMinima', sql.NVarChar, escalaLabelMinima)
-            .input('escalaLabelMaxima', sql.NVarChar, escalaLabelMaxima)
-            .query(`INSERT INTO PerguntasDesempenho (Texto, Tipo, Opcoes, Obrigatoria, Ordem, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima, Ativo) OUTPUT INSERTED.Id VALUES (@texto, @tipo, @opcoes, @obrigatoria, @ordem, @escalaMinima, @escalaMaxima, @escalaLabelMinima, @escalaLabelMaxima, 1)`);
+        const [result] = await pool.query(
+            `INSERT INTO PerguntasDesempenho (Texto, Tipo, Opcoes, Obrigatoria, Ordem, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima, Ativo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            [texto, tipo, opcoes ? JSON.stringify(opcoes) : null, obrigatoria ? 1 : 0, ordem || 0, escalaMinima, escalaMaxima, escalaLabelMinima, escalaLabelMaxima]
+        );
 
-        return result.recordset[0].Id;
+        return result.insertId;
     }
 
     static async atualizarPergunta(id, dados) {
         const pool = await getDatabasePool();
         const { texto, tipo, opcoes, obrigatoria, ordem, escalaMinima, escalaMaxima, escalaLabelMinima, escalaLabelMaxima } = dados;
 
-        await pool.request()
-            .input('id', sql.Int, id)
-            .input('texto', sql.NVarChar, texto)
-            .input('tipo', sql.VarChar, tipo)
-            .input('opcoes', sql.NVarChar, opcoes ? JSON.stringify(opcoes) : null)
-            .input('obrigatoria', sql.Bit, obrigatoria ? 1 : 0)
-            .input('ordem', sql.Int, ordem)
-            .input('escalaMinima', sql.Int, escalaMinima)
-            .input('escalaMaxima', sql.Int, escalaMaxima)
-            .input('escalaLabelMinima', sql.NVarChar, escalaLabelMinima)
-            .input('escalaLabelMaxima', sql.NVarChar, escalaLabelMaxima)
-            .query(`UPDATE PerguntasDesempenho SET Texto = @texto, Tipo = @tipo, Opcoes = @opcoes, Obrigatoria = @obrigatoria, Ordem = @ordem, EscalaMinima = @escalaMinima, EscalaMaxima = @escalaMaxima, EscalaLabelMinima = @escalaLabelMinima, EscalaLabelMaxima = @escalaLabelMaxima WHERE Id = @id`);
+        await pool.query(
+            `UPDATE PerguntasDesempenho SET Texto = ?, Tipo = ?, Opcoes = ?, Obrigatoria = ?, Ordem = ?, EscalaMinima = ?, EscalaMaxima = ?, EscalaLabelMinima = ?, EscalaLabelMaxima = ? WHERE Id = ?`,
+            [texto, tipo, opcoes ? JSON.stringify(opcoes) : null, obrigatoria ? 1 : 0, ordem, escalaMinima, escalaMaxima, escalaLabelMinima, escalaLabelMaxima, id]
+        );
     }
 
     static async excluirPergunta(id) {
         const pool = await getDatabasePool();
-        await pool.request()
-            .input('id', sql.Int, id)
-            .query('UPDATE PerguntasDesempenho SET Ativo = 0 WHERE Id = @id');
+        await pool.query('UPDATE PerguntasDesempenho SET Ativo = 0 WHERE Id = ?', [id]);
     }
 
     static async reordenarPerguntas(itens) {
         const pool = await getDatabasePool();
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
 
         try {
             for (const item of itens) {
-                await transaction.request()
-                    .input('id', sql.Int, item.id)
-                    .input('ordem', sql.Int, item.ordem)
-                    .query('UPDATE PerguntasDesempenho SET Ordem = @ordem WHERE Id = @id');
+                await connection.query('UPDATE PerguntasDesempenho SET Ordem = ? WHERE Id = ?', [item.ordem, item.id]);
             }
-            await transaction.commit();
+            await connection.commit();
+            connection.release();
         } catch (error) {
-            await transaction.rollback();
+            await connection.rollback();
+            connection.release();
             throw error;
         }
     }
 
     static async buscarCalibragem(avaliacaoId) {
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('avaliacaoId', sql.Int, avaliacaoId)
-            .query('SELECT * FROM CalibragemConsideracoes WHERE AvaliacaoId = @avaliacaoId ORDER BY DataCriacao DESC');
-        return result.recordset[0] || null;
+        const [result] = await pool.query(
+            'SELECT * FROM CalibragemConsideracoes WHERE AvaliacaoId = ? ORDER BY DataCriacao DESC',
+            [avaliacaoId]
+        );
+        return result[0] || null;
     }
 
     static async buscarFeedback(avaliacaoId) {
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('avaliacaoId', sql.Int, avaliacaoId)
-            .query('SELECT * FROM FeedbacksAvaliacaoDesempenho WHERE AvaliacaoId = @avaliacaoId ORDER BY DataCriacao DESC');
-        return result.recordset[0] || null;
+        const [result] = await pool.query(
+            'SELECT * FROM FeedbacksAvaliacaoDesempenho WHERE AvaliacaoId = ? ORDER BY DataCriacao DESC',
+            [avaliacaoId]
+        );
+        return result[0] || null;
     }
 
     static async buscarPDIs(avaliacaoId) {
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('avaliacaoId', sql.Int, avaliacaoId)
-            .query('SELECT * FROM PDIs WHERE AvaliacaoId = @avaliacaoId ORDER BY DataCriacao');
-        return result.recordset;
+        const [result] = await pool.query('SELECT * FROM PDIs WHERE AvaliacaoId = ? ORDER BY DataCriacao', [avaliacaoId]);
+        return result;
     }
 
     static async atualizarStatusPDI(pdiId, novoStatus) {
         const pool = await getDatabasePool();
-        await pool.request()
-            .input('id', sql.Int, pdiId)
-            .input('status', sql.NVarChar, novoStatus)
-            .query('UPDATE PDIs SET Status = @status, DataAtualizacao = GETDATE() WHERE Id = @id');
+        await pool.query('UPDATE PDIs SET Status = ?, DataAtualizacao = NOW() WHERE Id = ?', [novoStatus, pdiId]);
     }
 
     static async listarPerguntasPorAvaliacao(avaliacaoId) {
         const pool = await getDatabasePool();
 
-        const result = await pool.request()
-            .input('avaliacaoId', sql.Int, avaliacaoId)
-            .query(`
-                SELECT p.*
-                FROM PerguntasAvaliacaoDesempenho p
-                WHERE p.AvaliacaoId = @avaliacaoId
-                ORDER BY p.Ordem
-            `);
-
-        const perguntas = result.recordset;
+        const [perguntas] = await pool.query(`
+            SELECT p.*
+            FROM PerguntasAvaliacaoDesempenho p
+            WHERE p.AvaliacaoId = ?
+            ORDER BY p.Ordem
+        `, [avaliacaoId]);
 
         if (perguntas.length > 0) {
             for (const p of perguntas) {
                 if (p.Tipo === 'multipla_escolha') {
-                    const opcoesResult = await pool.request()
-                        .input('perguntaId', sql.Int, p.Id)
-                        .query('SELECT TextoOpcao FROM OpcoesPerguntasAvaliacaoDesempenho WHERE PerguntaId = @perguntaId ORDER BY Ordem');
-                    p.Opcoes = opcoesResult.recordset.map(o => ({ TextoOpcao: o.TextoOpcao }));
+                    const [opcoesResult] = await pool.query(
+                        'SELECT TextoOpcao FROM OpcoesPerguntasAvaliacaoDesempenho WHERE PerguntaId = ? ORDER BY Ordem',
+                        [p.Id]
+                    );
+                    p.Opcoes = opcoesResult.map(o => ({ TextoOpcao: o.TextoOpcao }));
                 } else {
                     p.Opcoes = [];
                 }

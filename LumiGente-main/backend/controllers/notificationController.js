@@ -1,4 +1,3 @@
-const sql = require('mssql');
 const { getDatabasePool } = require('../config/db');
 
 /**
@@ -7,19 +6,26 @@ const { getDatabasePool } = require('../config/db');
 async function ensureNotificationsTableExists() {
     try {
         const pool = await getDatabasePool();
-        await pool.request().query(`
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Notifications' AND xtype='U')
-            CREATE TABLE Notifications (
-                Id INT IDENTITY(1,1) PRIMARY KEY,
-                UserId INT NOT NULL,
-                Type VARCHAR(50) NOT NULL,
-                Message NVARCHAR(500) NOT NULL,
-                RelatedId INT NULL,
-                IsRead BIT DEFAULT 0,
-                CreatedAt DATETIME DEFAULT GETDATE(),
-                FOREIGN KEY (UserId) REFERENCES Users(Id)
-            )
+        
+        const [tableExists] = await pool.execute(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Notifications'
         `);
+        
+        if (tableExists[0].existe === 0) {
+            await pool.execute(`
+                CREATE TABLE Notifications (
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
+                    UserId INT NOT NULL,
+                    Type VARCHAR(50) NOT NULL,
+                    Message VARCHAR(500) NOT NULL,
+                    RelatedId INT NULL,
+                    IsRead TINYINT(1) DEFAULT 0,
+                    CreatedAt DATETIME DEFAULT NOW(),
+                    FOREIGN KEY (UserId) REFERENCES Users(Id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            `);
+        }
     } catch (error) {
         console.error('Erro ao criar tabela Notifications:', error);
     }
@@ -31,15 +37,10 @@ async function ensureNotificationsTableExists() {
 async function createNotification(userId, type, message, relatedId = null) {
     try {
         const pool = await getDatabasePool();
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('type', sql.VarChar, type)
-            .input('message', sql.NVarChar, message)
-            .input('relatedId', sql.Int, relatedId)
-            .query(`
-                INSERT INTO Notifications (UserId, Type, Message, RelatedId)
-                VALUES (@userId, @type, @message, @relatedId)
-            `);
+        await pool.execute(`
+            INSERT INTO Notifications (UserId, Type, Message, RelatedId)
+            VALUES (?, ?, ?, ?)
+        `, [userId, type, message, relatedId]);
     } catch (error) {
         console.error('Erro ao criar notificação:', error);
     }
@@ -54,15 +55,14 @@ exports.getNotifications = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
 
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT TOP 20 * FROM Notifications
-                WHERE UserId = @userId AND IsRead = 0
-                ORDER BY CreatedAt DESC
-            `);
+        const [result] = await pool.execute(`
+            SELECT * FROM Notifications
+            WHERE UserId = ? AND IsRead = 0
+            ORDER BY CreatedAt DESC
+            LIMIT 20
+        `, [userId]);
 
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar notificações:', error);
         res.status(500).json({ error: 'Erro ao buscar notificações.' });
@@ -78,14 +78,11 @@ exports.markAsRead = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
 
-        await pool.request()
-            .input('id', sql.Int, id)
-            .input('userId', sql.Int, userId)
-            .query(`
-                UPDATE Notifications
-                SET IsRead = 1
-                WHERE Id = @id AND UserId = @userId
-            `);
+        await pool.execute(`
+            UPDATE Notifications
+            SET IsRead = 1
+            WHERE Id = ? AND UserId = ?
+        `, [id, userId]);
 
         res.json({ success: true });
     } catch (error) {
@@ -102,13 +99,11 @@ exports.markAllAsRead = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
 
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                UPDATE Notifications
-                SET IsRead = 1
-                WHERE UserId = @userId AND IsRead = 0
-            `);
+        await pool.execute(`
+            UPDATE Notifications
+            SET IsRead = 1
+            WHERE UserId = ? AND IsRead = 0
+        `, [userId]);
 
         res.json({ success: true });
     } catch (error) {
@@ -126,14 +121,12 @@ exports.getUnreadCount = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
 
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT COUNT(*) as count FROM Notifications
-                WHERE UserId = @userId AND IsRead = 0
-            `);
+        const [result] = await pool.execute(`
+            SELECT COUNT(*) as count FROM Notifications
+            WHERE UserId = ? AND IsRead = 0
+        `, [userId]);
 
-        res.json({ count: result.recordset[0].count });
+        res.json({ count: result[0].count });
     } catch (error) {
         console.error('Erro ao buscar contagem de notificações:', error);
         res.status(500).json({ error: 'Erro ao buscar contagem.' });

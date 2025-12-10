@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db'); // Importa a função de conexão centralizada
 const HierarchyManager = require('./hierarchyManager'); // Importa o HierarchyManager já refatorado
 const { getRoleIdByName } = require('./rolesSetup'); // Importa função para buscar RoleId dinamicamente
@@ -74,14 +74,15 @@ class SincronizadorDadosExternos {
      * Sincroniza os dados dos funcionários entre a base de dados externa e a da aplicação.
      */
     async syncFuncionarios() {
-        // Na nova arquitetura, getDatabasePool retorna a conexão para o mesmo servidor,
+        // Na nova arquitetura, getDatabasePool retorna a conexão para o MySQL,
         // onde ambas as tabelas (Users e TAB_HIST_SRA) devem estar acessíveis.
         const pool = await getDatabasePool();
 
         try {
             // 1. Busca os registros de funcionários mais relevantes da fonte externa (TAB_HIST_SRA)
-            const funcionariosExternosResult = await pool.request().query(`
-                WITH FuncionarioPriorizado AS (
+            const [funcionariosExternos] = await pool.query(`
+                SELECT CPF, MATRICULA, DEPARTAMENTO, FILIAL, NOME, STATUS_GERAL
+                FROM (
                     SELECT *,
                         ROW_NUMBER() OVER (
                             PARTITION BY CPF
@@ -93,13 +94,10 @@ class SincronizadorDadosExternos {
                         ) as rn
                     FROM TAB_HIST_SRA
                     WHERE CPF IS NOT NULL AND CPF != ''
-                )
-                SELECT CPF, MATRICULA, DEPARTAMENTO, FILIAL, NOME, STATUS_GERAL
-                FROM FuncionarioPriorizado
+                ) AS FuncionarioPriorizado
                 WHERE rn = 1 AND STATUS_GERAL = 'ATIVO'
-                ORDER BY CPF;
+                ORDER BY CPF
             `);
-            const funcionariosExternos = funcionariosExternosResult.recordset;
 
             let criados = 0, atualizados = 0, erros = 0;
 
@@ -107,10 +105,13 @@ class SincronizadorDadosExternos {
             for (let i = 0; i < funcionariosExternos.length; i++) {
                 const func = funcionariosExternos[i];
                 try {
-                    const userCheck = await pool.request().input('cpf', sql.VarChar, func.CPF).query('SELECT Id, Matricula, Departamento, NomeCompleto, Filial, IsActive, IsExternal FROM Users WHERE CPF = @cpf');
+                    const [userCheck] = await pool.query(
+                        'SELECT Id, Matricula, Departamento, NomeCompleto, Filial, IsActive, IsExternal FROM Users WHERE CPF = ?',
+                        [func.CPF]
+                    );
 
-                    if (userCheck.recordset.length > 0) { // Usuário já existe
-                        const userAtual = userCheck.recordset[0];
+                    if (userCheck.length > 0) { // Usuário já existe
+                        const userAtual = userCheck[0];
                         // Não atualiza usuários externos - eles são gerenciados separadamente
                         if (userAtual.IsExternal === 1 || userAtual.IsExternal === true) {
                             continue; // Pula usuários externos
@@ -131,14 +132,14 @@ class SincronizadorDadosExternos {
 
             // 3. Inativa usuários que estão na base da aplicação, mas não estão mais ativos na base externa
             // IMPORTANTE: Não inativa usuários externos (IsExternal = 1)
-            const inativacaoResult = await pool.request().query(`
+            const [inativacaoResult] = await pool.query(`
                 UPDATE Users 
-                SET IsActive = 0, updated_at = GETDATE()
+                SET IsActive = 0, updated_at = NOW()
                 WHERE IsActive = 1
                   AND (IsExternal = 0 OR IsExternal IS NULL)
                   AND CPF NOT IN (SELECT CPF FROM TAB_HIST_SRA WHERE STATUS_GERAL = 'ATIVO' AND CPF IS NOT NULL)
             `);
-            const inativados = inativacaoResult.rowsAffected[0];
+            const inativados = inativacaoResult.affectedRows;
 
             if (erros > 0) console.log(`   Erros: ${erros}`);
 
@@ -164,20 +165,10 @@ class SincronizadorDadosExternos {
             throw new Error('Role "public" não encontrado no sistema. Execute o servidor para garantir que os roles sejam criados.');
         }
 
-        await pool.request()
-            .input('cpf', sql.VarChar, func.CPF)
-            .input('matricula', sql.VarChar, func.MATRICULA)
-            .input('nome', sql.VarChar, primeiroNome)
-            .input('nomeCompleto', sql.VarChar, func.NOME)
-            .input('departamento', sql.VarChar, departamentoFinal)
-            .input('descricaoDepartamento', sql.VarChar, descricaoDepartamento)
-            .input('filial', sql.VarChar, func.FILIAL)
-            .input('hierarchyPath', sql.VarChar, path)
-            .input('roleId', sql.Int, publicRoleId)
-            .query(`
-                INSERT INTO Users (CPF, UserName, Matricula, nome, NomeCompleto, Departamento, DescricaoDepartamento, Filial, HierarchyPath, RoleId, IsActive, FirstLogin, created_at, updated_at) 
-                VALUES (@cpf, @cpf, @matricula, @nome, @nomeCompleto, @departamento, @descricaoDepartamento, @filial, @hierarchyPath, @roleId, 1, 1, GETDATE(), GETDATE())
-            `);
+        await pool.query(`
+            INSERT INTO Users (CPF, UserName, Matricula, nome, NomeCompleto, Departamento, DescricaoDepartamento, Filial, HierarchyPath, RoleId, IsActive, FirstLogin, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())
+        `, [func.CPF, func.CPF, func.MATRICULA, primeiroNome, func.NOME, departamentoFinal, descricaoDepartamento, func.FILIAL, path, publicRoleId]);
     }
 
     /**
@@ -190,23 +181,14 @@ class SincronizadorDadosExternos {
         const descricaoDepartamento = await this.buscarDescricaoDepartamento(pool, departamentoCodigo || departamentoFinal);
         const primeiroNome = func.NOME ? func.NOME.split(' ')[0] : func.MATRICULA;
 
-        await pool.request()
-            .input('cpf', sql.VarChar, func.CPF)
-            .input('matricula', sql.VarChar, func.MATRICULA)
-            .input('nome', sql.VarChar, primeiroNome)
-            .input('nomeCompleto', sql.VarChar, func.NOME)
-            .input('departamento', sql.VarChar, departamentoFinal)
-            .input('descricaoDepartamento', sql.VarChar, descricaoDepartamento)
-            .input('filial', sql.VarChar, func.FILIAL)
-            .input('hierarchyPath', sql.VarChar, path)
-            .query(`
-                UPDATE Users 
-                SET 
-                    Matricula = @matricula, nome = @nome, NomeCompleto = @nomeCompleto,
-                    Departamento = @departamento, DescricaoDepartamento = @descricaoDepartamento,
-                    Filial = @filial, HierarchyPath = @hierarchyPath, IsActive = 1, updated_at = GETDATE()
-                WHERE CPF = @cpf
-            `);
+        await pool.query(`
+            UPDATE Users 
+            SET 
+                Matricula = ?, nome = ?, NomeCompleto = ?,
+                Departamento = ?, DescricaoDepartamento = ?,
+                Filial = ?, HierarchyPath = ?, IsActive = 1, updated_at = NOW()
+            WHERE CPF = ?
+        `, [func.MATRICULA, primeiroNome, func.NOME, departamentoFinal, descricaoDepartamento, func.FILIAL, path, func.CPF]);
     }
 
     /**
@@ -216,11 +198,15 @@ class SincronizadorDadosExternos {
         if (!departamento || departamento.trim() === '') return 'Não definido';
 
         try {
-            const result = await pool.request()
-                .input('departamento', sql.VarChar, departamento)
-                .query(`SELECT TOP 1 DESCRICAO_ATUAL FROM HIERARQUIA_CC WHERE TRIM(DEPTO_ATUAL) = TRIM(@departamento) ORDER BY LEN(HIERARQUIA_COMPLETA) DESC`);
+            const [result] = await pool.query(`
+                SELECT DESCRICAO_ATUAL 
+                FROM HIERARQUIA_CC 
+                WHERE TRIM(DEPTO_ATUAL) = TRIM(?) 
+                ORDER BY LENGTH(HIERARQUIA_COMPLETA) DESC
+                LIMIT 1
+            `, [departamento]);
 
-            return result.recordset.length > 0 ? (result.recordset[0].DESCRICAO_ATUAL || departamento) : departamento;
+            return result.length > 0 ? (result[0].DESCRICAO_ATUAL || departamento) : departamento;
         } catch (error) {
             console.error(`   - Erro ao buscar descrição do depto ${departamento}:`, error.message);
             return departamento; // Retorna o código como fallback

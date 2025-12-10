@@ -1687,19 +1687,43 @@
                                             style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0; pointer-events:none;">
                                         <div class="form-group">
                                             <label class="form-label">Senha Atual</label>
-                                            <input type="password" class="form-input" id="current-password-input"
-                                                placeholder="Digite sua senha atual" autocomplete="current-password">
+                                            <div class="input-wrapper" style="position: relative;">
+                                                <input type="password" class="form-input" id="current-password-input"
+                                                    placeholder="Digite sua senha atual" autocomplete="current-password" style="padding-right: 45px;">
+                                                <button type="button" class="password-toggle" data-target="current-password-input" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280; display: flex; align-items: center; justify-content: center; transition: color 0.3s ease;" onmouseover="this.style.color='#0d556d';" onmouseout="this.style.color='#6b7280';">
+                                                    <svg id="current-password-inputIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                                        <circle cx="12" cy="12" r="3"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label class="form-label">Nova Senha</label>
-                                            <input type="password" class="form-input" id="new-password-input-initial"
-                                                placeholder="Digite a nova senha" autocomplete="new-password">
+                                            <div class="input-wrapper" style="position: relative;">
+                                                <input type="password" class="form-input" id="new-password-input-initial"
+                                                    placeholder="Digite a nova senha" autocomplete="new-password" style="padding-right: 45px;">
+                                                <button type="button" class="password-toggle" data-target="new-password-input-initial" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280; display: flex; align-items: center; justify-content: center; transition: color 0.3s ease;" onmouseover="this.style.color='#0d556d';" onmouseout="this.style.color='#6b7280';">
+                                                    <svg id="new-password-input-initialIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                                        <circle cx="12" cy="12" r="3"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label class="form-label">Confirmar Nova Senha</label>
-                                            <input type="password" class="form-input"
-                                                id="confirm-password-input-initial" placeholder="Confirme a nova senha"
-                                                autocomplete="new-password">
+                                            <div class="input-wrapper" style="position: relative;">
+                                                <input type="password" class="form-input"
+                                                    id="confirm-password-input-initial" placeholder="Confirme a nova senha"
+                                                    autocomplete="new-password" style="padding-right: 45px;">
+                                                <button type="button" class="password-toggle" data-target="confirm-password-input-initial" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280; display: flex; align-items: center; justify-content: center; transition: color 0.3s ease;" onmouseover="this.style.color='#0d556d';" onmouseout="this.style.color='#6b7280';">
+                                                    <svg id="confirm-password-input-initialIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                                        <circle cx="12" cy="12" r="3"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="password-requirements">
                                             <h5>
@@ -3558,9 +3582,18 @@
                 <div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input"
                         id="create-email" placeholder="email@exemplo.com"><span id="create-email-error"
                         style="color: #dc2626; font-size: 12px; display: none;"></span></div>
-                <div class="form-group"><label class="form-label">Senha *</label><input type="password"
-                        class="form-input" id="create-senha" placeholder="Mínimo 6 caracteres"><span
-                        id="create-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Senha *</label>
+                    <div class="input-wrapper" style="position: relative;">
+                        <input type="password" class="form-input" id="create-senha" placeholder="Mínimo 6 caracteres" style="padding-right: 45px;">
+                        <button type="button" class="password-toggle" data-target="create-senha" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280; display: flex; align-items: center; justify-content: center; transition: color 0.3s ease;" onmouseover="this.style.color='#0d556d';" onmouseout="this.style.color='#6b7280';">
+                            <svg id="create-senhaIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <span id="create-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span>
+                </div>
                 <div class="form-group"><label
                         style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox"
                             id="create-is-active" checked
@@ -3598,9 +3631,18 @@
                 <div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input"
                         id="edit-email" placeholder="email@exemplo.com"><span id="edit-email-error"
                         style="color: #dc2626; font-size: 12px; display: none;"></span></div>
-                <div class="form-group"><label class="form-label">Nova Senha (deixe em branco para manter)</label><input
-                        type="password" class="form-input" id="edit-senha" placeholder="Mínimo 6 caracteres"><span
-                        id="edit-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span></div>
+                <div class="form-group"><label class="form-label">Nova Senha (deixe em branco para manter)</label>
+                    <div class="input-wrapper" style="position: relative;">
+                        <input type="password" class="form-input" id="edit-senha" placeholder="Mínimo 6 caracteres" style="padding-right: 45px;">
+                        <button type="button" class="password-toggle" data-target="edit-senha" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280; display: flex; align-items: center; justify-content: center; transition: color 0.3s ease;" onmouseover="this.style.color='#0d556d';" onmouseout="this.style.color='#6b7280';">
+                            <svg id="edit-senhaIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <span id="edit-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span>
+                </div>
                 <div class="modal-actions"><button type="button" class="btn btn-amber" id="edit-submit-btn"
                         onclick="ExternalUsers.handleEdit()" style="width: 100%;"><svg width="18" height="18"
                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -3673,6 +3715,7 @@
     <script src="../js/modules/shared/state.js"></script>
     <script src="../js/modules/shared/api.js"></script>
     <script src="../js/modules/core/auth.js"></script>
+    <script src="../js/modules/auth/password-toggle.js"></script>
     <script src="../js/modules/shared/notifications-manager.js"></script>
     <script src="../js/modules/shared/email-popup.js"></script>
     <script src="../js/modules/shared/event-handlers.js"></script>

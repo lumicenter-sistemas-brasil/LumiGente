@@ -1,4 +1,3 @@
-const sql = require('mssql');
 const { getDatabasePool } = require('../config/db');
 const { getHierarchyLevel } = require('../utils/hierarchyHelper');
 const { hasFullAccess, isManager, checkHRTDPermissions, canCreateSurveys, canAccessHistory } = require('../utils/permissionsHelper');
@@ -48,21 +47,19 @@ exports.requireManagerAccess = async (req, res, next) => {
             });
         }
         
-        const isManagerCheck = await pool.request()
-            .input('userMatricula', sql.VarChar, user.matricula)
-            .query(`
-                SELECT COUNT(*) as count
-                FROM HIERARQUIA_CC
-                WHERE RESPONSAVEL_ATUAL = @userMatricula
-                   OR NIVEL_1_MATRICULA_RESP = @userMatricula
-                   OR NIVEL_2_MATRICULA_RESP = @userMatricula
-                   OR NIVEL_3_MATRICULA_RESP = @userMatricula
-                   OR NIVEL_4_MATRICULA_RESP = @userMatricula
-            `);
+        const [rows] = await pool.execute(`
+            SELECT COUNT(*) as count
+            FROM HIERARQUIA_CC
+            WHERE RESPONSAVEL_ATUAL = ?
+               OR NIVEL_1_MATRICULA_RESP = ?
+               OR NIVEL_2_MATRICULA_RESP = ?
+               OR NIVEL_3_MATRICULA_RESP = ?
+               OR NIVEL_4_MATRICULA_RESP = ?
+        `, [user.matricula, user.matricula, user.matricula, user.matricula, user.matricula]);
 
-        const isManager = isManagerCheck.recordset[0].count > 0;
+        const isManagerCheck = rows[0].count > 0;
 
-        if (isManager) {
+        if (isManagerCheck) {
             return next();
         }
 
@@ -265,14 +262,12 @@ exports.canAccessUser = async (req, res, next) => {
         }
 
         const pool = await getDatabasePool();
-        const targetUserResult = await pool.request()
-            .input('userId', sql.Int, targetUserId)
-            .query(`
-                SELECT HierarchyPath, Departamento, Matricula
-                FROM Users WHERE Id = @userId
-            `);
+        const [rows] = await pool.execute(
+            `SELECT HierarchyPath, Departamento, Matricula FROM Users WHERE Id = ?`,
+            [targetUserId]
+        );
 
-        const targetUser = targetUserResult.recordset[0];
+        const targetUser = rows[0];
         if (!targetUser) {
             return res.status(404).json({ error: 'Usuário alvo não encontrado' });
         }

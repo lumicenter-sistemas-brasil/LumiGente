@@ -151,12 +151,12 @@ const Analytics = {
         const participationRate = totalUsers > 0 ? Math.round((activeMoodUsers / totalUsers) * 100) : 0;
 
         container.innerHTML = `
-            <div class="metrics-dashboard">
-                ${this.renderMetricCard('users', '#2563eb', 'Usuários Ativos', this.formatNumber(totalUsers), `${this.formatNumber(activeFeedbackUsers + activeMoodUsers + activeRecognitionUsers)} colaboradores engajados`)}
-                ${this.renderMetricCard('activity', '#10b981', 'Participação em Humor', `${participationRate}%`, `${this.formatNumber(activeMoodUsers)} usuários registraram humor no período`)}
-                ${this.renderMetricCard('message-circle', '#3b82f6', 'Feedbacks (30 dias)', this.formatNumber(totalFeedbacks), `${this.formatNumber(activeFeedbackUsers)} usuários enviaram feedbacks`)}
-                ${this.renderMetricCard('sparkles', '#8b5cf6', 'Reconhecimentos (30 dias)', this.formatNumber(totalRecognitions), `${this.formatNumber(activeRecognitionUsers)} usuários reconheceram colegas`)}
-                ${this.renderMetricCard('clipboard-list', '#f59e0b', 'Registros de Humor', this.formatNumber(totalMoodEntries), 'Total de entradas no período')}
+            <div class="mood-metrics-grid">
+                ${this.renderMoodMetricCard('Total de Usuários', this.formatNumber(totalUsers), `Total de ${this.formatNumber(activeFeedbackUsers + activeMoodUsers + activeRecognitionUsers)} colaboradores ativos no sistema`, 'users')}
+                ${this.renderMoodMetricCard('Taxa de Participação em Humor', `${participationRate}%`, `${this.formatNumber(activeMoodUsers)} de ${this.formatNumber(totalUsers)} usuários registraram humor nos últimos 30 dias`, 'participation')}
+                ${this.renderMoodMetricCard('Feedbacks Enviados', this.formatNumber(totalFeedbacks), `${this.formatNumber(activeFeedbackUsers)} colaboradores enviaram feedbacks nos últimos 30 dias`, 'feedbacks')}
+                ${this.renderMoodMetricCard('Reconhecimentos Enviados', this.formatNumber(totalRecognitions), `${this.formatNumber(activeRecognitionUsers)} colaboradores reconheceram colegas nos últimos 30 dias`, 'recognitions')}
+                ${this.renderMoodMetricCard('Total de Registros de Humor', this.formatNumber(totalMoodEntries), `Total de registros de humor realizados nos últimos 30 dias`, 'entries')}
             </div>
         `;
     },
@@ -169,14 +169,30 @@ const Analytics = {
         const promoters = satisfaction.promotores_perc != null ? `${Math.round(satisfaction.promotores_perc)}%` : '0%';
         const detractors = satisfaction.detratores_perc != null ? `${Math.round(satisfaction.detratores_perc)}%` : '0%';
         const neutral = 100 - (parseFloat(promoters) || 0) - (parseFloat(detractors) || 0);
-        const recent = (trends.weekly || []).slice(-4);
 
         container.innerHTML = `
-            <div class="metrics-dashboard">
-                ${this.renderMetricCard('smile', '#f59e0b', 'Humor Médio', averageScore, 'Média ponderada dos últimos 30 dias')}
-                ${this.renderMetricCard('thumbs-up', '#10b981', 'Promotores', promoters, 'Colaboradores com humor positivo')}
-                ${this.renderMetricCard('thumbs-down', '#ef4444', 'Detratores', detractors, 'Colaboradores com humor negativo')}
-                ${this.renderMetricCard('minus-circle', '#6b7280', 'Neutros', `${Math.max(0, Math.round(neutral))}%`, 'Humor estável ou neutro')}
+            <div class="mood-metrics-grid">
+                ${this.renderMoodMetricCard('Média de Humor', averageScore, 'Média geral de humor dos colaboradores nos últimos 30 dias', 'average')}
+                ${this.renderMoodMetricCard('Humor Positivo', promoters, 'Percentual entre os colaboradores que registraram humor: quantos registraram humor positivo (feliz ou muito feliz)', 'promoters')}
+                ${this.renderMoodMetricCard('Humor Negativo', detractors, 'Percentual entre os colaboradores que registraram humor: quantos registraram humor negativo (triste ou muito triste)', 'detractors')}
+                ${this.renderMoodMetricCard('Humor Neutro', `${Math.max(0, Math.round(neutral))}%`, 'Percentual entre os colaboradores que registraram humor: quantos registraram humor neutro', 'neutral')}
+            </div>
+        `;
+        
+        // Atualizar ícones do Lucide
+        if (typeof lucide !== 'undefined') {
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+    },
+
+    renderMoodMetricCard(title, value, description, type) {
+        return `
+            <div class="mood-metric-card mood-metric-${type}">
+                <div class="mood-metric-header">
+                    <span class="mood-metric-title">${this.escapeHtml(title)}</span>
+                </div>
+                <div class="mood-metric-value">${this.escapeHtml(String(value))}</div>
+                <div class="mood-metric-description">${this.escapeHtml(description)}</div>
             </div>
         `;
     },
@@ -204,13 +220,17 @@ const Analytics = {
 
         const ativos = performance.objetivos_ativos || 0;
         const concluidos = performance.objetivos_concluidos || 0;
-        const emAndamento = performance.objetivos_em_andamento || 0;
+        const aguardandoAprovacao = performance.objetivos_aguardando_aprovacao || 0;
+        const agendados = performance.objetivos_agendados || 0;
+        const expirados = performance.objetivos_expirados || 0;
 
         container.innerHTML = `
-            <div class="metrics-dashboard">
-                ${this.renderMetricCard('target', '#10b981', 'Objetivos Ativos', this.formatNumber(ativos), 'Objetivos atualmente em andamento')}
-                ${this.renderMetricCard('check-circle', '#2563eb', 'Objetivos Concluídos', this.formatNumber(concluidos), 'Concluídos nos últimos 30 dias')}
-                ${this.renderMetricCard('pause-circle', '#f59e0b', 'Aguardando/Pausados', this.formatNumber(emAndamento), 'Objetivos aguardando ação')}
+            <div class="mood-metrics-grid">
+                ${this.renderMoodMetricCard('Objetivos em Andamento', this.formatNumber(ativos), 'Objetivos atualmente ativos e sendo executados', 'active')}
+                ${this.renderMoodMetricCard('Objetivos Concluídos', this.formatNumber(concluidos), 'Objetivos finalizados com sucesso nos últimos 30 dias', 'completed')}
+                ${this.renderMoodMetricCard('Aguardando Validação do Gestor', this.formatNumber(aguardandoAprovacao), 'Objetivos que estão aguardando aprovação ou validação do gestor responsável', 'pending')}
+                ${this.renderMoodMetricCard('Objetivos Agendados', this.formatNumber(agendados), 'Objetivos que ainda não iniciaram (data de início no futuro)', 'scheduled')}
+                ${this.renderMoodMetricCard('Objetivos Expirados', this.formatNumber(expirados), 'Objetivos que ultrapassaram a data de conclusão sem serem finalizados', 'expired')}
             </div>
         `;
     },

@@ -1,40 +1,58 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const dbConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    server: process.env.DB_SERVER,
     database: process.env.DB_NAME,
-    driver: process.env.DB_DRIVER,
-    options: {
-        encrypt: process.env.DB_ENCRYPT === 'true',
-        trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
-        enableArithAbort: process.env.DB_ENABLE_ARITH_ABORT === 'true',
-        requestTimeout: parseInt(process.env.DB_REQUEST_TIMEOUT) || 30000,
-        connectionTimeout: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 30000,
-        pool: {
-            max: parseInt(process.env.DB_POOL_MAX) || 10,
-            min: parseInt(process.env.DB_POOL_MIN) || 0,
-            idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT) || 30000
-        }
-    }
+    waitForConnections: true,
+    connectionLimit: parseInt(process.env.DB_POOL_MAX) || 10,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    connectTimeout: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 30000,
+    // Configurações de charset para suportar caracteres especiais (acentos, emojis)
+    charset: 'utf8mb4'
 };
 
 let pool;
 
+/**
+ * Obtém o pool de conexões do MySQL.
+ * Equivalente ao getDatabasePool() do SQL Server.
+ * @returns {Promise<mysql.Pool>}
+ */
 async function getDatabasePool() {
     if (pool) {
         return pool;
     }
     try {
-        pool = await sql.connect(dbConfig);
-        console.log('[DB] Conectado ao SQL Server');
+        pool = mysql.createPool(dbConfig);
+        
+        // Testar a conexão
+        const connection = await pool.getConnection();
+        console.log('[DB] Conectado ao MySQL');
+        connection.release();
+        
         return pool;
     } catch (error) {
-        console.error('❌ Erro ao conectar ao SQL Server:', error);
-        process.exit(1); // Encerrar a aplicação se não conseguir conectar
+        console.error('❌ Erro ao conectar ao MySQL:', error);
+        process.exit(1);
     }
 }
 
-module.exports = { getDatabasePool };
+/**
+ * Fecha o pool de conexões.
+ * Útil para testes e shutdown graceful.
+ */
+async function closePool() {
+    if (pool) {
+        await pool.end();
+        pool = null;
+        console.log('[DB] Pool de conexões MySQL encerrado');
+    }
+}
+
+module.exports = { getDatabasePool, closePool };

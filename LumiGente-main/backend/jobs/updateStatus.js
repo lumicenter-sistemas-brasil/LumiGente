@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 
 /**
@@ -11,24 +11,24 @@ async function updatePesquisaStatus() {
         const pool = await getDatabasePool();
         // --- NOVO SISTEMA DE PESQUISAS (Tabela Surveys) ---
         // Ativar pesquisas agendadas
-        const ativarResult = await pool.request().query(`
+        const [ativarResult] = await pool.query(`
             UPDATE Surveys 
             SET status = 'Ativa'
-            WHERE status = 'Agendada' AND data_inicio IS NOT NULL AND data_inicio <= GETDATE()
+            WHERE status = 'Agendada' AND data_inicio IS NOT NULL AND data_inicio <= NOW()
         `);
 
         // Encerrar pesquisas ativas que passaram do prazo
-        const encerrarResult = await pool.request().query(`
+        const [encerrarResult] = await pool.query(`
             UPDATE Surveys 
             SET status = 'Encerrada'
-            WHERE status = 'Ativa' AND data_encerramento IS NOT NULL AND data_encerramento <= GETDATE()
+            WHERE status = 'Ativa' AND data_encerramento IS NOT NULL AND data_encerramento <= NOW()
         `);
         
-        console.log(`[JOB][PESQUISAS] Status ok - Ativadas: ${ativarResult.rowsAffected[0]}, Encerradas: ${encerrarResult.rowsAffected[0]}`);
+        console.log(`[JOB][PESQUISAS] Status ok - Ativadas: ${ativarResult.affectedRows}, Encerradas: ${encerrarResult.affectedRows}`);
 
     } catch (error) {
         // Ignora erro se a tabela 'Surveys' não existir ainda
-        if (!error.message.toLowerCase().includes("invalid object name 'surveys'")) {
+        if (!error.message || !error.message.toLowerCase().includes("surveys")) {
             console.error('❌ [JOB] Erro ao atualizar status das pesquisas:', error);
         }
     }
@@ -48,26 +48,26 @@ async function updateObjetivoStatus() {
         let totalExpirados = 0;
 
         // Ativar objetivos agendados quando a data de início é alcançada
-        const ativarResult = await pool.request().query(`
+        const [ativarResult] = await pool.query(`
             UPDATE Objetivos 
-            SET status = 'Ativo', updated_at = GETDATE()
-            WHERE status = 'Agendado' AND data_inicio IS NOT NULL AND data_inicio <= CAST(GETDATE() AS DATE)
+            SET status = 'Ativo', updated_at = NOW()
+            WHERE status = 'Agendado' AND data_inicio IS NOT NULL AND data_inicio <= DATE(NOW())
         `);
         
-        totalAtivados = ativarResult.rowsAffected[0];
+        totalAtivados = ativarResult.affectedRows;
 
         // Expirar objetivos ativos quando a data de fim é ultrapassada
-        const expirarResult = await pool.request().query(`
+        const [expirarResult] = await pool.query(`
             UPDATE Objetivos 
-            SET status = 'Expirado', updated_at = GETDATE()
-            WHERE status = 'Ativo' AND data_fim IS NOT NULL AND data_fim < CAST(GETDATE() AS DATE)
+            SET status = 'Expirado', updated_at = NOW()
+            WHERE status = 'Ativo' AND data_fim IS NOT NULL AND data_fim < DATE(NOW())
         `);
 
-        totalExpirados = expirarResult.rowsAffected[0];
+        totalExpirados = expirarResult.affectedRows;
         console.log(`[JOB][OBJETIVOS] Status ok - Ativados: ${totalAtivados}, Expirados: ${totalExpirados}`);
     } catch (error) {
         // Ignora erro se a tabela 'Objetivos' não existir ainda
-        if (!error.message.toLowerCase().includes("invalid object name 'objetivos'")) {
+        if (!error.message || !error.message.toLowerCase().includes("objetivos")) {
             console.error('❌ [JOB] Erro ao atualizar status dos objetivos:', error);
         }
     }
@@ -82,30 +82,29 @@ async function updatePDIStatus() {
     try {
         const pool = await getDatabasePool();
         // Descobrir qual coluna de prazo existe (PrazoConclusao ou PrazoRevisao)
-        const prazoCheck = await pool.request().query(`
-            SELECT CASE WHEN EXISTS (
-                SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
-            ) THEN 1 ELSE 0 END AS hasPrazoConclusao
+        const [prazoCheck] = await pool.query(`
+            SELECT COUNT(*) AS hasPrazoConclusao
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
         `);
 
-        const hasPrazoConclusao = prazoCheck.recordset[0]?.hasPrazoConclusao === 1;
+        const hasPrazoConclusao = prazoCheck[0]?.hasPrazoConclusao > 0;
         const prazoColumn = hasPrazoConclusao ? 'PrazoConclusao' : 'PrazoRevisao';
 
         // Expirar PDIs cujo prazo passou e que não estão concluídos/cancelados/expirados
-        const expirarResult = await pool.request().query(`
+        const [expirarResult] = await pool.query(`
             UPDATE PDIs
-            SET Status = 'Expirado', DataAtualizacao = GETDATE()
+            SET Status = 'Expirado', DataAtualizacao = NOW()
             WHERE ${prazoColumn} IS NOT NULL
-              AND CAST(${prazoColumn} AS DATE) < CAST(GETDATE() AS DATE)
+              AND DATE(${prazoColumn}) < DATE(NOW())
               AND Status NOT IN ('Concluído', 'Cancelado', 'Expirado')
         `);
 
-        const totalExpirados = expirarResult.rowsAffected[0];
+        const totalExpirados = expirarResult.affectedRows;
 
         console.log(`[JOB][PDI] Status ok - Expirados: ${totalExpirados}`);
     } catch (error) {
-        if (!error.message.toLowerCase().includes("invalid object name 'pdis'")) {
+        if (!error.message || !error.message.toLowerCase().includes("pdis")) {
             console.error('❌ [JOB] Erro ao atualizar status dos PDIs:', error);
         }
     }

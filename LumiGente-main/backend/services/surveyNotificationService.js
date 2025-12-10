@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 const { createNotification } = require('../controllers/notificationController');
 const emailService = require('./emailService');
@@ -10,24 +10,20 @@ async function notifyNewSurvey(surveyId) {
     try {
         const pool = await getDatabasePool();
         
-        const surveyResult = await pool.request()
-            .input('surveyId', sql.Int, surveyId)
-            .query('SELECT titulo, descricao FROM Surveys WHERE Id = @surveyId');
+        const [surveyResult] = await pool.query('SELECT titulo, descricao FROM Surveys WHERE Id = ?', [surveyId]);
         
-        if (surveyResult.recordset.length === 0) return;
+        if (surveyResult.length === 0) return;
         
-        const survey = surveyResult.recordset[0];
+        const survey = surveyResult[0];
         
-        const usersResult = await pool.request()
-            .input('surveyId', sql.Int, surveyId)
-            .query(`
-                SELECT DISTINCT u.Id, u.Email, u.NomeCompleto
-                FROM SurveyEligibleUsers seu
-                INNER JOIN Users u ON seu.user_id = u.Id
-                WHERE seu.survey_id = @surveyId AND u.IsActive = 1
-            `);
+        const [usersResult] = await pool.query(`
+            SELECT DISTINCT u.Id, u.Email, u.NomeCompleto
+            FROM SurveyEligibleUsers seu
+            INNER JOIN Users u ON seu.user_id = u.Id
+            WHERE seu.survey_id = ? AND u.IsActive = 1
+        `, [surveyId]);
         
-        for (const user of usersResult.recordset) {
+        for (const user of usersResult) {
             // Notificação no sistema
             await createNotification(
                 user.Id,
@@ -50,7 +46,7 @@ async function notifyNewSurvey(surveyId) {
             }
         }
         
-        console.log(`✅ Notificações enviadas para ${usersResult.recordset.length} usuários sobre nova pesquisa`);
+        console.log(`✅ Notificações enviadas para ${usersResult.length} usuários sobre nova pesquisa`);
     } catch (error) {
         console.error('Erro ao notificar nova pesquisa:', error);
     }
@@ -63,29 +59,25 @@ async function notifySurveyClosingSoon(surveyId) {
     try {
         const pool = await getDatabasePool();
         
-        const surveyResult = await pool.request()
-            .input('surveyId', sql.Int, surveyId)
-            .query('SELECT titulo, data_encerramento FROM Surveys WHERE Id = @surveyId');
+        const [surveyResult] = await pool.query('SELECT titulo, data_encerramento FROM Surveys WHERE Id = ?', [surveyId]);
         
-        if (surveyResult.recordset.length === 0) return;
+        if (surveyResult.length === 0) return;
         
-        const survey = surveyResult.recordset[0];
+        const survey = surveyResult[0];
         
-        const usersResult = await pool.request()
-            .input('surveyId', sql.Int, surveyId)
-            .query(`
-                SELECT DISTINCT u.Id, u.Email, u.NomeCompleto
-                FROM SurveyEligibleUsers seu
-                INNER JOIN Users u ON seu.user_id = u.Id
-                WHERE seu.survey_id = @surveyId 
-                  AND u.IsActive = 1
-                  AND NOT EXISTS (
-                      SELECT 1 FROM SurveyResponses sr 
-                      WHERE sr.survey_id = @surveyId AND sr.user_id = u.Id
-                  )
-            `);
+        const [usersResult] = await pool.query(`
+            SELECT DISTINCT u.Id, u.Email, u.NomeCompleto
+            FROM SurveyEligibleUsers seu
+            INNER JOIN Users u ON seu.user_id = u.Id
+            WHERE seu.survey_id = ? 
+              AND u.IsActive = 1
+              AND NOT EXISTS (
+                  SELECT 1 FROM SurveyResponses sr 
+                  WHERE sr.survey_id = ? AND sr.user_id = u.Id
+              )
+        `, [surveyId, surveyId]);
         
-        for (const user of usersResult.recordset) {
+        for (const user of usersResult) {
             await createNotification(
                 user.Id,
                 'SURVEY_CLOSING',
@@ -106,7 +98,7 @@ async function notifySurveyClosingSoon(surveyId) {
             }
         }
         
-        console.log(`✅ Notificações de encerramento enviadas para ${usersResult.recordset.length} usuários`);
+        console.log(`✅ Notificações de encerramento enviadas para ${usersResult.length} usuários`);
     } catch (error) {
         console.error('Erro ao notificar pesquisa encerrando:', error);
     }
@@ -119,29 +111,25 @@ async function notifySurveyClosed(surveyId) {
     try {
         const pool = await getDatabasePool();
         
-        const surveyResult = await pool.request()
-            .input('surveyId', sql.Int, surveyId)
-            .query('SELECT titulo FROM Surveys WHERE Id = @surveyId');
+        const [surveyResult] = await pool.query('SELECT titulo FROM Surveys WHERE Id = ?', [surveyId]);
         
-        if (surveyResult.recordset.length === 0) return;
+        if (surveyResult.length === 0) return;
         
-        const survey = surveyResult.recordset[0];
+        const survey = surveyResult[0];
         
-        const usersResult = await pool.request()
-            .input('surveyId', sql.Int, surveyId)
-            .query(`
-                SELECT DISTINCT u.Id, u.Email, u.NomeCompleto
-                FROM SurveyEligibleUsers seu
-                INNER JOIN Users u ON seu.user_id = u.Id
-                WHERE seu.survey_id = @surveyId 
-                  AND u.IsActive = 1
-                  AND NOT EXISTS (
-                      SELECT 1 FROM SurveyResponses sr 
-                      WHERE sr.survey_id = @surveyId AND sr.user_id = u.Id
-                  )
-            `);
+        const [usersResult] = await pool.query(`
+            SELECT DISTINCT u.Id, u.Email, u.NomeCompleto
+            FROM SurveyEligibleUsers seu
+            INNER JOIN Users u ON seu.user_id = u.Id
+            WHERE seu.survey_id = ? 
+              AND u.IsActive = 1
+              AND NOT EXISTS (
+                  SELECT 1 FROM SurveyResponses sr 
+                  WHERE sr.survey_id = ? AND sr.user_id = u.Id
+              )
+        `, [surveyId, surveyId]);
         
-        for (const user of usersResult.recordset) {
+        for (const user of usersResult) {
             await createNotification(
                 user.Id,
                 'SURVEY_CLOSED',
@@ -150,7 +138,7 @@ async function notifySurveyClosed(surveyId) {
             );
         }
         
-        console.log(`✅ Notificações de encerramento enviadas para ${usersResult.recordset.length} usuários`);
+        console.log(`✅ Notificações de encerramento enviadas para ${usersResult.length} usuários`);
     } catch (error) {
         console.error('Erro ao notificar pesquisa encerrada:', error);
     }

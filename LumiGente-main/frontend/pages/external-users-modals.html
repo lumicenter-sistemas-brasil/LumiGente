@@ -37,7 +37,15 @@
             </div>
             <div class="form-group">
                 <label class="form-label">Senha *</label>
-                <input type="password" class="form-input" id="create-senha" placeholder="Mínimo 6 caracteres">
+                <div class="input-wrapper" style="position: relative;">
+                    <input type="password" class="form-input" id="create-senha" placeholder="Mínimo 6 caracteres" style="padding-right: 45px;">
+                    <button type="button" class="password-toggle" data-target="create-senha" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280; display: flex; align-items: center; justify-content: center; transition: color 0.3s ease;" onmouseover="this.style.color='#0d556d';" onmouseout="this.style.color='#6b7280';">
+                        <svg id="create-senhaIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
                 <span id="create-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span>
             </div>
             <div class="form-group">
@@ -94,7 +102,15 @@
             </div>
             <div class="form-group">
                 <label class="form-label">Nova Senha (deixe em branco para manter)</label>
-                <input type="password" class="form-input" id="edit-senha" placeholder="Mínimo 6 caracteres">
+                <div class="input-wrapper" style="position: relative;">
+                    <input type="password" class="form-input" id="edit-senha" placeholder="Mínimo 6 caracteres" style="padding-right: 45px;">
+                    <button type="button" class="password-toggle" data-target="edit-senha" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280; display: flex; align-items: center; justify-content: center; transition: color 0.3s ease;" onmouseover="this.style.color='#0d556d';" onmouseout="this.style.color='#6b7280';">
+                        <svg id="edit-senhaIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
                 <span id="edit-senha-error" style="color: #dc2626; font-size: 12px; display: none;"></span>
             </div>
             <div class="modal-actions">

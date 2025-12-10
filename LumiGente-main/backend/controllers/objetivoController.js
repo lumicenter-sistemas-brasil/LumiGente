@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 const HierarchyManager = require('../services/hierarchyManager');
 const { hasFullAccess } = require('../utils/permissionsHelper');
@@ -15,47 +15,42 @@ const { createNotification, ensureNotificationsTableExists } = require('./notifi
  */
 async function ensureObjetivosTablesExist(pool) {
     try {
-        await pool.request().query(`
-            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Objetivos')
-            BEGIN
-                CREATE TABLE Objetivos (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
-                    titulo NVARCHAR(255) NOT NULL,
-                    descricao NTEXT,
-                    criado_por INT NOT NULL,
-                    data_inicio DATE NOT NULL,
-                    data_fim DATE NOT NULL,
-                    status NVARCHAR(50) DEFAULT 'Ativo',
-                    progresso DECIMAL(5,2) DEFAULT 0,
-                    created_at DATETIME DEFAULT GETDATE(),
-                    updated_at DATETIME DEFAULT GETDATE()
-                );
-            END;
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS Objetivos (
+                Id INT AUTO_INCREMENT PRIMARY KEY,
+                titulo VARCHAR(255) NOT NULL,
+                descricao TEXT,
+                criado_por INT NOT NULL,
+                data_inicio DATE NOT NULL,
+                data_fim DATE NOT NULL,
+                status VARCHAR(50) DEFAULT 'Ativo',
+                progresso DECIMAL(5,2) DEFAULT 0,
+                created_at DATETIME DEFAULT NOW(),
+                updated_at DATETIME DEFAULT NOW()
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `);
 
-            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ObjetivoCheckins')
-            BEGIN
-                CREATE TABLE ObjetivoCheckins (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
-                    objetivo_id INT NOT NULL,
-                    user_id INT NOT NULL,
-                    progresso DECIMAL(5,2) NOT NULL,
-                    observacoes NTEXT,
-                    created_at DATETIME DEFAULT GETDATE(),
-                    FOREIGN KEY (objetivo_id) REFERENCES Objetivos(Id) ON DELETE CASCADE
-                );
-            END;
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ObjetivoCheckins (
+                Id INT AUTO_INCREMENT PRIMARY KEY,
+                objetivo_id INT NOT NULL,
+                user_id INT NOT NULL,
+                progresso DECIMAL(5,2) NOT NULL,
+                observacoes TEXT,
+                created_at DATETIME DEFAULT NOW(),
+                FOREIGN KEY (objetivo_id) REFERENCES Objetivos(Id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `);
 
-            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ObjetivoResponsaveis')
-            BEGIN
-                CREATE TABLE ObjetivoResponsaveis (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
-                    objetivo_id INT NOT NULL,
-                    responsavel_id INT NOT NULL,
-                    created_at DATETIME DEFAULT GETDATE(),
-                    FOREIGN KEY (objetivo_id) REFERENCES Objetivos(Id) ON DELETE CASCADE,
-                    UNIQUE (objetivo_id, responsavel_id)
-                );
-            END;
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ObjetivoResponsaveis (
+                Id INT AUTO_INCREMENT PRIMARY KEY,
+                objetivo_id INT NOT NULL,
+                responsavel_id INT NOT NULL,
+                created_at DATETIME DEFAULT NOW(),
+                FOREIGN KEY (objetivo_id) REFERENCES Objetivos(Id) ON DELETE CASCADE,
+                UNIQUE KEY unique_objetivo_responsavel (objetivo_id, responsavel_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         `);
     } catch (error) {
         console.error('Erro ao verificar/criar tabelas de objetivos:', error.message);
@@ -66,31 +61,27 @@ async function ensureObjetivosTablesExist(pool) {
 async function addPointsToUser(pool, userId, action, points) {
     try {
         const today = new Date().toISOString().split('T')[0];
-        const alreadyEarnedResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('action', sql.VarChar, action)
-            .input('today', sql.Date, today)
-            .query(`SELECT COUNT(*) as count FROM Gamification WHERE UserId = @userId AND Action = @action AND CAST(CreatedAt AS DATE) = @today`);
+        const [alreadyEarnedResult] = await pool.query(
+            `SELECT COUNT(*) as count FROM Gamification WHERE UserId = ? AND Action = ? AND DATE(CreatedAt) = ?`,
+            [userId, action, today]
+        );
 
-        if (alreadyEarnedResult.recordset[0].count > 0) {
+        if (alreadyEarnedResult[0].count > 0) {
             return { success: false, points: 0, message: 'Pontos já concedidos hoje.' };
         }
         
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('action', sql.VarChar, action)
-            .input('points', sql.Int, points)
-            .query(`INSERT INTO Gamification (UserId, Action, Points) VALUES (@userId, @action, @points)`);
+        await pool.query(
+            `INSERT INTO Gamification (UserId, Action, Points) VALUES (?, ?, ?)`,
+            [userId, action, points]
+        );
 
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('points', sql.Int, points)
-            .query(`
-                IF EXISTS (SELECT 1 FROM UserPoints WHERE UserId = @userId)
-                    UPDATE UserPoints SET TotalPoints = TotalPoints + @points WHERE UserId = @userId
-                ELSE
-                    INSERT INTO UserPoints (UserId, TotalPoints) VALUES (@userId, @points)
-            `);
+        // Verificar se existe e atualizar ou inserir
+        const [existingPoints] = await pool.query(`SELECT 1 FROM UserPoints WHERE UserId = ?`, [userId]);
+        if (existingPoints.length > 0) {
+            await pool.query(`UPDATE UserPoints SET TotalPoints = TotalPoints + ? WHERE UserId = ?`, [points, userId]);
+        } else {
+            await pool.query(`INSERT INTO UserPoints (UserId, TotalPoints) VALUES (?, ?)`, [userId, points]);
+        }
             
         return { success: true, points, message: `+${points} pontos!` };
     } catch (err) {
@@ -102,10 +93,11 @@ async function addPointsToUser(pool, userId, action, points) {
 async function getUserBasicInfo(pool, userId) {
     if (!userId) return null;
     try {
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`SELECT Id, NomeCompleto, Email FROM Users WHERE Id = @userId`);
-        return result.recordset[0] || null;
+        const [result] = await pool.query(
+            `SELECT Id, NomeCompleto, Email FROM Users WHERE Id = ?`,
+            [userId]
+        );
+        return result[0] || null;
     } catch (error) {
         console.error('⚠️ Erro ao buscar dados básicos do usuário:', error.message);
         return null;
@@ -114,15 +106,13 @@ async function getUserBasicInfo(pool, userId) {
 
 async function getObjetivoResponsaveis(pool, objetivoId) {
     try {
-        const result = await pool.request()
-            .input('objetivoId', sql.Int, objetivoId)
-            .query(`
-                SELECT DISTINCT orr.responsavel_id AS Id, u.NomeCompleto, u.Email
-                FROM ObjetivoResponsaveis orr
-                JOIN Users u ON u.Id = orr.responsavel_id
-                WHERE orr.objetivo_id = @objetivoId
-            `);
-        return result.recordset || [];
+        const [result] = await pool.query(`
+            SELECT DISTINCT orr.responsavel_id AS Id, u.NomeCompleto, u.Email
+            FROM ObjetivoResponsaveis orr
+            JOIN Users u ON u.Id = orr.responsavel_id
+            WHERE orr.objetivo_id = ?
+        `, [objetivoId]);
+        return result || [];
     } catch (error) {
         console.error('⚠️ Erro ao buscar responsáveis do objetivo:', error.message);
         return [];
@@ -151,54 +141,35 @@ exports.createObjetivo = async (req, res) => {
 
         const status = new Date(data_inicio) > new Date() ? 'Agendado' : 'Ativo';
 
-        const objetivoResult = await pool.request()
-            .input('titulo', sql.NVarChar, titulo)
-            .input('descricao', sql.NText, descricao || '')
-            .input('data_inicio', sql.Date, data_inicio)
-            .input('data_fim', sql.Date, data_fim)
-            .input('criado_por', sql.Int, criado_por)
-            .input('status', sql.NVarChar, status)
-            .query(`
-                INSERT INTO Objetivos (titulo, descricao, data_inicio, data_fim, criado_por, status)
-                OUTPUT INSERTED.Id
-                VALUES (@titulo, @descricao, @data_inicio, @data_fim, @criado_por, @status)
-            `);
+        const [objetivoResult] = await pool.query(`
+            INSERT INTO Objetivos (titulo, descricao, data_inicio, data_fim, criado_por, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [titulo, descricao || '', data_inicio, data_fim, criado_por, status]);
         
-        const objetivoId = objetivoResult.recordset[0].Id;
+        const objetivoId = objetivoResult.insertId;
 
         for (const responsavelId of responsaveis_ids) {
-            await pool.request()
-                .input('objetivoId', sql.Int, objetivoId)
-                .input('responsavelId', sql.Int, responsavelId)
-                .query(`INSERT INTO ObjetivoResponsaveis (objetivo_id, responsavel_id) VALUES (@objetivoId, @responsavelId)`);
+            await pool.query(
+                `INSERT INTO ObjetivoResponsaveis (objetivo_id, responsavel_id) VALUES (?, ?)`,
+                [objetivoId, responsavelId]
+            );
         }
 
         // Enviar emails de notificação para todos os responsáveis
         try {
-            const creatorResult = await pool.request()
-                .input('userId', sql.Int, criado_por)
-                .query('SELECT NomeCompleto FROM Users WHERE Id = @userId');
-            const creatorName = creatorResult.recordset[0]?.NomeCompleto || 'Gestor';
+            const [creatorResult] = await pool.query('SELECT NomeCompleto FROM Users WHERE Id = ?', [criado_por]);
+            const creatorName = creatorResult[0]?.NomeCompleto || 'Gestor';
 
             const dataInicioFormatada = new Date(data_inicio).toLocaleDateString('pt-BR');
             const dataFimFormatada = new Date(data_fim).toLocaleDateString('pt-BR');
 
             if (responsaveis_ids.length > 0) {
-                const responsavelRequest = pool.request();
-                const paramPlaceholders = responsaveis_ids.map((_, index) => {
-                    const paramName = `responsavelId${index}`;
-                    responsavelRequest.input(paramName, sql.Int, responsaveis_ids[index]);
-                    return `@${paramName}`;
-                });
-
-                const responsaveisQuery = `
-                    SELECT Id, NomeCompleto, Email
-                    FROM Users
-                    WHERE Id IN (${paramPlaceholders.join(', ')})
-                `;
-
-                const responsaveisResult = await responsavelRequest.query(responsaveisQuery);
-                const responsaveis = (responsaveisResult.recordset || []).filter(resp => resp.Id !== criado_por);
+                const placeholders = responsaveis_ids.map(() => '?').join(', ');
+                const [responsaveisResult] = await pool.query(
+                    `SELECT Id, NomeCompleto, Email FROM Users WHERE Id IN (${placeholders})`,
+                    responsaveis_ids
+                );
+                const responsaveis = (responsaveisResult || []).filter(resp => resp.Id !== criado_por);
 
                 if (responsaveis.length === 0) {
                     console.log('ℹ️ Nenhum responsável adicional para notificar por email.');
@@ -266,43 +237,39 @@ exports.getObjetivos = async (req, res) => {
         }
 
         // Verificar se as tabelas realmente existem
-        const tableCheck = await pool.request().query(`
+        const [tableCheck] = await pool.query(`
             SELECT TABLE_NAME 
             FROM INFORMATION_SCHEMA.TABLES 
-            WHERE TABLE_NAME IN ('Objetivos', 'ObjetivoResponsaveis', 'ObjetivoCheckins')
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('Objetivos', 'ObjetivoResponsaveis', 'ObjetivoCheckins')
         `);
         
-        if (tableCheck.recordset.length < 3) {
+        if (tableCheck.length < 3) {
             console.warn('⚠️ Tabelas de objetivos não estão completas, retornando array vazio.');
             return res.json([]);
         }
 
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT o.Id, o.titulo, o.descricao, o.criado_por, o.data_inicio, o.data_fim, o.status, o.progresso, o.created_at, o.updated_at,
-                       c.NomeCompleto as criador_nome
-                FROM Objetivos o
-                LEFT JOIN Users c ON o.criado_por = c.Id
-                WHERE o.Id IN (
-                    SELECT DISTINCT objetivo_id FROM ObjetivoResponsaveis WHERE responsavel_id = @userId
-                    UNION
-                    SELECT Id FROM Objetivos WHERE criado_por = @userId
-                )
-                ORDER BY o.created_at DESC
-            `);
+        const [result] = await pool.query(`
+            SELECT o.Id, o.titulo, o.descricao, o.criado_por, o.data_inicio, o.data_fim, o.status, o.progresso, o.created_at, o.updated_at,
+                   c.NomeCompleto as criador_nome
+            FROM Objetivos o
+            LEFT JOIN Users c ON o.criado_por = c.Id
+            WHERE o.Id IN (
+                SELECT DISTINCT objetivo_id FROM ObjetivoResponsaveis WHERE responsavel_id = ?
+                UNION
+                SELECT Id FROM Objetivos WHERE criado_por = ?
+            )
+            ORDER BY o.created_at DESC
+        `, [userId, userId]);
 
-        for (let objetivo of result.recordset) {
+        for (let objetivo of result) {
             try {
-                const responsaveisResult = await pool.request()
-                    .input('objetivoId', sql.Int, objetivo.Id)
-                    .query(`
-                        SELECT u.Id, u.NomeCompleto, u.DescricaoDepartamento, u.Departamento, orr.responsavel_id
-                        FROM Users u JOIN ObjetivoResponsaveis orr ON u.Id = orr.responsavel_id
-                        WHERE orr.objetivo_id = @objetivoId
-                        ORDER BY orr.Id
-                    `);
-                objetivo.shared_responsaveis = responsaveisResult.recordset.map(r => ({
+                const [responsaveisResult] = await pool.query(`
+                    SELECT u.Id, u.NomeCompleto, u.DescricaoDepartamento, u.Departamento, orr.responsavel_id
+                    FROM Users u JOIN ObjetivoResponsaveis orr ON u.Id = orr.responsavel_id
+                    WHERE orr.objetivo_id = ?
+                    ORDER BY orr.Id
+                `, [objetivo.Id]);
+                objetivo.shared_responsaveis = responsaveisResult.map(r => ({
                     Id: r.Id,
                     NomeCompleto: r.NomeCompleto,
                     nome_responsavel: r.NomeCompleto,
@@ -311,10 +278,10 @@ exports.getObjetivos = async (req, res) => {
                 }));
                 
                 // Adicionar responsavel_nome para compatibilidade com o frontend
-                if (responsaveisResult.recordset.length > 0) {
-                    objetivo.responsavel_nome = responsaveisResult.recordset[0].NomeCompleto;
-                    objetivo.responsavel_descricao_departamento = responsaveisResult.recordset[0].DescricaoDepartamento || responsaveisResult.recordset[0].Departamento || null;
-                    objetivo.responsavel_id = responsaveisResult.recordset[0].responsavel_id;
+                if (responsaveisResult.length > 0) {
+                    objetivo.responsavel_nome = responsaveisResult[0].NomeCompleto;
+                    objetivo.responsavel_descricao_departamento = responsaveisResult[0].DescricaoDepartamento || responsaveisResult[0].Departamento || null;
+                    objetivo.responsavel_id = responsaveisResult[0].responsavel_id;
                 }
             } catch (error) {
                 console.log('⚠️ Erro ao buscar responsáveis do objetivo', objetivo.Id, ':', error.message);
@@ -322,16 +289,16 @@ exports.getObjetivos = async (req, res) => {
             }
         }
 
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('❌ Erro ao buscar objetivos:', error);
         
-        if (error.message.includes("Invalid object name")) {
+        if (error.message && error.message.includes("doesn't exist")) {
             console.warn("⚠️ Tabelas de objetivos não encontradas, retornando array vazio.");
             return res.json([]);
         }
         
-        if (error.message.includes("Invalid column name")) {
+        if (error.message && error.message.includes("Unknown column")) {
             console.warn("⚠️ Colunas de objetivos não encontradas, retornando array vazio.");
             return res.json([]);
         }
@@ -348,41 +315,37 @@ exports.getObjetivoById = async (req, res) => {
         const { id } = req.params;
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .input('objetivoId', sql.Int, id)
-            .query(`
-                SELECT o.*, c.NomeCompleto as criador_nome
-                FROM Objetivos o
-                LEFT JOIN Users c ON o.criado_por = c.Id
-                WHERE o.Id = @objetivoId
-            `);
+        const [result] = await pool.query(`
+            SELECT o.*, c.NomeCompleto as criador_nome
+            FROM Objetivos o
+            LEFT JOIN Users c ON o.criado_por = c.Id
+            WHERE o.Id = ?
+        `, [id]);
         
-        if (result.recordset.length === 0) {
+        if (result.length === 0) {
             return res.status(404).json({ error: 'Objetivo não encontrado' });
         }
         
-        const objetivo = result.recordset[0];
+        const objetivo = result[0];
 
         // Buscar responsáveis compartilhados
-        const responsaveisResult = await pool.request()
-            .input('objetivoId', sql.Int, objetivo.Id)
-            .query(`
-                SELECT u.Id, u.NomeCompleto, u.DescricaoDepartamento, u.Departamento
-                FROM Users u
-                JOIN ObjetivoResponsaveis orr ON u.Id = orr.responsavel_id
-                WHERE orr.objetivo_id = @objetivoId
-                ORDER BY orr.Id
-            `);
-        objetivo.shared_responsaveis = responsaveisResult.recordset.map(resp => ({
+        const [responsaveisResult] = await pool.query(`
+            SELECT u.Id, u.NomeCompleto, u.DescricaoDepartamento, u.Departamento
+            FROM Users u
+            JOIN ObjetivoResponsaveis orr ON u.Id = orr.responsavel_id
+            WHERE orr.objetivo_id = ?
+            ORDER BY orr.Id
+        `, [objetivo.Id]);
+        objetivo.shared_responsaveis = responsaveisResult.map(resp => ({
             Id: resp.Id,
             NomeCompleto: resp.NomeCompleto,
             DescricaoDepartamento: resp.DescricaoDepartamento,
             Departamento: resp.Departamento
         }));
-        if (responsaveisResult.recordset.length > 0) {
-            objetivo.responsavel_nome = responsaveisResult.recordset[0].NomeCompleto;
-            objetivo.responsavel_descricao_departamento = responsaveisResult.recordset[0].DescricaoDepartamento || responsaveisResult.recordset[0].Departamento || null;
-            objetivo.responsavel_id = responsaveisResult.recordset[0].Id;
+        if (responsaveisResult.length > 0) {
+            objetivo.responsavel_nome = responsaveisResult[0].NomeCompleto;
+            objetivo.responsavel_descricao_departamento = responsaveisResult[0].DescricaoDepartamento || responsaveisResult[0].Departamento || null;
+            objetivo.responsavel_id = responsaveisResult[0].Id;
         }
 
         res.json(objetivo);
@@ -403,11 +366,11 @@ exports.updateObjetivo = async (req, res) => {
         const pool = await getDatabasePool();
         await ensureObjetivosTablesExist(pool);
 
-        const objetivoCheck = await pool.request().input('id', sql.Int, id).query(`SELECT criado_por, status FROM Objetivos WHERE Id = @id`);
-        if (objetivoCheck.recordset.length === 0) {
+        const [objetivoCheck] = await pool.query(`SELECT criado_por, status FROM Objetivos WHERE Id = ?`, [id]);
+        if (objetivoCheck.length === 0) {
             return res.status(404).json({ error: 'Objetivo não encontrado' });
         }
-        if (objetivoCheck.recordset[0].criado_por !== userId && !hasFullAccess(req.session.user)) {
+        if (objetivoCheck[0].criado_por !== userId && !hasFullAccess(req.session.user)) {
             return res.status(403).json({ error: 'Apenas o criador ou usuários com acesso total podem editar o objetivo.' });
         }
 
@@ -418,7 +381,7 @@ exports.updateObjetivo = async (req, res) => {
         const dataFimDate = new Date(data_fim);
         
         let novoStatus;
-        const statusAtual = objetivoCheck.recordset[0].status;
+        const statusAtual = objetivoCheck[0].status;
         
         // Manter status Concluído se já estiver concluído
         if (statusAtual === 'Concluído' || statusAtual === 'Aguardando Aprovação') {
@@ -431,19 +394,12 @@ exports.updateObjetivo = async (req, res) => {
             novoStatus = 'Ativo';
         }
 
-        await pool.request()
-            .input('id', sql.Int, id)
-            .input('titulo', sql.NVarChar, titulo)
-            .input('descricao', sql.NText, descricao)
-            .input('data_inicio', sql.Date, data_inicio)
-            .input('data_fim', sql.Date, data_fim)
-            .input('status', sql.NVarChar, novoStatus)
-            .query(`
-                UPDATE Objetivos SET 
-                titulo = @titulo, descricao = @descricao, data_inicio = @data_inicio,
-                data_fim = @data_fim, status = @status, updated_at = GETDATE()
-                WHERE Id = @id
-            `);
+        await pool.query(`
+            UPDATE Objetivos SET 
+            titulo = ?, descricao = ?, data_inicio = ?,
+            data_fim = ?, status = ?, updated_at = NOW()
+            WHERE Id = ?
+        `, [titulo, descricao, data_inicio, data_fim, novoStatus, id]);
 
         if (Array.isArray(responsaveis_ids)) {
             const normalizedIds = Array.from(
@@ -458,15 +414,13 @@ exports.updateObjetivo = async (req, res) => {
                 return res.status(400).json({ error: 'Informe ao menos um responsável válido.' });
             }
 
-            await pool.request()
-                .input('objetivoId', sql.Int, id)
-                .query(`DELETE FROM ObjetivoResponsaveis WHERE objetivo_id = @objetivoId`);
+            await pool.query(`DELETE FROM ObjetivoResponsaveis WHERE objetivo_id = ?`, [id]);
 
             for (const responsavelId of normalizedIds) {
-                await pool.request()
-                    .input('objetivoId', sql.Int, id)
-                    .input('responsavelId', sql.Int, responsavelId)
-                    .query(`INSERT INTO ObjetivoResponsaveis (objetivo_id, responsavel_id) VALUES (@objetivoId, @responsavelId)`);
+                await pool.query(
+                    `INSERT INTO ObjetivoResponsaveis (objetivo_id, responsavel_id) VALUES (?, ?)`,
+                    [id, responsavelId]
+                );
             }
         }
 
@@ -487,18 +441,18 @@ exports.deleteObjetivo = async (req, res) => {
         const pool = await getDatabasePool();
         await ensureObjetivosTablesExist(pool);
 
-        const objetivoCheck = await pool.request().input('id', sql.Int, id).query(`SELECT criado_por FROM Objetivos WHERE Id = @id`);
-        if (objetivoCheck.recordset.length === 0) {
+        const [objetivoCheck] = await pool.query(`SELECT criado_por FROM Objetivos WHERE Id = ?`, [id]);
+        if (objetivoCheck.length === 0) {
             return res.status(404).json({ error: 'Objetivo não encontrado' });
         }
-        const isCreator = objetivoCheck.recordset[0].criado_por === userId;
+        const isCreator = objetivoCheck[0].criado_por === userId;
         const canOverride = hasFullAccess(req.session.user);
         if (!isCreator && !canOverride) {
             return res.status(403).json({ error: 'Sem permissão para excluir: apenas o criador ou RH/T&D/Admin.' });
         }
         
         // A constraint ON DELETE CASCADE cuidará de excluir os check-ins e responsáveis
-        await pool.request().input('id', sql.Int, id).query('DELETE FROM Objetivos WHERE Id = @id');
+        await pool.query('DELETE FROM Objetivos WHERE Id = ?', [id]);
         
         res.json({ success: true, message: 'Objetivo excluído com sucesso' });
     } catch (error) {
@@ -523,24 +477,23 @@ exports.createCheckin = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Verificar quem criou o objetivo
-        const objetivoResult = await pool.request()
-            .input('objetivoId', sql.Int, objetivoId)
-            .query(`SELECT criado_por, titulo FROM Objetivos WHERE Id = @objetivoId`);
+        const [objetivoResult] = await pool.query(
+            `SELECT criado_por, titulo FROM Objetivos WHERE Id = ?`,
+            [objetivoId]
+        );
         
-        if (objetivoResult.recordset.length === 0) {
+        if (objetivoResult.length === 0) {
             return res.status(404).json({ error: 'Objetivo não encontrado' });
         }
         
-        const criadoPor = objetivoResult.recordset[0].criado_por;
-        const objetivoTitulo = objetivoResult.recordset[0].titulo || 'Objetivo';
+        const criadoPor = objetivoResult[0].criado_por;
+        const objetivoTitulo = objetivoResult[0].titulo || 'Objetivo';
         
         // Registrar check-in
-        await pool.request()
-            .input('objetivoId', sql.Int, objetivoId)
-            .input('userId', sql.Int, userId)
-            .input('progresso', sql.Decimal(5, 2), progresso)
-            .input('observacoes', sql.NText, observacoes || '')
-            .query(`INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes) VALUES (@objetivoId, @userId, @progresso, @observacoes)`);
+        await pool.query(
+            `INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes) VALUES (?, ?, ?, ?)`,
+            [objetivoId, userId, progresso, observacoes || '']
+        );
 
         let statusUpdateMessage = '';
         let needsApproval = false;
@@ -549,37 +502,32 @@ exports.createCheckin = async (req, res) => {
         if (progresso >= 100) {
             if (userId === criadoPor) {
                 // Se ele mesmo criou o objetivo, pode finalizar 100%
-                await pool.request()
-                    .input('objetivoId', sql.Int, objetivoId)
-                    .input('progresso', sql.Decimal(5, 2), progresso)
-                    .query(`UPDATE Objetivos SET status = 'Concluído', progresso = @progresso, updated_at = GETDATE() WHERE Id = @objetivoId`);
+                await pool.query(
+                    `UPDATE Objetivos SET status = 'Concluído', progresso = ?, updated_at = NOW() WHERE Id = ?`,
+                    [progresso, objetivoId]
+                );
                 statusUpdateMessage = 'Objetivo concluído!';
             } else {
                 // Se não foi ele que criou, precisa de aprovação do gestor
-                await pool.request()
-                    .input('objetivoId', sql.Int, objetivoId)
-                    .input('progresso', sql.Decimal(5, 2), progresso)
-                    .query(`UPDATE Objetivos SET status = 'Aguardando Aprovação', progresso = @progresso, updated_at = GETDATE() WHERE Id = @objetivoId`);
+                await pool.query(
+                    `UPDATE Objetivos SET status = 'Aguardando Aprovação', progresso = ?, updated_at = NOW() WHERE Id = ?`,
+                    [progresso, objetivoId]
+                );
                 statusUpdateMessage = 'Objetivo aguardando aprovação do gestor';
                 needsApproval = true;
 
                 const pendingMessage = '[SISTEMA] Check-in de 100% enviado para aprovação do gestor.';
-                await pool.request()
-                    .input('objetivoId', sql.Int, objetivoId)
-                    .input('userId', sql.Int, userId)
-                    .input('progresso', sql.Decimal(5, 2), progresso)
-                    .input('observacoes', sql.NText, pendingMessage)
-                    .query(`
-                        INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes)
-                        VALUES (@objetivoId, @userId, @progresso, @observacoes)
-                    `);
+                await pool.query(
+                    `INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes) VALUES (?, ?, ?, ?)`,
+                    [objetivoId, userId, progresso, pendingMessage]
+                );
             }
         } else {
             // Atualizar progresso normalmente
-            await pool.request()
-                .input('objetivoId', sql.Int, objetivoId)
-                .input('progresso', sql.Decimal(5, 2), progresso)
-                .query(`UPDATE Objetivos SET progresso = @progresso, updated_at = GETDATE() WHERE Id = @objetivoId`);
+            await pool.query(
+                `UPDATE Objetivos SET progresso = ?, updated_at = NOW() WHERE Id = ?`,
+                [progresso, objetivoId]
+            );
         }
 
         const pointsResult = await addPointsToUser(pool, userId, 'checkin_objetivo', 5);
@@ -657,17 +605,15 @@ exports.getCheckins = async (req, res) => {
         const { id } = req.params;
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .input('objetivoId', sql.Int, id)
-            .query(`
-                SELECT oc.*, u.NomeCompleto as user_name
-                FROM ObjetivoCheckins oc
-                JOIN Users u ON oc.user_id = u.Id
-                WHERE oc.objetivo_id = @objetivoId
-                ORDER BY oc.created_at DESC
-            `);
+        const [result] = await pool.query(`
+            SELECT oc.*, u.NomeCompleto as user_name
+            FROM ObjetivoCheckins oc
+            JOIN Users u ON oc.user_id = u.Id
+            WHERE oc.objetivo_id = ?
+            ORDER BY oc.created_at DESC
+        `, [id]);
         
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar check-ins:', error);
         res.status(500).json({ error: 'Erro ao buscar check-ins' });
@@ -684,10 +630,10 @@ exports.getFiltros = async (req, res) => {
         const user = req.session.user;
         const pool = await getDatabasePool();
 
-        const statusResult = await pool.request().query(`SELECT DISTINCT status FROM Objetivos WHERE status IS NOT NULL`);
+        const [statusResult] = await pool.query(`SELECT DISTINCT status FROM Objetivos WHERE status IS NOT NULL`);
         
         const responsePayload = {
-            status: statusResult.recordset.map(r => r.status),
+            status: statusResult.map(r => r.status),
             responsaveis: []
         };
 
@@ -765,10 +711,10 @@ exports.debugObjetivos = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Verificar se as tabelas existem
-        const tablesCheck = await pool.request().query(`
+        const [tablesCheck] = await pool.query(`
             SELECT TABLE_NAME 
             FROM INFORMATION_SCHEMA.TABLES 
-            WHERE TABLE_NAME IN ('Objetivos', 'ObjetivoResponsaveis', 'ObjetivoCheckins')
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('Objetivos', 'ObjetivoResponsaveis', 'ObjetivoCheckins')
         `);
         
         // Verificar hierarquia do usuário
@@ -781,43 +727,35 @@ exports.debugObjetivos = async (req, res) => {
         if (hierarchyLevel >= 3) {
             // Primeiro, verificar HIERARQUIA_CC
             try {
-                const hierarquiaResult = await pool.request()
-                    .input('userMatricula', sql.NVarChar, user.Matricula || '')
-                    .query(`
-                        SELECT DISTINCT MATRICULA_SUBORDINADO, MATRICULA_GESTOR
-                        FROM HIERARQUIA_CC 
-                        WHERE MATRICULA_GESTOR = @userMatricula
-                    `);
+                const [hierarquiaResult] = await pool.query(`
+                    SELECT DISTINCT MATRICULA_SUBORDINADO, MATRICULA_GESTOR
+                    FROM HIERARQUIA_CC 
+                    WHERE MATRICULA_GESTOR = ?
+                `, [user.Matricula || '']);
                 
-                console.log('🔍 Debug - Subordinados na HIERARQUIA_CC:', hierarquiaResult.recordset.length);
+                console.log('🔍 Debug - Subordinados na HIERARQUIA_CC:', hierarquiaResult.length);
                 hierarquiaInfo = {
                     gestor: user.Matricula,
-                    subordinados: hierarquiaResult.recordset.map(r => r.MATRICULA_SUBORDINADO)
+                    subordinados: hierarquiaResult.map(r => r.MATRICULA_SUBORDINADO)
                 };
                 
-                if (hierarquiaResult.recordset.length > 0) {
-                    const subordinadosMatriculas = hierarquiaResult.recordset.map(r => r.MATRICULA_SUBORDINADO);
+                if (hierarquiaResult.length > 0) {
+                    const subordinadosMatriculas = hierarquiaResult.map(r => r.MATRICULA_SUBORDINADO);
                     
                     // Buscar usuários pelas matrículas dos subordinados
-                    const placeholders = subordinadosMatriculas.map((_, index) => `@matricula${index}`).join(',');
-                    const equipeQuery = `
+                    const placeholders = subordinadosMatriculas.map(() => '?').join(',');
+                    const [equipeResult] = await pool.query(`
                         SELECT DISTINCT u.Id, u.NomeCompleto, u.Matricula, u.HierarchyPath
                         FROM Users u 
                         WHERE u.IsActive = 1 
                         AND (
-                            u.Id = @userId 
+                            u.Id = ? 
                             OR u.Matricula IN (${placeholders})
                         )
                         ORDER BY u.NomeCompleto
-                    `;
+                    `, [user.userId, ...subordinadosMatriculas]);
                     
-                    const request = pool.request().input('userId', sql.Int, user.userId);
-                    subordinadosMatriculas.forEach((matricula, index) => {
-                        request.input(`matricula${index}`, sql.NVarChar, matricula);
-                    });
-                    
-                    const equipeResult = await request.query(equipeQuery);
-                    equipe = equipeResult.recordset;
+                    equipe = equipeResult;
                 }
             } catch (error) {
                 console.log('⚠️ Debug - Erro ao buscar via HIERARQUIA_CC:', error.message);
@@ -836,9 +774,9 @@ exports.debugObjetivos = async (req, res) => {
                     hierarchyPath: user.HierarchyPath || user.hierarchyPath
                 },
                 tables: {
-                    existem: tablesCheck.recordset.map(t => t.TABLE_NAME),
+                    existem: tablesCheck.map(t => t.TABLE_NAME),
                     faltam: ['Objetivos', 'ObjetivoResponsaveis', 'ObjetivoCheckins'].filter(
-                        table => !tablesCheck.recordset.some(t => t.TABLE_NAME === table)
+                        table => !tablesCheck.some(t => t.TABLE_NAME === table)
                     )
                 },
                 equipe: {
@@ -879,13 +817,13 @@ exports.debugHierarquia = async (req, res) => {
         console.log('🔍 Debug da HIERARQUIA_CC para usuário:', user.Matricula);
         
         // Verificar se a tabela HIERARQUIA_CC existe
-        const tableCheck = await pool.request().query(`
+        const [tableCheck] = await pool.query(`
             SELECT COUNT(*) as count 
             FROM INFORMATION_SCHEMA.TABLES 
-            WHERE TABLE_NAME = 'HIERARQUIA_CC'
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'HIERARQUIA_CC'
         `);
         
-        if (tableCheck.recordset[0].count === 0) {
+        if (tableCheck[0].count === 0) {
             return res.json({
                 success: false,
                 error: 'Tabela HIERARQUIA_CC não encontrada',
@@ -899,32 +837,31 @@ exports.debugHierarquia = async (req, res) => {
         }
         
         // Buscar dados da HIERARQUIA_CC para o usuário atual
-        const hierarquiaResult = await pool.request()
-            .input('userMatricula', sql.NVarChar, user.Matricula || '')
-            .query(`
-                SELECT TOP 10 MATRICULA_GESTOR, MATRICULA_SUBORDINADO, DEPTO_ATUAL, DESCRICAO_ATUAL
-                FROM HIERARQUIA_CC 
-                WHERE MATRICULA_GESTOR = @userMatricula
-                ORDER BY MATRICULA_SUBORDINADO
-            `);
+        const [hierarquiaResult] = await pool.query(`
+            SELECT MATRICULA_GESTOR, MATRICULA_SUBORDINADO, DEPTO_ATUAL, DESCRICAO_ATUAL
+            FROM HIERARQUIA_CC 
+            WHERE MATRICULA_GESTOR = ?
+            ORDER BY MATRICULA_SUBORDINADO
+            LIMIT 10
+        `, [user.Matricula || '']);
         
         // Buscar dados gerais da HIERARQUIA_CC
-        const geralResult = await pool.request().query(`
-            SELECT TOP 10 MATRICULA_GESTOR, MATRICULA_SUBORDINADO, DEPTO_ATUAL, DESCRICAO_ATUAL
+        const [geralResult] = await pool.query(`
+            SELECT MATRICULA_GESTOR, MATRICULA_SUBORDINADO, DEPTO_ATUAL, DESCRICAO_ATUAL
             FROM HIERARQUIA_CC 
             ORDER BY MATRICULA_GESTOR, MATRICULA_SUBORDINADO
+            LIMIT 10
         `);
         
         // Buscar usuários com matrículas similares
-        const similarResult = await pool.request()
-            .input('userMatricula', sql.NVarChar, user.Matricula || '')
-            .query(`
-                SELECT TOP 10 Id, NomeCompleto, Matricula, HierarchyPath
-                FROM Users 
-                WHERE Matricula LIKE '%' + @userMatricula + '%'
-                OR @userMatricula LIKE '%' + Matricula + '%'
-                ORDER BY Matricula
-            `);
+        const [similarResult] = await pool.query(`
+            SELECT Id, NomeCompleto, Matricula, HierarchyPath
+            FROM Users 
+            WHERE Matricula LIKE CONCAT('%', ?, '%')
+            OR ? LIKE CONCAT('%', Matricula, '%')
+            ORDER BY Matricula
+            LIMIT 10
+        `, [user.Matricula || '', user.Matricula || '']);
         
         const response = {
             success: true,
@@ -936,17 +873,17 @@ exports.debugHierarquia = async (req, res) => {
                 },
                 table: {
                     exists: true,
-                    totalRecords: hierarquiaResult.recordset.length
+                    totalRecords: hierarquiaResult.length
                 },
                 hierarquia: {
-                    subordinados: hierarquiaResult.recordset,
-                    totalSubordinados: hierarquiaResult.recordset.length
+                    subordinados: hierarquiaResult,
+                    totalSubordinados: hierarquiaResult.length
                 },
                 geral: {
-                    sample: geralResult.recordset
+                    sample: geralResult
                 },
                 similar: {
-                    usuarios: similarResult.recordset
+                    usuarios: similarResult
                 }
             }
         };
@@ -976,42 +913,41 @@ exports.debugEstruturaHierarquia = async (req, res) => {
         console.log('🔍 Análise completa da HIERARQUIA_CC para usuário:', user.Matricula);
         
         // Verificar estrutura da tabela HIERARQUIA_CC
-        const columnsResult = await pool.request().query(`
+        const [columnsResult] = await pool.query(`
             SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
             FROM INFORMATION_SCHEMA.COLUMNS 
-            WHERE TABLE_NAME = 'HIERARQUIA_CC'
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'HIERARQUIA_CC'
             ORDER BY ORDINAL_POSITION
         `);
         
         // Buscar dados específicos do usuário atual
-        const userHierarquiaResult = await pool.request()
-            .input('userMatricula', sql.NVarChar, user.Matricula || '')
-            .query(`
-                SELECT TOP 20 *
-                FROM HIERARQUIA_CC 
-                WHERE MATRICULA_GESTOR = @userMatricula
-                ORDER BY MATRICULA_SUBORDINADO
-            `);
+        const [userHierarquiaResult] = await pool.query(`
+            SELECT *
+            FROM HIERARQUIA_CC 
+            WHERE MATRICULA_GESTOR = ?
+            ORDER BY MATRICULA_SUBORDINADO
+            LIMIT 20
+        `, [user.Matricula || '']);
         
         // Buscar dados onde o usuário é subordinado
-        const userSubordinadoResult = await pool.request()
-            .input('userMatricula', sql.NVarChar, user.Matricula || '')
-            .query(`
-                SELECT TOP 10 *
-                FROM HIERARQUIA_CC 
-                WHERE MATRICULA_SUBORDINADO = @userMatricula
-                ORDER BY MATRICULA_GESTOR
-            `);
+        const [userSubordinadoResult] = await pool.query(`
+            SELECT *
+            FROM HIERARQUIA_CC 
+            WHERE MATRICULA_SUBORDINADO = ?
+            ORDER BY MATRICULA_GESTOR
+            LIMIT 10
+        `, [user.Matricula || '']);
         
         // Buscar dados gerais da tabela para entender a estrutura
-        const geralResult = await pool.request().query(`
-            SELECT TOP 20 *
+        const [geralResult] = await pool.query(`
+            SELECT *
             FROM HIERARQUIA_CC 
             ORDER BY MATRICULA_GESTOR, MATRICULA_SUBORDINADO
+            LIMIT 20
         `);
         
         // Buscar estatísticas da tabela
-        const statsResult = await pool.request().query(`
+        const [statsResult] = await pool.query(`
             SELECT 
                 COUNT(*) as total_records,
                 COUNT(DISTINCT MATRICULA_GESTOR) as total_gestores,
@@ -1020,14 +956,13 @@ exports.debugEstruturaHierarquia = async (req, res) => {
         `);
         
         // Buscar usuários do mesmo departamento
-        const mesmoDepartamentoResult = await pool.request()
-            .input('userDepartamento', sql.NVarChar, user.Departamento || '')
-            .query(`
-                SELECT TOP 10 Id, NomeCompleto, Matricula, HierarchyPath, Departamento
-                FROM Users 
-                WHERE Departamento = @userDepartamento AND IsActive = 1
-                ORDER BY NomeCompleto
-            `);
+        const [mesmoDepartamentoResult] = await pool.query(`
+            SELECT Id, NomeCompleto, Matricula, HierarchyPath, Departamento
+            FROM Users 
+            WHERE Departamento = ? AND IsActive = 1
+            ORDER BY NomeCompleto
+            LIMIT 10
+        `, [user.Departamento || '']);
         
         const response = {
             success: true,
@@ -1039,24 +974,24 @@ exports.debugEstruturaHierarquia = async (req, res) => {
                     hierarchyLevel: user.hierarchyLevel || 0
                 },
                 table: {
-                    columns: columnsResult.recordset,
-                    stats: statsResult.recordset[0]
+                    columns: columnsResult,
+                    stats: statsResult[0]
                 },
                 hierarquia: {
                     comoGestor: {
-                        records: userHierarquiaResult.recordset,
-                        total: userHierarquiaResult.recordset.length
+                        records: userHierarquiaResult,
+                        total: userHierarquiaResult.length
                     },
                     comoSubordinado: {
-                        records: userSubordinadoResult.recordset,
-                        total: userSubordinadoResult.recordset.length
+                        records: userSubordinadoResult,
+                        total: userSubordinadoResult.length
                     }
                 },
                 geral: {
-                    sample: geralResult.recordset
+                    sample: geralResult
                 },
                 departamento: {
-                    colegas: mesmoDepartamentoResult.recordset
+                    colegas: mesmoDepartamentoResult
                 }
             }
         };
@@ -1080,30 +1015,27 @@ exports.approveObjetivo = async (req, res) => {
         
         const userId = req.session.user.userId;
 
-        const objetivoInfoResult = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`SELECT titulo, criado_por FROM Objetivos WHERE Id = @id`);
+        const [objetivoInfoResult] = await pool.query(
+            `SELECT titulo, criado_por FROM Objetivos WHERE Id = ?`,
+            [id]
+        );
 
-        if (objetivoInfoResult.recordset.length === 0) {
+        if (objetivoInfoResult.length === 0) {
             return res.status(404).json({ error: 'Objetivo não encontrado' });
         }
 
-        const objetivoTitulo = objetivoInfoResult.recordset[0].titulo || 'Objetivo';
-        const criadorId = objetivoInfoResult.recordset[0].criado_por;
+        const objetivoTitulo = objetivoInfoResult[0].titulo || 'Objetivo';
+        const criadorId = objetivoInfoResult[0].criado_por;
 
-        await pool.request()
-            .input('id', sql.Int, id)
-            .query(`UPDATE Objetivos SET status = 'Concluído', progresso = 100, updated_at = GETDATE() WHERE Id = @id`);
+        await pool.query(
+            `UPDATE Objetivos SET status = 'Concluído', progresso = 100, updated_at = NOW() WHERE Id = ?`,
+            [id]
+        );
 
-        await pool.request()
-            .input('objetivoId', sql.Int, id)
-            .input('userId', sql.Int, userId)
-            .input('progresso', sql.Decimal(5, 2), 100)
-            .input('observacoes', sql.NText, '[SISTEMA] Conclusão aprovada pelo gestor.')
-            .query(`
-                INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes)
-                VALUES (@objetivoId, @userId, @progresso, @observacoes)
-            `);
+        await pool.query(`
+            INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes)
+            VALUES (?, ?, ?, ?)
+        `, [id, userId, 100, '[SISTEMA] Conclusão aprovada pelo gestor.']);
 
         try {
             await ensureNotificationsTableExists();
@@ -1181,49 +1113,44 @@ exports.rejectObjetivo = async (req, res) => {
 
         const pool = await getDatabasePool();
 
-        const objetivoInfoResult = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`SELECT titulo, criado_por FROM Objetivos WHERE Id = @id`);
+        const [objetivoInfoResult] = await pool.query(
+            `SELECT titulo, criado_por FROM Objetivos WHERE Id = ?`,
+            [id]
+        );
 
-        if (objetivoInfoResult.recordset.length === 0) {
+        if (objetivoInfoResult.length === 0) {
             return res.status(404).json({ error: 'Objetivo não encontrado' });
         }
 
-        const objetivoTitulo = objetivoInfoResult.recordset[0].titulo || 'Objetivo';
-        const criadorId = objetivoInfoResult.recordset[0].criado_por;
+        const objetivoTitulo = objetivoInfoResult[0].titulo || 'Objetivo';
+        const criadorId = objetivoInfoResult[0].criado_por;
         
         // Buscar a última porcentagem <> 100 (mais recente)
-        const ultimoCheckinResult = await pool.request()
-            .input('objetivoId', sql.Int, id)
-            .query(`
-                SELECT TOP 1 progresso 
-                FROM ObjetivoCheckins 
-                WHERE objetivo_id = @objetivoId 
-                  AND progresso < 100 
-                ORDER BY created_at DESC
-            `);
+        const [ultimoCheckinResult] = await pool.query(`
+            SELECT progresso 
+            FROM ObjetivoCheckins 
+            WHERE objetivo_id = ? 
+              AND progresso < 100 
+            ORDER BY created_at DESC
+            LIMIT 1
+        `, [id]);
         
         let progressoAnterior = 0;
-        if (ultimoCheckinResult.recordset.length > 0) {
-            progressoAnterior = ultimoCheckinResult.recordset[0].progresso;
+        if (ultimoCheckinResult.length > 0) {
+            progressoAnterior = ultimoCheckinResult[0].progresso;
         }
         
         // Reverter para a última porcentagem <> 100
-        await pool.request()
-            .input('id', sql.Int, id)
-            .input('progresso', sql.Decimal(5, 2), progressoAnterior)
-            .query(`UPDATE Objetivos SET status = 'Ativo', progresso = @progresso, updated_at = GETDATE() WHERE Id = @id`);
+        await pool.query(
+            `UPDATE Objetivos SET status = 'Ativo', progresso = ?, updated_at = NOW() WHERE Id = ?`,
+            [progressoAnterior, id]
+        );
 
         const rejectionMessage = `[SISTEMA] Conclusão rejeitada pelo gestor. Motivo: ${motivoLimpo}.`;
-        await pool.request()
-            .input('objetivoId', sql.Int, id)
-            .input('userId', sql.Int, userId)
-            .input('progresso', sql.Decimal(5, 2), progressoAnterior)
-            .input('observacoes', sql.NText, rejectionMessage)
-            .query(`
-                INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes)
-                VALUES (@objetivoId, @userId, @progresso, @observacoes)
-            `);
+        await pool.query(`
+            INSERT INTO ObjetivoCheckins (objetivo_id, user_id, progresso, observacoes)
+            VALUES (?, ?, ?, ?)
+        `, [id, userId, progressoAnterior, rejectionMessage]);
 
         try {
             await ensureNotificationsTableExists();
@@ -1303,30 +1230,29 @@ exports.getMeusPDIs = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Buscar PDIs com FeedbackGestor da tabela FeedbacksAvaliacaoDesempenho
-        const result = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT 
-                    p.*, 
-                    u.NomeCompleto as ColaboradorNome, 
-                    u.Departamento as ColaboradorDepartamento,
-                    g.NomeCompleto as GestorNome,
-                    (SELECT TOP 1 f.FeedbackGestor 
-                     FROM FeedbacksAvaliacaoDesempenho f 
-                     WHERE f.AvaliacaoId = p.AvaliacaoId 
-                       AND f.FeedbackGestor IS NOT NULL 
-                       AND LTRIM(RTRIM(f.FeedbackGestor)) != ''
-                     ORDER BY 
-                       CASE WHEN f.DataCriacao IS NOT NULL THEN f.DataCriacao ELSE '1900-01-01' END DESC,
-                       f.Id DESC) as FeedbackGestor
-                FROM PDIs p
-                LEFT JOIN Users u ON p.UserId = u.Id
-                LEFT JOIN Users g ON p.GestorId = g.Id
-                WHERE p.UserId = @userId OR p.GestorId = @userId
-                ORDER BY p.DataCriacao DESC
-            `);
+        const [result] = await pool.query(`
+            SELECT 
+                p.*, 
+                u.NomeCompleto as ColaboradorNome, 
+                u.Departamento as ColaboradorDepartamento,
+                g.NomeCompleto as GestorNome,
+                (SELECT f.FeedbackGestor 
+                 FROM FeedbacksAvaliacaoDesempenho f 
+                 WHERE f.AvaliacaoId = p.AvaliacaoId 
+                   AND f.FeedbackGestor IS NOT NULL 
+                   AND TRIM(f.FeedbackGestor) != ''
+                 ORDER BY 
+                   CASE WHEN f.DataCriacao IS NOT NULL THEN f.DataCriacao ELSE '1900-01-01' END DESC,
+                   f.Id DESC
+                 LIMIT 1) as FeedbackGestor
+            FROM PDIs p
+            LEFT JOIN Users u ON p.UserId = u.Id
+            LEFT JOIN Users g ON p.GestorId = g.Id
+            WHERE p.UserId = ? OR p.GestorId = ?
+            ORDER BY p.DataCriacao DESC
+        `, [userId, userId]);
         
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar PDIs:', error);
         res.status(500).json({ error: 'Erro ao buscar PDIs' });
@@ -1339,68 +1265,54 @@ exports.getPDIById = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
         
-        // Buscar PDI com FeedbackGestor da tabela FeedbacksAvaliacaoDesempenho
-        // Primeiro buscar o PDI básico
         // Verificar qual coluna existe (PrazoConclusao ou PrazoRevisao)
-        const colunaCheck = await pool.request().query(`
+        const [colunaCheck] = await pool.query(`
             SELECT COUNT(*) as existe
             FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
         `);
-        const usarPrazoConclusao = colunaCheck.recordset[0].existe > 0;
+        const usarPrazoConclusao = colunaCheck[0].existe > 0;
         
-        // Construir query dinamicamente baseado na coluna que existe
-        // Se usarPrazoConclusao, não incluir PrazoRevisao no p.* para evitar conflito
-        const colunaPrazoSelect = usarPrazoConclusao 
-            ? 'p.PrazoConclusao as PrazoConclusao' 
-            : 'p.PrazoRevisao as PrazoConclusao';
+        const [result] = await pool.query(`
+            SELECT 
+                p.Id,
+                p.UserId,
+                p.GestorId,
+                p.AvaliacaoId,
+                p.Titulo,
+                p.Status,
+                p.Progresso,
+                ${usarPrazoConclusao ? 'p.PrazoConclusao as PrazoConclusao' : 'p.PrazoRevisao as PrazoConclusao'},
+                u.NomeCompleto as ColaboradorNome,
+                g.NomeCompleto as GestorNome
+            FROM PDIs p
+            LEFT JOIN Users u ON p.UserId = u.Id
+            LEFT JOIN Users g ON p.GestorId = g.Id
+            WHERE p.Id = ?
+        `, [id]);
         
-        // Se estivermos usando PrazoConclusao, excluir PrazoRevisao do p.*
-        const excludeColumns = usarPrazoConclusao ? '' : '';
-        
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`
-                SELECT 
-                    p.Id,
-                    p.UserId,
-                    p.GestorId,
-                    p.AvaliacaoId,
-                    p.Titulo,
-                    p.Status,
-                    p.Progresso,
-                    ${usarPrazoConclusao ? 'p.PrazoConclusao as PrazoConclusao' : 'p.PrazoRevisao as PrazoConclusao'},
-                    u.NomeCompleto as ColaboradorNome,
-                    g.NomeCompleto as GestorNome
-                FROM PDIs p
-                LEFT JOIN Users u ON p.UserId = u.Id
-                LEFT JOIN Users g ON p.GestorId = g.Id
-                WHERE p.Id = @id
-            `);
-        
-        if (result.recordset.length === 0) {
+        if (result.length === 0) {
             return res.status(404).json({ error: 'PDI não encontrado' });
         }
         
-        const pdi = result.recordset[0];
+        const pdi = result[0];
         
         // Buscar FeedbackGestor da tabela FeedbacksAvaliacaoDesempenho
         if (pdi.AvaliacaoId) {
-            const feedbackResult = await pool.request()
-                .input('avaliacaoId', sql.Int, pdi.AvaliacaoId)
-                .query(`
-                    SELECT TOP 1 FeedbackGestor 
-                    FROM FeedbacksAvaliacaoDesempenho 
-                    WHERE AvaliacaoId = @avaliacaoId 
-                      AND FeedbackGestor IS NOT NULL 
-                      AND LTRIM(RTRIM(FeedbackGestor)) != ''
-                    ORDER BY 
-                      CASE WHEN DataCriacao IS NOT NULL THEN DataCriacao ELSE '1900-01-01' END DESC,
-                      Id DESC
-                `);
+            const [feedbackResult] = await pool.query(`
+                SELECT FeedbackGestor 
+                FROM FeedbacksAvaliacaoDesempenho 
+                WHERE AvaliacaoId = ? 
+                  AND FeedbackGestor IS NOT NULL 
+                  AND TRIM(FeedbackGestor) != ''
+                ORDER BY 
+                  CASE WHEN DataCriacao IS NOT NULL THEN DataCriacao ELSE '1900-01-01' END DESC,
+                  Id DESC
+                LIMIT 1
+            `, [pdi.AvaliacaoId]);
             
-            if (feedbackResult.recordset.length > 0 && feedbackResult.recordset[0].FeedbackGestor) {
-                pdi.FeedbackGestor = feedbackResult.recordset[0].FeedbackGestor;
+            if (feedbackResult.length > 0 && feedbackResult[0].FeedbackGestor) {
+                pdi.FeedbackGestor = feedbackResult[0].FeedbackGestor;
             }
         }
         
@@ -1428,27 +1340,26 @@ exports.createCheckinPDI = async (req, res) => {
         
         const pool = await getDatabasePool();
         
-        const pdiResult = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`SELECT UserId, GestorId, Titulo, Status FROM PDIs WHERE Id = @id`);
+        const [pdiResult] = await pool.query(
+            `SELECT UserId, GestorId, Titulo, Status FROM PDIs WHERE Id = ?`,
+            [id]
+        );
         
-        if (pdiResult.recordset.length === 0) {
+        if (pdiResult.length === 0) {
             return res.status(404).json({ error: 'PDI não encontrado' });
         }
         
-        const pdi = pdiResult.recordset[0];
+        const pdi = pdiResult[0];
         
         if (pdi.UserId !== userId) {
             return res.status(403).json({ error: 'Apenas o colaborador pode fazer check-in' });
         }
         
         // Registrar check-in
-        await pool.request()
-            .input('pdiId', sql.Int, id)
-            .input('userId', sql.Int, userId)
-            .input('progresso', sql.Decimal(5, 2), progresso)
-            .input('observacoes', sql.NText, observacoes || '')
-            .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
+        await pool.query(
+            `INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (?, ?, ?, ?)`,
+            [id, userId, progresso, observacoes || '']
+        );
         
         let novoStatus = pdi.Status;
         const pdiTitulo = pdi.Titulo || 'PDI';
@@ -1456,25 +1367,22 @@ exports.createCheckinPDI = async (req, res) => {
         
         if (needsApproval) {
             novoStatus = 'Aguardando Validação';
-            await pool.request()
-                .input('id', sql.Int, id)
-                .input('progresso', sql.Decimal(5, 2), progresso)
-                .input('status', sql.NVarChar, novoStatus)
-                .query(`UPDATE PDIs SET Progresso = @progresso, Status = @status WHERE Id = @id`);
+            await pool.query(
+                `UPDATE PDIs SET Progresso = ?, Status = ? WHERE Id = ?`,
+                [progresso, novoStatus, id]
+            );
             
             // Registrar mensagem do sistema para solicitação de aprovação
             const pendingMessage = '[SISTEMA] Check-in de 100% enviado para aprovação do gestor.';
-            await pool.request()
-                .input('pdiId', sql.Int, id)
-                .input('userId', sql.Int, userId)
-                .input('progresso', sql.Decimal(5, 2), progresso)
-                .input('observacoes', sql.NText, pendingMessage)
-                .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
+            await pool.query(
+                `INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (?, ?, ?, ?)`,
+                [id, userId, progresso, pendingMessage]
+            );
         } else {
-            await pool.request()
-                .input('id', sql.Int, id)
-                .input('progresso', sql.Decimal(5, 2), progresso)
-                .query(`UPDATE PDIs SET Progresso = @progresso WHERE Id = @id`);
+            await pool.query(
+                `UPDATE PDIs SET Progresso = ? WHERE Id = ?`,
+                [progresso, id]
+            );
         }
         
         // Notificações relacionadas ao check-in
@@ -1529,24 +1437,22 @@ exports.getCheckinsPDI = async (req, res) => {
         const { id } = req.params;
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .input('pdiId', sql.Int, id)
-            .query(`
-                SELECT 
-                    pc.Id,
-                    pc.PDIId,
-                    pc.UserId,
-                    pc.Progresso as progresso,
-                    pc.Observacoes as observacoes,
-                    pc.DataCheckin as created_at,
-                    u.NomeCompleto as user_name
-                FROM PDICheckins pc
-                JOIN Users u ON pc.UserId = u.Id
-                WHERE pc.PDIId = @pdiId
-                ORDER BY pc.DataCheckin DESC
-            `);
+        const [result] = await pool.query(`
+            SELECT 
+                pc.Id,
+                pc.PDIId,
+                pc.UserId,
+                pc.Progresso as progresso,
+                pc.Observacoes as observacoes,
+                pc.DataCheckin as created_at,
+                u.NomeCompleto as user_name
+            FROM PDICheckins pc
+            JOIN Users u ON pc.UserId = u.Id
+            WHERE pc.PDIId = ?
+            ORDER BY pc.DataCheckin DESC
+        `, [id]);
         
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar check-ins de PDI:', error);
         res.status(500).json({ error: 'Erro ao buscar check-ins' });
@@ -1559,15 +1465,16 @@ exports.approvePDI = async (req, res) => {
         const userId = req.session.user.userId;
         const pool = await getDatabasePool();
         
-        const pdiResult = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`SELECT UserId, GestorId, Titulo FROM PDIs WHERE Id = @id`);
+        const [pdiResult] = await pool.query(
+            `SELECT UserId, GestorId, Titulo FROM PDIs WHERE Id = ?`,
+            [id]
+        );
         
-        if (pdiResult.recordset.length === 0) {
+        if (pdiResult.length === 0) {
             return res.status(404).json({ error: 'PDI não encontrado' });
         }
         
-        const pdi = pdiResult.recordset[0];
+        const pdi = pdiResult[0];
         const pdiTitulo = pdi.Titulo || 'PDI';
         const colaboradorId = pdi.UserId;
         
@@ -1575,17 +1482,16 @@ exports.approvePDI = async (req, res) => {
             return res.status(403).json({ error: 'Apenas o gestor pode aprovar' });
         }
         
-        await pool.request()
-            .input('id', sql.Int, id)
-            .query(`UPDATE PDIs SET Status = 'Concluído', Progresso = 100 WHERE Id = @id`);
+        await pool.query(
+            `UPDATE PDIs SET Status = 'Concluído', Progresso = 100 WHERE Id = ?`,
+            [id]
+        );
         
         // Registrar aprovação como check-in do sistema
-        await pool.request()
-            .input('pdiId', sql.Int, id)
-            .input('userId', sql.Int, userId)
-            .input('progresso', sql.Decimal(5, 2), 100)
-            .input('observacoes', sql.NText, '[SISTEMA] Conclusão aprovada pelo gestor.')
-            .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
+        await pool.query(
+            `INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (?, ?, ?, ?)`,
+            [id, userId, 100, '[SISTEMA] Conclusão aprovada pelo gestor.']
+        );
         
         // Notificações relacionadas à aprovação
         try {
@@ -1626,15 +1532,16 @@ exports.rejectPDI = async (req, res) => {
         
         const pool = await getDatabasePool();
         
-        const pdiResult = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`SELECT UserId, GestorId, Titulo FROM PDIs WHERE Id = @id`);
+        const [pdiResult] = await pool.query(
+            `SELECT UserId, GestorId, Titulo FROM PDIs WHERE Id = ?`,
+            [id]
+        );
         
-        if (pdiResult.recordset.length === 0) {
+        if (pdiResult.length === 0) {
             return res.status(404).json({ error: 'PDI não encontrado' });
         }
         
-        const pdi = pdiResult.recordset[0];
+        const pdi = pdiResult[0];
         const pdiTitulo = pdi.Titulo || 'PDI';
         const colaboradorId = pdi.UserId;
         
@@ -1643,30 +1550,27 @@ exports.rejectPDI = async (req, res) => {
         }
         
         // Buscar último progresso < 100
-        const ultimoCheckinResult = await pool.request()
-            .input('pdiId', sql.Int, id)
-            .query(`
-                SELECT TOP 1 Progresso 
-                FROM PDICheckins 
-                WHERE PDIId = @pdiId AND Progresso < 100 
-                ORDER BY DataCheckin DESC
-            `);
+        const [ultimoCheckinResult] = await pool.query(`
+            SELECT Progresso 
+            FROM PDICheckins 
+            WHERE PDIId = ? AND Progresso < 100 
+            ORDER BY DataCheckin DESC
+            LIMIT 1
+        `, [id]);
         
-        const progressoAnterior = ultimoCheckinResult.recordset.length > 0 ? ultimoCheckinResult.recordset[0].Progresso : 0;
+        const progressoAnterior = ultimoCheckinResult.length > 0 ? ultimoCheckinResult[0].Progresso : 0;
         const motivoLimpo = motivo.trim();
         
-        await pool.request()
-            .input('id', sql.Int, id)
-            .input('progresso', sql.Decimal(5, 2), progressoAnterior)
-            .query(`UPDATE PDIs SET Status = 'Ativo', Progresso = @progresso WHERE Id = @id`);
+        await pool.query(
+            `UPDATE PDIs SET Status = 'Ativo', Progresso = ? WHERE Id = ?`,
+            [progressoAnterior, id]
+        );
         
         // Registrar rejeição como check-in
-        await pool.request()
-            .input('pdiId', sql.Int, id)
-            .input('userId', sql.Int, userId)
-            .input('progresso', sql.Decimal(5, 2), progressoAnterior)
-            .input('observacoes', sql.NText, `[SISTEMA] Rejeitado pelo gestor. Motivo: ${motivoLimpo}`)
-            .query(`INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (@pdiId, @userId, @progresso, @observacoes)`);
+        await pool.query(
+            `INSERT INTO PDICheckins (PDIId, UserId, Progresso, Observacoes) VALUES (?, ?, ?, ?)`,
+            [id, userId, progressoAnterior, `[SISTEMA] Rejeitado pelo gestor. Motivo: ${motivoLimpo}`]
+        );
         
         // Notificações relacionadas à rejeição
         try {

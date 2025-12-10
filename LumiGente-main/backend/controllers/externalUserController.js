@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const { getDatabasePool } = require('../config/db');
 const { validarCPF, formatarCPF } = require('../utils/cpfValidator');
@@ -21,7 +21,7 @@ exports.getExternalUsers = async (req, res) => {
         }
         // Se status não for especificado ou for 'all', retorna todos
         
-        const result = await pool.request().query(`
+        const [result] = await pool.query(`
             SELECT 
                 Id,
                 CPF,
@@ -35,7 +35,7 @@ exports.getExternalUsers = async (req, res) => {
             ORDER BY IsActive DESC, created_at DESC
         `);
         
-        const users = result.recordset.map(user => ({
+        const users = result.map(user => ({
             id: user.Id,
             cpf: formatarCPF(user.CPF),
             email: user.Email || '',
@@ -60,26 +60,24 @@ exports.getExternalUser = async (req, res) => {
         const { id } = req.params;
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`
-                SELECT 
-                    Id,
-                    CPF,
-                    Email,
-                    NomeCompleto,
-                    IsActive,
-                    created_at,
-                    updated_at
-                FROM Users
-                WHERE Id = @id AND IsExternal = 1
-            `);
+        const [result] = await pool.query(`
+            SELECT 
+                Id,
+                CPF,
+                Email,
+                NomeCompleto,
+                IsActive,
+                created_at,
+                updated_at
+            FROM Users
+            WHERE Id = ? AND IsExternal = 1
+        `, [id]);
         
-        if (result.recordset.length === 0) {
+        if (result.length === 0) {
             return res.status(404).json({ error: 'Usuário externo não encontrado' });
         }
         
-        const user = result.recordset[0];
+        const user = result[0];
         res.json({
             id: user.Id,
             cpf: formatarCPF(user.CPF),
@@ -133,27 +131,28 @@ exports.createExternalUser = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Verificar se CPF já existe
-        const cpfCheck = await pool.request()
-            .input('cpf', sql.VarChar, cpfLimpo)
-            .query('SELECT Id FROM Users WHERE CPF = @cpf');
+        const [cpfCheck] = await pool.query(
+            'SELECT Id FROM Users WHERE CPF = ?',
+            [cpfLimpo]
+        );
         
-        if (cpfCheck.recordset.length > 0) {
+        if (cpfCheck.length > 0) {
             return res.status(400).json({ error: 'CPF já cadastrado' });
         }
         
         // Verificar se email já existe
-        const emailCheck = await pool.request()
-            .input('email', sql.VarChar, email.toLowerCase().trim())
-            .query('SELECT Id FROM Users WHERE Email = @email');
+        const [emailCheck] = await pool.query(
+            'SELECT Id FROM Users WHERE Email = ?',
+            [email.toLowerCase().trim()]
+        );
         
-        if (emailCheck.recordset.length > 0) {
+        if (emailCheck.length > 0) {
             return res.status(400).json({ error: 'Email já cadastrado' });
         }
         
         // Hash da senha
         const passwordHash = await bcrypt.hash(senha, parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10);
         
-        // Inserir usuário
         // UserName é obrigatório - usar email ou CPF como fallback
         const userName = email.toLowerCase().trim() || cpfLimpo;
         // nome é obrigatório - usar primeiro nome do nomeCompleto
@@ -165,26 +164,19 @@ exports.createExternalUser = async (req, res) => {
             return res.status(500).json({ error: 'Role "public" não encontrado no sistema' });
         }
         
-        const insertResult = await pool.request()
-            .input('cpf', sql.VarChar, cpfLimpo)
-            .input('nome', sql.VarChar, primeiroNome)
-            .input('nomeCompleto', sql.VarChar, nomeCompletoTrimmed)
-            .input('email', sql.VarChar, email.toLowerCase().trim())
-            .input('passwordHash', sql.VarChar, passwordHash)
-            .input('userName', sql.VarChar, userName)
-            .input('isActive', sql.Bit, isActive !== false)
-            .input('isExternal', sql.Bit, 1)
-            .input('departamento', sql.VarChar, 'Usuarios Externos')
-            .input('descricaoDepartamento', sql.VarChar, 'USUARIOS EXTERNOS')
-            .input('filial', sql.VarChar, 'SEM FILIAL')
-            .input('roleId', sql.Int, publicRoleId)
-            .query(`
-                INSERT INTO Users (CPF, nome, NomeCompleto, Email, PasswordHash, UserName, IsActive, IsExternal, Departamento, DescricaoDepartamento, Filial, RoleId, created_at, updated_at)
-                OUTPUT INSERTED.Id, INSERTED.CPF, INSERTED.Email, INSERTED.NomeCompleto, INSERTED.IsActive
-                VALUES (@cpf, @nome, @nomeCompleto, @email, @passwordHash, @userName, @isActive, @isExternal, @departamento, @descricaoDepartamento, @filial, @roleId, GETDATE(), GETDATE())
-            `);
+        const [insertResult] = await pool.query(`
+            INSERT INTO Users (CPF, nome, NomeCompleto, Email, PasswordHash, UserName, IsActive, IsExternal, Departamento, DescricaoDepartamento, Filial, RoleId, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'Usuarios Externos', 'USUARIOS EXTERNOS', 'SEM FILIAL', ?, NOW(), NOW())
+        `, [cpfLimpo, primeiroNome, nomeCompletoTrimmed, email.toLowerCase().trim(), passwordHash, userName, isActive !== false ? 1 : 0, publicRoleId]);
         
-        const newUser = insertResult.recordset[0];
+        const newUserId = insertResult.insertId;
+        
+        // Buscar usuário inserido
+        const [newUserResult] = await pool.query(`
+            SELECT Id, CPF, Email, NomeCompleto, IsActive FROM Users WHERE Id = ?
+        `, [newUserId]);
+        
+        const newUser = newUserResult[0];
         
         // Enviar email de confirmação
         try {
@@ -212,10 +204,10 @@ exports.createExternalUser = async (req, res) => {
     } catch (error) {
         console.error('❌ Erro ao criar usuário externo:', error);
         console.error('Detalhes do erro:', error.message);
-        console.error('Número do erro SQL:', error.number);
+        console.error('Código do erro SQL:', error.code);
         
         // Verificar se é erro de constraint única
-        if (error.number === 2627 || error.message.includes('UNIQUE')) {
+        if (error.code === 'ER_DUP_ENTRY' || error.message.includes('Duplicate')) {
             return res.status(400).json({ error: 'CPF ou email já cadastrado' });
         }
         
@@ -251,83 +243,83 @@ exports.updateExternalUser = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Verificar se usuário existe e é externo
-        const userCheck = await pool.request()
-            .input('id', sql.Int, id)
-            .query('SELECT Id, Email FROM Users WHERE Id = @id AND IsExternal = 1');
+        const [userCheck] = await pool.query(
+            'SELECT Id, Email FROM Users WHERE Id = ? AND IsExternal = 1',
+            [id]
+        );
         
-        if (userCheck.recordset.length === 0) {
+        if (userCheck.length === 0) {
             return res.status(404).json({ error: 'Usuário externo não encontrado' });
         }
         
-        const currentUser = userCheck.recordset[0];
+        const currentUser = userCheck[0];
         
         // Verificar se email já existe (se foi alterado)
         if (email && email.toLowerCase().trim() !== currentUser.Email?.toLowerCase().trim()) {
-            const emailCheck = await pool.request()
-                .input('email', sql.VarChar, email.toLowerCase().trim())
-                .input('id', sql.Int, id)
-                .query('SELECT Id FROM Users WHERE Email = @email AND Id != @id');
+            const [emailCheck] = await pool.query(
+                'SELECT Id FROM Users WHERE Email = ? AND Id != ?',
+                [email.toLowerCase().trim(), id]
+            );
             
-            if (emailCheck.recordset.length > 0) {
+            if (emailCheck.length > 0) {
                 return res.status(400).json({ error: 'Email já cadastrado para outro usuário' });
             }
         }
         
         // Construir query de atualização dinamicamente
         const updates = [];
-        const request = pool.request().input('id', sql.Int, id);
+        const params = [];
         
         if (nomeCompleto !== undefined && nomeCompleto !== null && nomeCompleto.trim() !== '') {
-            updates.push('NomeCompleto = @nomeCompleto');
-            request.input('nomeCompleto', sql.VarChar, nomeCompleto.trim());
+            updates.push('NomeCompleto = ?');
+            params.push(nomeCompleto.trim());
         }
         
         if (email !== undefined && email !== null && email !== '') {
-            updates.push('Email = @email');
-            request.input('email', sql.VarChar, email.toLowerCase().trim());
+            updates.push('Email = ?');
+            params.push(email.toLowerCase().trim());
         }
         
         if (senha !== undefined && senha !== null && senha !== '') {
             const passwordHash = await bcrypt.hash(senha, parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10);
-            updates.push('PasswordHash = @passwordHash');
-            request.input('passwordHash', sql.VarChar, passwordHash);
+            updates.push('PasswordHash = ?');
+            params.push(passwordHash);
         }
         
         if (isActive !== undefined) {
-            updates.push('IsActive = @isActive');
-            request.input('isActive', sql.Bit, isActive !== false);
+            updates.push('IsActive = ?');
+            params.push(isActive !== false ? 1 : 0);
         }
         
         if (updates.length === 0) {
             return res.status(400).json({ error: 'Nenhum campo para atualizar' });
         }
         
-        updates.push('updated_at = GETDATE()');
+        updates.push('updated_at = NOW()');
+        params.push(id);
         
-        await request.query(`
+        await pool.query(`
             UPDATE Users
             SET ${updates.join(', ')}
-            WHERE Id = @id AND IsExternal = 1
-        `);
+            WHERE Id = ? AND IsExternal = 1
+        `, params);
         
         // Buscar usuário atualizado
-        const updatedResult = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`
-                SELECT Id, CPF, Email, NomeCompleto, IsActive
-                FROM Users
-                WHERE Id = @id AND IsExternal = 1
-            `);
+        const [updatedResult] = await pool.query(`
+            SELECT Id, CPF, Email, NomeCompleto, IsActive
+            FROM Users
+            WHERE Id = ? AND IsExternal = 1
+        `, [id]);
         
         res.json({
             success: true,
             message: 'Usuário externo atualizado com sucesso',
             user: {
-                id: updatedResult.recordset[0].Id,
-                cpf: formatarCPF(updatedResult.recordset[0].CPF),
-                email: updatedResult.recordset[0].Email,
-                nomeCompleto: updatedResult.recordset[0].NomeCompleto || '',
-                isActive: updatedResult.recordset[0].IsActive === 1 || updatedResult.recordset[0].IsActive === true
+                id: updatedResult[0].Id,
+                cpf: formatarCPF(updatedResult[0].CPF),
+                email: updatedResult[0].Email,
+                nomeCompleto: updatedResult[0].NomeCompleto || '',
+                isActive: updatedResult[0].IsActive === 1 || updatedResult[0].IsActive === true
             }
         });
     } catch (error) {
@@ -345,15 +337,16 @@ exports.deleteExternalUser = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Verificar se usuário existe e é externo
-        const userCheck = await pool.request()
-            .input('id', sql.Int, id)
-            .query('SELECT Id, CPF, Email, NomeCompleto, IsActive FROM Users WHERE Id = @id AND IsExternal = 1');
+        const [userCheck] = await pool.query(
+            'SELECT Id, CPF, Email, NomeCompleto, IsActive FROM Users WHERE Id = ? AND IsExternal = 1',
+            [id]
+        );
         
-        if (userCheck.recordset.length === 0) {
+        if (userCheck.length === 0) {
             return res.status(404).json({ error: 'Usuário externo não encontrado' });
         }
         
-        const user = userCheck.recordset[0];
+        const user = userCheck[0];
         
         // Verificar se já está inativo
         if (user.IsActive === 0 || user.IsActive === false) {
@@ -361,14 +354,11 @@ exports.deleteExternalUser = async (req, res) => {
         }
         
         // Fazer exclusão lógica (desativar o usuário)
-        await pool.request()
-            .input('id', sql.Int, id)
-            .input('updatedAt', sql.DateTime, new Date())
-            .query(`
-                UPDATE Users 
-                SET IsActive = 0, updated_at = @updatedAt 
-                WHERE Id = @id AND IsExternal = 1
-            `);
+        await pool.query(`
+            UPDATE Users 
+            SET IsActive = 0, updated_at = NOW() 
+            WHERE Id = ? AND IsExternal = 1
+        `, [id]);
         
         res.json({
             success: true,
@@ -392,15 +382,16 @@ exports.activateExternalUser = async (req, res) => {
         const pool = await getDatabasePool();
         
         // Verificar se usuário existe e é externo
-        const userCheck = await pool.request()
-            .input('id', sql.Int, id)
-            .query('SELECT Id, CPF, Email, NomeCompleto, IsActive FROM Users WHERE Id = @id AND IsExternal = 1');
+        const [userCheck] = await pool.query(
+            'SELECT Id, CPF, Email, NomeCompleto, IsActive FROM Users WHERE Id = ? AND IsExternal = 1',
+            [id]
+        );
         
-        if (userCheck.recordset.length === 0) {
+        if (userCheck.length === 0) {
             return res.status(404).json({ error: 'Usuário externo não encontrado' });
         }
         
-        const user = userCheck.recordset[0];
+        const user = userCheck[0];
         
         // Verificar se já está ativo
         if (user.IsActive === 1 || user.IsActive === true) {
@@ -408,14 +399,11 @@ exports.activateExternalUser = async (req, res) => {
         }
         
         // Reativar o usuário
-        await pool.request()
-            .input('id', sql.Int, id)
-            .input('updatedAt', sql.DateTime, new Date())
-            .query(`
-                UPDATE Users 
-                SET IsActive = 1, updated_at = @updatedAt 
-                WHERE Id = @id AND IsExternal = 1
-            `);
+        await pool.query(`
+            UPDATE Users 
+            SET IsActive = 1, updated_at = NOW() 
+            WHERE Id = ? AND IsExternal = 1
+        `, [id]);
         
         res.json({
             success: true,
@@ -429,4 +417,3 @@ exports.activateExternalUser = async (req, res) => {
         });
     }
 };
-

@@ -1,4 +1,4 @@
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { getDatabasePool } = require('../config/db');
 const AvaliacoesManager = require('../services/avaliacoesManager');
 
@@ -52,7 +52,7 @@ exports.getMinhasAvaliacoes = async (req, res) => {
         console.error('❌ Erro ao buscar minhas avaliações:', error);
         
         // Se for erro de tabela não encontrada, retornar array vazio
-        if (error.message && error.message.includes('Invalid object name')) {
+        if (error.message && (error.message.includes('doesn\'t exist') || error.message.includes('Table') || error.code === 'ER_NO_SUCH_TABLE')) {
             console.log('⚠️ Tabelas de avaliações não encontradas, retornando array vazio');
             return res.json([]);
         }
@@ -72,7 +72,7 @@ exports.getAllAvaliacoes = async (req, res) => {
         }
 
         const pool = await getDatabasePool();
-        const result = await pool.request().query(`
+        const [result] = await pool.query(`
             SELECT 
                 a.Id, a.UserId, a.GestorId, a.Matricula, a.DataAdmissao, a.DataCriacao, 
                 COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) as DataLimiteResposta, 
@@ -87,7 +87,7 @@ exports.getAllAvaliacoes = async (req, res) => {
             ORDER BY a.DataCriacao DESC
         `);
 
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar todas as avaliações:', error);
         res.status(500).json({ error: 'Erro ao buscar todas as avaliações' });
@@ -107,28 +107,26 @@ exports.getAvaliacaoById = async (req, res) => {
         }
 
         const pool = await getDatabasePool();
-        const result = await pool.request()
-            .input('id', sql.Int, parseInt(id))
-            .query(`
-                SELECT 
-                    a.*, 
-                    t.Nome as TipoAvaliacao, 
-                    u.NomeCompleto, 
-                    u.Departamento, 
-                    g.NomeCompleto as NomeGestor,
-                    COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) as DataLimiteResposta
-                FROM Avaliacoes a
-                LEFT JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
-                INNER JOIN Users u ON a.UserId = u.Id
-                LEFT JOIN Users g ON a.GestorId = g.Id
-                WHERE a.Id = @id
-            `);
+        const [result] = await pool.query(`
+            SELECT 
+                a.*, 
+                t.Nome as TipoAvaliacao, 
+                u.NomeCompleto, 
+                u.Departamento, 
+                g.NomeCompleto as NomeGestor,
+                COALESCE(a.NovaDataLimiteResposta, a.DataLimiteResposta) as DataLimiteResposta
+            FROM Avaliacoes a
+            LEFT JOIN TiposAvaliacao t ON a.TipoAvaliacaoId = t.Id
+            INNER JOIN Users u ON a.UserId = u.Id
+            LEFT JOIN Users g ON a.GestorId = g.Id
+            WHERE a.Id = ?
+        `, [parseInt(id)]);
 
-        if (result.recordset.length === 0) {
+        if (result.length === 0) {
             return res.status(404).json({ error: 'Avaliação não encontrada' });
         }
 
-        const avaliacao = result.recordset[0];
+        const avaliacao = result[0];
         const temPermissao = avaliacao.UserId === user.userId ||
                             avaliacao.GestorId === user.userId ||
                             verificarPermissaoAvaliacoesAdmin(user);
@@ -344,15 +342,14 @@ exports.getTemplatePerguntas = async (req, res) => {
         const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
         const pool = await getDatabasePool();
         
-        const result = await pool.request()
-            .query(`
-                SELECT q.*, 
-                    (SELECT COUNT(*) FROM ${tabelaOpcoes} o WHERE o.PerguntaId = q.Id) as NumOpcoes
-                FROM ${tabelaQuestionario} q
-                ORDER BY q.Ordem ASC
-            `);
+        const [result] = await pool.query(`
+            SELECT q.*, 
+                (SELECT COUNT(*) FROM ${tabelaOpcoes} o WHERE o.PerguntaId = q.Id) as NumOpcoes
+            FROM ${tabelaQuestionario} q
+            ORDER BY q.Ordem ASC
+        `);
 
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar perguntas do template:', error);
         res.status(500).json({ error: 'Erro ao buscar perguntas do template' });
@@ -382,27 +379,16 @@ exports.addTemplatePergunta = async (req, res) => {
         const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
 
         // Buscar a última ordem
-        const maxOrdem = await pool.request()
-            .query(`SELECT ISNULL(MAX(Ordem), 0) as maxOrdem FROM ${tabelaQuestionario}`);
+        const [maxOrdemResult] = await pool.query(`SELECT COALESCE(MAX(Ordem), 0) as maxOrdem FROM ${tabelaQuestionario}`);
         
-        const novaOrdem = maxOrdem.recordset[0].maxOrdem + 1;
-        const result = await pool.request()
-            .input('pergunta', sql.NText, pergunta)
-            .input('tipoPergunta', sql.VarChar(50), tipoPergunta)
-            .input('ordem', sql.Int, novaOrdem)
-            .input('obrigatoria', sql.Bit, obrigatoria !== undefined ? obrigatoria : 1)
-            .input('escalaMinima', sql.Int, escalaMinima || null)
-            .input('escalaMaxima', sql.Int, escalaMaxima || null)
-            .input('escalaLabelMinima', sql.NVarChar(255), escalaLabelMinima || null)
-            .input('escalaLabelMaxima', sql.NVarChar(255), escalaLabelMaxima || null)
-            .query(`
-                INSERT INTO ${tabelaQuestionario}
-                (Pergunta, TipoPergunta, Ordem, Obrigatoria, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima)
-                OUTPUT INSERTED.Id
-                VALUES (@pergunta, @tipoPergunta, @ordem, @obrigatoria, @escalaMinima, @escalaMaxima, @escalaLabelMinima, @escalaLabelMaxima)
-            `);
+        const novaOrdem = maxOrdemResult[0].maxOrdem + 1;
+        const [result] = await pool.query(`
+            INSERT INTO ${tabelaQuestionario}
+            (Pergunta, TipoPergunta, Ordem, Obrigatoria, EscalaMinima, EscalaMaxima, EscalaLabelMinima, EscalaLabelMaxima)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [pergunta, tipoPergunta, novaOrdem, obrigatoria !== undefined ? obrigatoria : 1, escalaMinima || null, escalaMaxima || null, escalaLabelMinima || null, escalaLabelMaxima || null]);
 
-        const perguntaId = result.recordset[0].Id;
+        const perguntaId = result.insertId;
         console.log('✅ Pergunta criada com ID:', perguntaId);
 
         // Salvar opções se for múltipla escolha
@@ -411,17 +397,13 @@ exports.addTemplatePergunta = async (req, res) => {
             console.log('💾 Salvando', opcoes.length, 'opções na tabela', tabelaOpcoes);
             
             for (let i = 0; i < opcoes.length; i++) {
-                await pool.request()
-                    .input('perguntaId', sql.Int, perguntaId)
-                    .input('textoOpcao', sql.NVarChar(500), opcoes[i])
-                    .input('ordem', sql.Int, i + 1)
-                    .query(`INSERT INTO ${tabelaOpcoes} (PerguntaId, TextoOpcao, Ordem) VALUES (@perguntaId, @textoOpcao, @ordem)`);
+                await pool.query(`INSERT INTO ${tabelaOpcoes} (PerguntaId, TextoOpcao, Ordem) VALUES (?, ?, ?)`, [perguntaId, opcoes[i], i + 1]);
                 console.log('  ✓ Opção', i + 1, 'salva:', opcoes[i]);
             }
         }
 
         console.log('✅ Pergunta salva com sucesso!');
-        res.json({ success: true, pergunta: result.recordset[0] });
+        res.json({ success: true, pergunta: { Id: perguntaId } });
     } catch (error) {
         console.error('❌ Erro ao adicionar pergunta ao template:', error);
         console.error('Stack:', error.stack);
@@ -449,28 +431,19 @@ exports.updateTemplatePergunta = async (req, res) => {
         const pool = await getDatabasePool();
         const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
 
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .input('pergunta', sql.NText, pergunta)
-            .input('tipoPergunta', sql.VarChar(50), tipoPergunta)
-            .input('obrigatoria', sql.Bit, obrigatoria !== undefined ? obrigatoria : 1)
-            .input('escalaMinima', sql.Int, escalaMinima || null)
-            .input('escalaMaxima', sql.Int, escalaMaxima || null)
-            .input('escalaLabelMinima', sql.NVarChar(255), escalaLabelMinima || null)
-            .input('escalaLabelMaxima', sql.NVarChar(255), escalaLabelMaxima || null)
-            .query(`
-                UPDATE ${tabelaQuestionario}
-                SET Pergunta = @pergunta, 
-                    TipoPergunta = @tipoPergunta, 
-                    Obrigatoria = @obrigatoria,
-                    EscalaMinima = @escalaMinima,
-                    EscalaMaxima = @escalaMaxima,
-                    EscalaLabelMinima = @escalaLabelMinima,
-                    EscalaLabelMaxima = @escalaLabelMaxima
-                WHERE Id = @id
-            `);
+        const [result] = await pool.query(`
+            UPDATE ${tabelaQuestionario}
+            SET Pergunta = ?, 
+                TipoPergunta = ?, 
+                Obrigatoria = ?,
+                EscalaMinima = ?,
+                EscalaMaxima = ?,
+                EscalaLabelMinima = ?,
+                EscalaLabelMaxima = ?
+            WHERE Id = ?
+        `, [pergunta, tipoPergunta, obrigatoria !== undefined ? obrigatoria : 1, escalaMinima || null, escalaMaxima || null, escalaLabelMinima || null, escalaLabelMaxima || null, id]);
 
-        if (result.rowsAffected[0] === 0) {
+        if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Pergunta não encontrada' });
         }
 
@@ -478,16 +451,10 @@ exports.updateTemplatePergunta = async (req, res) => {
         if (tipoPergunta === 'multipla_escolha' && opcoes && Array.isArray(opcoes) && opcoes.length > 0) {
             const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
             
-            await pool.request()
-                .input('perguntaId', sql.Int, id)
-                .query(`DELETE FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId`);
+            await pool.query(`DELETE FROM ${tabelaOpcoes} WHERE PerguntaId = ?`, [id]);
             
             for (let i = 0; i < opcoes.length; i++) {
-                await pool.request()
-                    .input('perguntaId', sql.Int, id)
-                    .input('textoOpcao', sql.NVarChar(500), opcoes[i])
-                    .input('ordem', sql.Int, i + 1)
-                    .query(`INSERT INTO ${tabelaOpcoes} (PerguntaId, TextoOpcao, Ordem) VALUES (@perguntaId, @textoOpcao, @ordem)`);
+                await pool.query(`INSERT INTO ${tabelaOpcoes} (PerguntaId, TextoOpcao, Ordem) VALUES (?, ?, ?)`, [id, opcoes[i], i + 1]);
             }
         }
 
@@ -516,32 +483,22 @@ exports.deleteTemplatePergunta = async (req, res) => {
         const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
 
         // Verificar se existe
-        const check = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`SELECT Id FROM ${tabelaQuestionario} WHERE Id = @id`);
+        const [check] = await pool.query(`SELECT Id FROM ${tabelaQuestionario} WHERE Id = ?`, [id]);
         
-        console.log('Pergunta encontrada:', check.recordset.length > 0);
+        console.log('Pergunta encontrada:', check.length > 0);
         
-        await pool.request()
-            .input('perguntaId', sql.Int, id)
-            .query(`DELETE FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId`);
+        await pool.query(`DELETE FROM ${tabelaOpcoes} WHERE PerguntaId = ?`, [id]);
 
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query(`DELETE FROM ${tabelaQuestionario} WHERE Id = @id`);
+        const [result] = await pool.query(`DELETE FROM ${tabelaQuestionario} WHERE Id = ?`, [id]);
 
-        if (result.rowsAffected[0] === 0) {
+        if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Pergunta não encontrada' });
         }
 
-        const perguntas = await pool.request()
-            .query(`SELECT Id FROM ${tabelaQuestionario} ORDER BY Ordem ASC`);
+        const [perguntas] = await pool.query(`SELECT Id FROM ${tabelaQuestionario} ORDER BY Ordem ASC`);
 
-        for (let i = 0; i < perguntas.recordset.length; i++) {
-            await pool.request()
-                .input('id', sql.Int, perguntas.recordset[i].Id)
-                .input('ordem', sql.Int, i + 1)
-                .query(`UPDATE ${tabelaQuestionario} SET Ordem = @ordem WHERE Id = @id`);
+        for (let i = 0; i < perguntas.length; i++) {
+            await pool.query(`UPDATE ${tabelaQuestionario} SET Ordem = ? WHERE Id = ?`, [i + 1, perguntas[i].Id]);
         }
 
         res.json({ success: true, message: 'Pergunta removida com sucesso' });
@@ -560,11 +517,9 @@ exports.getOpcoesPerguntaPublico = async (req, res) => {
         const pool = await getDatabasePool();
         const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
 
-        const result = await pool.request()
-            .input('perguntaId', sql.Int, id)
-            .query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId ORDER BY Ordem ASC`);
+        const [result] = await pool.query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = ? ORDER BY Ordem ASC`, [id]);
 
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar opções da pergunta:', error);
         res.status(500).json({ error: 'Erro ao buscar opções' });
@@ -585,11 +540,9 @@ exports.getOpcoesPergunta = async (req, res) => {
         const pool = await getDatabasePool();
         const tabelaOpcoes = tipo === '45' ? 'OpcoesQuestionario45' : 'OpcoesQuestionario90';
 
-        const result = await pool.request()
-            .input('perguntaId', sql.Int, id)
-            .query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = @perguntaId ORDER BY Ordem ASC`);
+        const [result] = await pool.query(`SELECT * FROM ${tabelaOpcoes} WHERE PerguntaId = ? ORDER BY Ordem ASC`, [id]);
 
-        res.json(result.recordset);
+        res.json(result);
     } catch (error) {
         console.error('Erro ao buscar opções da pergunta:', error);
         res.status(500).json({ error: 'Erro ao buscar opções' });
@@ -617,10 +570,7 @@ exports.reordenarTemplatePerguntas = async (req, res) => {
         const tabelaQuestionario = tipo === '45' ? 'QuestionarioPadrao45' : 'QuestionarioPadrao90';
 
         for (let i = 0; i < perguntasIds.length; i++) {
-            await pool.request()
-                .input('id', sql.Int, perguntasIds[i])
-                .input('ordem', sql.Int, i + 1)
-                .query(`UPDATE ${tabelaQuestionario} SET Ordem = @ordem WHERE Id = @id`);
+            await pool.query(`UPDATE ${tabelaQuestionario} SET Ordem = ? WHERE Id = ?`, [i + 1, perguntasIds[i]]);
         }
 
         res.json({ success: true, message: 'Perguntas reordenadas com sucesso' });

@@ -1,4 +1,3 @@
-const sql = require('mssql');
 const { getDatabasePool } = require('../config/db');
 
 /**
@@ -9,65 +8,60 @@ async function ensureAvaliacoesTablesExist() {
     try {
         const pool = await getDatabasePool();
 
-
-
         // 1. Tabela TiposAvaliacao (45 dias e 90 dias)
-        const tiposTableCheck = await pool.request().query(`
-            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TiposAvaliacao'
+        const [tiposTableCheck] = await pool.execute(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'TiposAvaliacao'
         `);
 
-        if (tiposTableCheck.recordset[0].existe === 0) {
+        if (tiposTableCheck[0].existe === 0) {
             // Tabela não existe - criar com estrutura completa e inserir dados padrão
-            await pool.request().query(`
+            await pool.execute(`
                 CREATE TABLE TiposAvaliacao (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
                     Nome VARCHAR(50) NOT NULL,
                     DiasMinimos INT NOT NULL,
                     DiasMaximos INT NOT NULL,
                     Descricao VARCHAR(500),
-                    Ativo BIT DEFAULT 1,
-                    CriadoEm DATETIME DEFAULT GETDATE(),
-                    AtualizadoEm DATETIME DEFAULT GETDATE()
-                );
+                    Ativo TINYINT(1) DEFAULT 1,
+                    CriadoEm DATETIME DEFAULT NOW(),
+                    AtualizadoEm DATETIME DEFAULT NOW()
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `);
             
-            await pool.request().query(`
+            await pool.execute(`
                 INSERT INTO TiposAvaliacao (Nome, DiasMinimos, DiasMaximos, Descricao) VALUES
                 ('Avaliação de 45 dias', 45, 45, 'Avaliação de experiência após 45 dias de admissão'),
-                ('Avaliação de 90 dias', 90, 90, 'Avaliação de experiência após 90 dias de admissão');
+                ('Avaliação de 90 dias', 90, 90, 'Avaliação de experiência após 90 dias de admissão')
             `);
             
             console.log('  -> Tabela TiposAvaliacao criada e populada com dados padrão');
         } else {
             // Tabela existe - verificar se está vazia e inserir dados se necessário
-            const tiposCountCheck = await pool.request().query(`
-                SELECT COUNT(*) as total FROM TiposAvaliacao
-            `);
+            const [tiposCountCheck] = await pool.execute(`SELECT COUNT(*) as total FROM TiposAvaliacao`);
 
-            if (tiposCountCheck.recordset[0].total === 0) {
+            if (tiposCountCheck[0].total === 0) {
                 // Verificar estrutura da tabela para inserir com campos corretos
-                const columnsCheck = await pool.request().query(`
+                const [columnsCheck] = await pool.execute(`
                     SELECT COLUMN_NAME 
                     FROM INFORMATION_SCHEMA.COLUMNS 
-                    WHERE TABLE_NAME = 'TiposAvaliacao'
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'TiposAvaliacao'
                 `);
                 
-                const hasDiasMinimos = columnsCheck.recordset.some(c => c.COLUMN_NAME === 'DiasMinimos');
-                const hasDiasMaximos = columnsCheck.recordset.some(c => c.COLUMN_NAME === 'DiasMaximos');
+                const hasDiasMinimos = columnsCheck.some(c => c.COLUMN_NAME === 'DiasMinimos');
+                const hasDiasMaximos = columnsCheck.some(c => c.COLUMN_NAME === 'DiasMaximos');
                 
                 if (hasDiasMinimos && hasDiasMaximos) {
-                    // Estrutura completa - inserir com todos os campos
-                    await pool.request().query(`
+                    await pool.execute(`
                         INSERT INTO TiposAvaliacao (Nome, DiasMinimos, DiasMaximos, Descricao) VALUES
                         ('Avaliação de 45 dias', 45, 45, 'Avaliação de experiência após 45 dias de admissão'),
-                        ('Avaliação de 90 dias', 90, 90, 'Avaliação de experiência após 90 dias de admissão');
+                        ('Avaliação de 90 dias', 90, 90, 'Avaliação de experiência após 90 dias de admissão')
                     `);
                 } else {
-                    // Estrutura antiga - inserir apenas Nome e Descricao
-                    await pool.request().query(`
+                    await pool.execute(`
                         INSERT INTO TiposAvaliacao (Nome, Descricao) VALUES
                         ('Avaliação de 45 dias', 'Avaliação de experiência após 45 dias de admissão'),
-                        ('Avaliação de 90 dias', 'Avaliação de experiência após 90 dias de admissão');
+                        ('Avaliação de 90 dias', 'Avaliação de experiência após 90 dias de admissão')
                     `);
                 }
                 
@@ -77,139 +71,155 @@ async function ensureAvaliacoesTablesExist() {
             }
         }
 
-        // 2. Tabela Avaliacoes (instâncias de avaliações) - Verificar se já existe
-        const avaliacoesTableCheck = await pool.request().query(`
-            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Avaliacoes'
+        // 2. Tabela Avaliacoes (instâncias de avaliações)
+        const [avaliacoesTableCheck] = await pool.execute(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Avaliacoes'
         `);
 
-        if (avaliacoesTableCheck.recordset[0].existe === 0) {
-            await pool.request().query(`
+        if (avaliacoesTableCheck[0].existe === 0) {
+            await pool.execute(`
                 CREATE TABLE Avaliacoes (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
                     UserId INT NOT NULL,
                     GestorId INT NULL,
-                    Matricula NVARCHAR(50),
+                    Matricula VARCHAR(50),
                     DataAdmissao DATE NOT NULL,
                     TipoAvaliacaoId INT NOT NULL,
-                    DataCriacao DATETIME DEFAULT GETDATE(),
+                    DataCriacao DATETIME DEFAULT NOW(),
                     DataLimiteResposta DATE NOT NULL,
-                    StatusAvaliacao NVARCHAR(50) DEFAULT 'Agendada',
-                    RespostaColaboradorConcluida BIT DEFAULT 0,
-                    RespostaGestorConcluida BIT DEFAULT 0,
+                    StatusAvaliacao VARCHAR(50) DEFAULT 'Agendada',
+                    RespostaColaboradorConcluida TINYINT(1) DEFAULT 0,
+                    RespostaGestorConcluida TINYINT(1) DEFAULT 0,
                     DataRespostaColaborador DATETIME NULL,
                     DataRespostaGestor DATETIME NULL,
-                    AtualizadoEm DATETIME DEFAULT GETDATE(),
+                    AtualizadoEm DATETIME DEFAULT NOW(),
+                    NovaDataLimiteResposta DATE NULL,
                     FOREIGN KEY (UserId) REFERENCES Users(Id),
                     FOREIGN KEY (GestorId) REFERENCES Users(Id),
                     FOREIGN KEY (TipoAvaliacaoId) REFERENCES TiposAvaliacao(Id)
-                );
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `);
+            console.log('  -> Tabela Avaliacoes criada');
         }
 
-        // 4. Tabela PerguntasAvaliacao (snapshot das perguntas)
-        const perguntasAvaliacaoCheck = await pool.request().query(`
-            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'PerguntasAvaliacao'
+        // 3. Tabela PerguntasAvaliacao (snapshot das perguntas)
+        const [perguntasAvaliacaoCheck] = await pool.execute(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PerguntasAvaliacao'
         `);
 
-        if (perguntasAvaliacaoCheck.recordset[0].existe === 0) {
-            await pool.request().query(`
+        if (perguntasAvaliacaoCheck[0].existe === 0) {
+            await pool.execute(`
                 CREATE TABLE PerguntasAvaliacao (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
                     AvaliacaoId INT NOT NULL,
-                    Pergunta NTEXT NOT NULL,
+                    Pergunta TEXT NOT NULL,
                     TipoPergunta VARCHAR(50) NOT NULL DEFAULT 'texto',
                     Ordem INT NOT NULL,
-                    Obrigatoria BIT DEFAULT 1,
+                    Obrigatoria TINYINT(1) DEFAULT 1,
                     EscalaMinima INT NULL,
                     EscalaMaxima INT NULL,
-                    EscalaLabelMinima NVARCHAR(100) NULL,
-                    EscalaLabelMaxima NVARCHAR(100) NULL,
-                    CriadoEm DATETIME DEFAULT GETDATE(),
+                    EscalaLabelMinima VARCHAR(100) NULL,
+                    EscalaLabelMaxima VARCHAR(100) NULL,
+                    CriadoEm DATETIME DEFAULT NOW(),
                     FOREIGN KEY (AvaliacaoId) REFERENCES Avaliacoes(Id) ON DELETE CASCADE
-                );
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `);
+            console.log('  -> Tabela PerguntasAvaliacao criada');
         }
 
-        // 5. Tabela OpcoesPerguntasAvaliacao (snapshot das opções)
-        const opcoesAvaliacaoCheck = await pool.request().query(`
-            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'OpcoesPerguntasAvaliacao'
+        // 4. Tabela OpcoesPerguntasAvaliacao (snapshot das opções)
+        const [opcoesAvaliacaoCheck] = await pool.execute(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'OpcoesPerguntasAvaliacao'
         `);
 
-        if (opcoesAvaliacaoCheck.recordset[0].existe === 0) {
-            await pool.request().query(`
+        if (opcoesAvaliacaoCheck[0].existe === 0) {
+            await pool.execute(`
                 CREATE TABLE OpcoesPerguntasAvaliacao (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
                     PerguntaId INT NOT NULL,
-                    TextoOpcao NVARCHAR(500) NOT NULL,
+                    TextoOpcao VARCHAR(500) NOT NULL,
                     Ordem INT NOT NULL,
                     FOREIGN KEY (PerguntaId) REFERENCES PerguntasAvaliacao(Id) ON DELETE CASCADE
-                );
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `);
+            console.log('  -> Tabela OpcoesPerguntasAvaliacao criada');
         }
 
-        // 6. Tabela RespostasAvaliacoes (respostas dos participantes)
-        const respostasTableCheck = await pool.request().query(`
-            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'RespostasAvaliacoes'
+        // 5. Tabela RespostasAvaliacoes (respostas dos participantes)
+        const [respostasTableCheck] = await pool.execute(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'RespostasAvaliacoes'
         `);
 
-        if (respostasTableCheck.recordset[0].existe === 0) {
-            await pool.request().query(`
+        if (respostasTableCheck[0].existe === 0) {
+            await pool.execute(`
                 CREATE TABLE RespostasAvaliacoes (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
                     AvaliacaoId INT NOT NULL,
                     PerguntaId INT NOT NULL,
-                    Resposta NTEXT,
+                    Resposta TEXT,
                     RespondidoPor INT NOT NULL,
-                    TipoRespondente NVARCHAR(50) NOT NULL,
-                    created_at DATETIME DEFAULT GETDATE(),
+                    TipoRespondente VARCHAR(50) NOT NULL,
+                    created_at DATETIME DEFAULT NOW(),
                     FOREIGN KEY (AvaliacaoId) REFERENCES Avaliacoes(Id) ON DELETE CASCADE,
                     FOREIGN KEY (PerguntaId) REFERENCES PerguntasAvaliacao(Id),
                     FOREIGN KEY (RespondidoPor) REFERENCES Users(Id)
-                );
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `);
+            console.log('  -> Tabela RespostasAvaliacoes criada');
         }
+
         // Verificar estrutura da tabela PerguntasAvaliacao para adaptar o código
         await verificarEstruturaPerguntasAvaliacao(pool);
 
         // Migração: Adicionar campo NovaDataLimiteResposta se não existir
-        await pool.request().query(`
-            IF NOT EXISTS (
-                SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_NAME = 'Avaliacoes' AND COLUMN_NAME = 'NovaDataLimiteResposta'
-            )
-            BEGIN
-                ALTER TABLE Avaliacoes
-                ADD NovaDataLimiteResposta DATE NULL;
-                PRINT '  -> Campo NovaDataLimiteResposta adicionado à tabela Avaliacoes';
-            END
-            ELSE
-            BEGIN
-                PRINT '  -> Campo NovaDataLimiteResposta já existe';
-            END
+        const [novaDataCheck] = await pool.execute(`
+            SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Avaliacoes' AND COLUMN_NAME = 'NovaDataLimiteResposta'
         `);
+
+        if (novaDataCheck[0].existe === 0) {
+            await pool.execute(`ALTER TABLE Avaliacoes ADD COLUMN NovaDataLimiteResposta DATE NULL`);
+            console.log('  -> Campo NovaDataLimiteResposta adicionado à tabela Avaliacoes');
+        }
 
         // Migração: Renomear PrazoRevisao para PrazoConclusao na tabela PDIs
         try {
-            const prazoRevisaoCheck = await pool.request().query(`
-                SELECT COUNT(*) as existe
-                FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoRevisao'
+            const [pdisTableCheck] = await pool.execute(`
+                SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.TABLES 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PDIs'
             `);
 
-            const prazoConclusaoCheck = await pool.request().query(`
-                SELECT COUNT(*) as existe
-                FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
-            `);
-
-            if (prazoRevisaoCheck.recordset[0].existe > 0 && prazoConclusaoCheck.recordset[0].existe === 0) {
-                await pool.request().query(`
-                    EXEC sp_rename 'PDIs.PrazoRevisao', 'PrazoConclusao', 'COLUMN';
+            if (pdisTableCheck[0].existe > 0) {
+                const [prazoRevisaoCheck] = await pool.execute(`
+                    SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoRevisao'
                 `);
-                console.log('  -> Coluna PrazoRevisao renomeada para PrazoConclusao na tabela PDIs');
+
+                const [prazoConclusaoCheck] = await pool.execute(`
+                    SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoConclusao'
+                `);
+
+                if (prazoRevisaoCheck[0].existe > 0 && prazoConclusaoCheck[0].existe === 0) {
+                    // No MySQL, para renomear coluna usa-se CHANGE COLUMN
+                    // Primeiro precisamos saber o tipo da coluna
+                    const [colInfo] = await pool.execute(`
+                        SELECT DATA_TYPE, COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+                        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PDIs' AND COLUMN_NAME = 'PrazoRevisao'
+                    `);
+                    
+                    if (colInfo.length > 0) {
+                        const columnType = colInfo[0].COLUMN_TYPE;
+                        await pool.execute(`ALTER TABLE PDIs CHANGE COLUMN PrazoRevisao PrazoConclusao ${columnType}`);
+                        console.log('  -> Coluna PrazoRevisao renomeada para PrazoConclusao na tabela PDIs');
+                    }
+                }
             }
         } catch (error) {
-            // Se a tabela PDIs não existir ainda, apenas logar o erro sem quebrar
             console.log('  -> Aviso: Não foi possível verificar/renomear coluna PrazoRevisao:', error.message);
         }
 
@@ -226,27 +236,24 @@ async function ensureAvaliacoesTablesExist() {
  */
 async function verificarEstruturaPerguntasAvaliacao(pool) {
     try {
-        const colunas = await pool.request().query(`
+        const [colunas] = await pool.execute(`
             SELECT 
                 COLUMN_NAME,
                 DATA_TYPE,
                 CHARACTER_MAXIMUM_LENGTH,
                 IS_NULLABLE
             FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_NAME = 'PerguntasAvaliacao'
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PerguntasAvaliacao'
             ORDER BY ORDINAL_POSITION
         `);
 
-        if (colunas.recordset.length > 0) {
-
+        if (colunas.length > 0) {
             // Verificar se há dados na tabela
-            const count = await pool.request().query(`SELECT COUNT(*) as total FROM PerguntasAvaliacao`);
-
+            const [countResult] = await pool.execute(`SELECT COUNT(*) as total FROM PerguntasAvaliacao`);
 
             // Se houver dados, mostrar um exemplo
-            if (count.recordset[0].total > 0) {
-                const exemplo = await pool.request().query(`SELECT TOP 1 * FROM PerguntasAvaliacao`);
-
+            if (countResult[0].total > 0) {
+                const [exemplo] = await pool.execute(`SELECT * FROM PerguntasAvaliacao LIMIT 1`);
             }
         }
     } catch (error) {
@@ -263,20 +270,16 @@ async function getTipoAvaliacaoIdByDias(dias) {
     try {
         const pool = await getDatabasePool();
         
-        // Buscar por DiasMinimos ou DiasMaximos (se a estrutura tiver esses campos)
-        // ou pelo nome se não tiver
-        const result = await pool.request()
-            .input('dias', sql.Int, dias)
-            .input('diasStr', sql.VarChar, `%${dias}%`)
-            .query(`
-                SELECT Id FROM TiposAvaliacao 
-                WHERE (DiasMinimos = @dias OR DiasMaximos = @dias)
-                   OR (Nome LIKE @diasStr AND (DiasMinimos IS NULL OR DiasMaximos IS NULL))
-                ORDER BY Id
-            `);
+        const [rows] = await pool.execute(`
+            SELECT Id FROM TiposAvaliacao 
+            WHERE (DiasMinimos = ? OR DiasMaximos = ?)
+               OR (Nome LIKE ? AND (DiasMinimos IS NULL OR DiasMaximos IS NULL))
+            ORDER BY Id
+            LIMIT 1
+        `, [dias, dias, `%${dias}%`]);
         
-        if (result.recordset.length > 0) {
-            return result.recordset[0].Id;
+        if (rows.length > 0) {
+            return rows[0].Id;
         }
         
         return null;

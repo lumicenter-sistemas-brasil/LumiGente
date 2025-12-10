@@ -1,6 +1,5 @@
 // LumiGente-main/services/authService.js
 
-const sql = require('mssql');
 const bcrypt = require('bcrypt');
 const { getDatabasePool } = require('../config/db');
 const { validarCPF, formatarCPF } = require('../utils/cpfValidator');
@@ -13,18 +12,15 @@ const hierarchyManager = new HierarchyManager();
 async function calculateHierarchyLevel(user, pool) {
     try {
         // Verificar se é responsável na HIERARQUIA_CC
-        const responsavelCCResult = await pool.request()
-            .input('matricula', sql.VarChar, user.Matricula)
-            .input('filial', sql.VarChar, user.Filial || '')
-            .query(`
-                SELECT DEPTO_ATUAL, HIERARQUIA_COMPLETA
-                FROM HIERARQUIA_CC 
-                WHERE RESPONSAVEL_ATUAL = @matricula 
-                AND (FILIAL = @filial OR @filial = '' OR FILIAL IS NULL)
-            `);
+        const [rows] = await pool.execute(`
+            SELECT DEPTO_ATUAL, HIERARQUIA_COMPLETA
+            FROM HIERARQUIA_CC 
+            WHERE RESPONSAVEL_ATUAL = ? 
+            AND (FILIAL = ? OR ? = '' OR FILIAL IS NULL)
+        `, [user.Matricula, user.Filial || '', user.Filial || '']);
         
-        if (responsavelCCResult.recordset.length > 0) {
-            const detalhe = responsavelCCResult.recordset[0];
+        if (rows.length > 0) {
+            const detalhe = rows[0];
             const departments = detalhe.HIERARQUIA_COMPLETA.split('>').map(d => d.trim()).filter(d => d.length > 0);
             const departamentoIndex = departments.indexOf(detalhe.DEPTO_ATUAL);
             
@@ -56,12 +52,12 @@ exports.loginUser = async (cpf, password) => {
     const pool = await getDatabasePool();
 
     // 1. Primeiro, busca o usuário no sistema LumiGente para verificar se é externo
-    let userResult = await pool.request()
-        .input('cpfFormatado', sql.VarChar, cpfFormatado)
-        .input('cpfSemFormatacao', sql.VarChar, cpfSemFormatacao)
-        .query(`SELECT * FROM Users WHERE CPF = @cpfFormatado OR CPF = @cpfSemFormatacao`);
+    const [userRows] = await pool.execute(
+        `SELECT * FROM Users WHERE CPF = ? OR CPF = ?`,
+        [cpfFormatado, cpfSemFormatacao]
+    );
 
-    let user = userResult.recordset[0];
+    let user = userRows[0];
 
     if (!user) {
         throw new Error('Usuário não encontrado no sistema.');
@@ -85,7 +81,7 @@ exports.loginUser = async (cpf, password) => {
 
         // Atualiza o último login
         try {
-            await pool.request().input('userId', sql.Int, user.Id).query(`UPDATE Users SET LastLogin = GETDATE() WHERE Id = @userId`);
+            await pool.execute(`UPDATE Users SET LastLogin = NOW() WHERE Id = ?`, [user.Id]);
         } catch (err) {
             console.warn("Aviso: Coluna 'LastLogin' não encontrada. Continuando...");
         }
@@ -122,20 +118,19 @@ exports.loginUser = async (cpf, password) => {
 
     // 3. Se não for externo, continua com o fluxo normal de funcionário
     // Busca o funcionário mais recente na base de dados externa
-    const funcionarioResult = await pool.request()
-        .input('cpf', sql.VarChar, cpfSemFormatacao)
-        .query(`
-            WITH FuncionarioMaisRecente AS (
-                SELECT *, ROW_NUMBER() OVER (ORDER BY 
-                        CASE WHEN STATUS_GERAL = 'ATIVO' THEN 0 ELSE 1 END,
-                        DTA_ADMISSAO DESC, MATRICULA DESC
-                    ) as rn
-                FROM TAB_HIST_SRA WHERE CPF = @cpf
-            )
-            SELECT TOP 1 * FROM FuncionarioMaisRecente WHERE rn = 1
-        `);
+    const [funcionarioRows] = await pool.execute(`
+        SELECT * FROM (
+            SELECT *, ROW_NUMBER() OVER (ORDER BY 
+                    CASE WHEN STATUS_GERAL = 'ATIVO' THEN 0 ELSE 1 END,
+                    DTA_ADMISSAO DESC, MATRICULA DESC
+                ) as rn
+            FROM TAB_HIST_SRA WHERE CPF = ?
+        ) AS FuncionarioMaisRecente
+        WHERE rn = 1
+        LIMIT 1
+    `, [cpfSemFormatacao]);
 
-    const funcionario = funcionarioResult.recordset[0];
+    const funcionario = funcionarioRows[0];
     if (!funcionario) {
         throw new Error('CPF não encontrado na base de funcionários');
     }
@@ -170,18 +165,11 @@ exports.loginUser = async (cpf, password) => {
     const departamentoCorreto = deptoHierarchy || funcionario.DEPARTAMENTO;
 
     if (user.Matricula !== funcionario.MATRICULA || user.Departamento !== departamentoCorreto || user.HierarchyPath !== hierarchyPath || user.Filial !== funcionario.FILIAL) {
-        await pool.request()
-            .input('userId', sql.Int, user.Id)
-            .input('matricula', sql.VarChar, funcionario.MATRICULA)
-            .input('nomeCompleto', sql.VarChar, funcionario.NOME)
-            .input('departamento', sql.VarChar, departamentoCorreto)
-            .input('hierarchyPath', sql.VarChar, hierarchyPath)
-            .input('filial', sql.VarChar, funcionario.FILIAL)
-            .query(`
-                UPDATE Users SET Matricula = @matricula, NomeCompleto = @nomeCompleto, Departamento = @departamento, 
-                HierarchyPath = @hierarchyPath, Filial = @filial, updated_at = GETDATE()
-                WHERE Id = @userId
-            `);
+        await pool.execute(`
+            UPDATE Users SET Matricula = ?, NomeCompleto = ?, Departamento = ?, 
+            HierarchyPath = ?, Filial = ?, updated_at = NOW()
+            WHERE Id = ?
+        `, [funcionario.MATRICULA, funcionario.NOME, departamentoCorreto, hierarchyPath, funcionario.FILIAL, user.Id]);
         
         // Atualiza o objeto user para a sessão
         user.Matricula = funcionario.MATRICULA;
@@ -193,7 +181,7 @@ exports.loginUser = async (cpf, password) => {
 
     // 8. Atualiza o último login
     try {
-        await pool.request().input('userId', sql.Int, user.Id).query(`UPDATE Users SET LastLogin = GETDATE() WHERE Id = @userId`);
+        await pool.execute(`UPDATE Users SET LastLogin = NOW() WHERE Id = ?`, [user.Id]);
     } catch (err) {
         console.warn("Aviso: Coluna 'LastLogin' não encontrada. Continuando...");
     }
@@ -240,16 +228,16 @@ exports.registerUser = async ({ cpf, password, nomeCompleto }) => {
     const cpfFormatado = formatarCPF(cpf);
     const pool = await getDatabasePool();
 
-    const existingUserResult = await pool.request()
-        .input('cpfFormatado', sql.VarChar, cpfFormatado)
-        .input('cpfSemFormatacao', sql.VarChar, cpfSemFormatacao)
-        .query(`SELECT Id, FirstLogin, NomeCompleto FROM Users WHERE CPF = @cpfFormatado OR CPF = @cpfSemFormatacao`);
+    const [existingUserRows] = await pool.execute(
+        `SELECT Id, FirstLogin, NomeCompleto FROM Users WHERE CPF = ? OR CPF = ?`,
+        [cpfFormatado, cpfSemFormatacao]
+    );
 
-    if (existingUserResult.recordset.length === 0) {
+    if (existingUserRows.length === 0) {
         throw new Error('CPF não encontrado no sistema para registro.');
     }
 
-    const existingUser = existingUserResult.recordset[0];
+    const existingUser = existingUserRows[0];
     if (existingUser.FirstLogin === 0 || existingUser.FirstLogin === false) {
         throw new Error('Usuário já possui registro realizado.');
     }
@@ -257,16 +245,11 @@ exports.registerUser = async ({ cpf, password, nomeCompleto }) => {
     const senhaHash = await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10);
     const nomeParaUsar = nomeCompleto || existingUser.NomeCompleto;
 
-    await pool.request()
-        .input('userId', sql.Int, existingUser.Id)
-        .input('passwordHash', sql.VarChar, senhaHash)
-        .input('nomeCompleto', sql.VarChar, nomeParaUsar)
-        .input('nome', sql.VarChar, nomeParaUsar.split(' ')[0])
-        .query(`
-            UPDATE Users SET PasswordHash = @passwordHash, FirstLogin = 0, NomeCompleto = @nomeCompleto, 
-            nome = @nome, IsActive = 1, updated_at = GETDATE()
-            WHERE Id = @userId
-        `);
+    await pool.execute(`
+        UPDATE Users SET PasswordHash = ?, FirstLogin = 0, NomeCompleto = ?, 
+        nome = ?, IsActive = 1, updated_at = NOW()
+        WHERE Id = ?
+    `, [senhaHash, nomeParaUsar, nomeParaUsar.split(' ')[0], existingUser.Id]);
 
     return { success: true, message: 'Registro realizado com sucesso' };
 };
@@ -284,17 +267,17 @@ exports.checkCpfStatus = async (cpf) => {
     const pool = await getDatabasePool();
     
     // Verifica se o CPF existe na tabela Users
-    const userResult = await pool.request()
-        .input('cpfFormatado', sql.VarChar, cpfFormatado)
-        .input('cpfSemFormatacao', sql.VarChar, cpfSemFormatacao)
-        .query(`SELECT Id, FirstLogin FROM Users WHERE CPF = @cpfFormatado OR CPF = @cpfSemFormatacao`);
+    const [userRows] = await pool.execute(
+        `SELECT Id, FirstLogin FROM Users WHERE CPF = ? OR CPF = ?`,
+        [cpfFormatado, cpfSemFormatacao]
+    );
 
-    if (userResult.recordset.length === 0) {
+    if (userRows.length === 0) {
         // CPF não existe na base de usuários
         return { exists: false, message: 'CPF não encontrado na base de funcionários' };
     }
     
-    const user = userResult.recordset[0];
+    const user = userRows[0];
     
     // Se FirstLogin = 0, usuário já completou o registro
     if (user.FirstLogin === 0 || user.FirstLogin === false) {

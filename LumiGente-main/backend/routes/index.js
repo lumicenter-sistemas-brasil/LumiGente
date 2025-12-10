@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const sql = require('mssql');
+const mysql = require('mysql2/promise');
 const { requireAuth, requireManagerAccess } = require('../middleware/authMiddleware');
 const { getDatabasePool } = require('../config/db');
 const { getRoleIdByName } = require('../services/rolesSetup');
@@ -54,7 +54,7 @@ router.get('/departments', requireAuth, requireManagerAccess, async (req, res) =
         const pool = await getDatabasePool();
         
         // Buscar departamentos únicos dos usuários
-        const result = await pool.request().query(`
+        const [result] = await pool.query(`
             SELECT DISTINCT Departamento
             FROM Users 
             WHERE Departamento IS NOT NULL 
@@ -62,7 +62,7 @@ router.get('/departments', requireAuth, requireManagerAccess, async (req, res) =
             ORDER BY Departamento
         `);
         
-        const departments = result.recordset.map(row => row.Departamento);
+        const departments = result.map(row => row.Departamento);
         res.json(departments);
     } catch (error) {
         console.error('Erro ao buscar departamentos:', error);
@@ -77,20 +77,18 @@ router.get('/debug-permissions/:matricula', requireAuth, async (req, res) => {
         const pool = await getDatabasePool();
         
         // Buscar dados do usuário
-        const userResult = await pool.request()
-            .input('matricula', sql.VarChar, matricula)
-            .query(`
-                SELECT u.Id, u.NomeCompleto, u.Matricula, u.Departamento, u.HierarchyPath, u.RoleId, r.Name as RoleName
-                FROM Users u
-                LEFT JOIN Roles r ON u.RoleId = r.Id
-                WHERE u.Matricula = @matricula
-            `);
+        const [userResult] = await pool.query(`
+            SELECT u.Id, u.NomeCompleto, u.Matricula, u.Departamento, u.HierarchyPath, u.RoleId, r.Name as RoleName
+            FROM Users u
+            LEFT JOIN Roles r ON u.RoleId = r.Id
+            WHERE u.Matricula = ?
+        `, [matricula]);
         
-        if (userResult.recordset.length === 0) {
+        if (userResult.length === 0) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
         
-        const user = userResult.recordset[0];
+        const user = userResult[0];
         
         // Simular cálculo de hierarchyLevel
         let hierarchyLevel = 1;
@@ -103,15 +101,13 @@ router.get('/debug-permissions/:matricula', requireAuth, async (req, res) => {
         }
         
         // Verificar responsabilidade
-        const responsavelResult = await pool.request()
-            .input('matricula', sql.VarChar, user.Matricula)
-            .query(`
-                SELECT COUNT(*) as Total
-                FROM HIERARQUIA_CC 
-                WHERE RESPONSAVEL_ATUAL = @matricula
-            `);
+        const [responsavelResult] = await pool.query(`
+            SELECT COUNT(*) as Total
+            FROM HIERARQUIA_CC 
+            WHERE RESPONSAVEL_ATUAL = ?
+        `, [user.Matricula]);
         
-        const isResponsavel = responsavelResult.recordset[0].Total > 0;
+        const isResponsavel = responsavelResult[0].Total > 0;
         
         res.json({
             user: {
@@ -147,30 +143,29 @@ router.post('/refresh-permissions', requireAuth, async (req, res) => {
         const pool = await getDatabasePool();
         
         // Buscar dados atualizados do usuário
-        const userResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT u.Id, u.NomeCompleto, u.Matricula, u.Departamento, u.HierarchyPath, u.RoleId, r.Name as RoleName
-                FROM Users u
-                LEFT JOIN Roles r ON u.RoleId = r.Id
-                WHERE u.Id = @userId
-            `);
+        const [userResult] = await pool.query(`
+            SELECT u.Id, u.NomeCompleto, u.Matricula, u.Departamento, u.HierarchyPath, u.RoleId, r.Name as RoleName
+            FROM Users u
+            LEFT JOIN Roles r ON u.RoleId = r.Id
+            WHERE u.Id = ?
+        `, [userId]);
         
-        if (userResult.recordset.length === 0) {
+        if (userResult.length === 0) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
         
-        const user = userResult.recordset[0];
+        const user = userResult[0];
         
         // Recalcular hierarchyLevel
         let hierarchyLevel = 1;
         
         // Verificar se é responsável na HIERARQUIA_CC
-        const responsavelResult = await pool.request()
-            .input('matricula', sql.VarChar, user.Matricula)
-            .query(`SELECT COUNT(*) as Total FROM HIERARQUIA_CC WHERE RESPONSAVEL_ATUAL = @matricula`);
+        const [responsavelResult] = await pool.query(
+            `SELECT COUNT(*) as Total FROM HIERARQUIA_CC WHERE RESPONSAVEL_ATUAL = ?`,
+            [user.Matricula]
+        );
         
-        const isResponsavel = responsavelResult.recordset[0].Total > 0;
+        const isResponsavel = responsavelResult[0].Total > 0;
         
         if (isResponsavel && user.HierarchyPath) {
             const departments = user.HierarchyPath.split('>').map(d => d.trim()).filter(d => d.length > 0);

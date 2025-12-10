@@ -1,10 +1,8 @@
 /**
- * Monitor de conectividade Oracle
- * Monitora a saúde da conexão e envia alertas quando necessário
+ * Monitor de conectividade (Legacy - mantido por compatibilidade)
+ * No novo ambiente MySQL, este monitor é simplificado pois não há mais Oracle Linked Server.
+ * A tabela TAB_HIST_SRA é agora populada diretamente via Airflow.
  */
-
-const { getDatabasePool } = require('../config/db');
-const OracleConnectionHelper = require('../utils/oracleConnectionHelper');
 
 class OracleMonitor {
     constructor() {
@@ -15,93 +13,39 @@ class OracleMonitor {
     }
 
     /**
-     * Verifica a conectividade Oracle e atualiza o status
+     * Verifica a conectividade (simplificado para MySQL)
+     * Como TAB_HIST_SRA é agora populada via Airflow, apenas retorna status OK
      */
     async checkOracleHealth() {
-        try {
-            const pool = await getDatabasePool();
-            const result = await OracleConnectionHelper.testOracleConnection(pool);
-            
-            if (result.connected) {
-                // Oracle voltou a funcionar
-                if (this.isOracleDown) {
-                    console.log('✅ Oracle linked server reconectado!');
-                    this.isOracleDown = false;
-                    this.consecutiveFailures = 0;
-                }
-            } else {
-                this.consecutiveFailures++;
-                
-                // Oracle está com problema
-                if (!this.isOracleDown && this.consecutiveFailures >= this.maxConsecutiveFailures) {
-                    console.warn('⚠️ Oracle linked server indisponível após múltiplas tentativas');
-                    this.isOracleDown = true;
-                    
-                    // Aqui você pode implementar notificações por email/Slack
-                    await this.notifyOracleDown();
-                }
-            }
-            
-            this.lastOracleCheck = new Date();
-            
-            return {
-                connected: result.connected,
-                isDown: this.isOracleDown,
-                consecutiveFailures: this.consecutiveFailures,
-                lastCheck: this.lastOracleCheck
-            };
-            
-        } catch (error) {
-            console.error('❌ Erro ao verificar saúde do Oracle:', error.message);
-            this.consecutiveFailures++;
-            
-            if (!this.isOracleDown && this.consecutiveFailures >= this.maxConsecutiveFailures) {
-                this.isOracleDown = true;
-                await this.notifyOracleDown();
-            }
-            
-            return {
-                connected: false,
-                isDown: this.isOracleDown,
-                consecutiveFailures: this.consecutiveFailures,
-                lastCheck: new Date(),
-                error: error.message
-            };
-        }
+        this.lastOracleCheck = new Date();
+        
+        // No ambiente MySQL, não há Oracle Linked Server
+        // A tabela TAB_HIST_SRA é populada externamente via Airflow
+        return {
+            connected: true, // Sempre conectado pois não há dependência Oracle
+            isDown: false,
+            consecutiveFailures: 0,
+            lastCheck: this.lastOracleCheck,
+            message: 'TAB_HIST_SRA é populada via Airflow - sem dependência Oracle'
+        };
     }
 
     /**
-     * Notifica sobre problemas no Oracle
+     * Notifica sobre problemas (mantido por compatibilidade)
      */
     async notifyOracleDown() {
-        const message = `
-🚨 ALERTA: Oracle Linked Server Indisponível
-
-O sistema detectou que o Oracle linked server (ORACLE_PROD_SJP) está indisponível.
-
-Impactos:
-- Criação automática de avaliações pode usar dados locais como fallback
-- Sincronização de funcionários pode ser afetada
-- Sistema continua funcionando com limitações
-
-Timestamp: ${new Date().toLocaleString('pt-BR')}
-Falhas consecutivas: ${this.consecutiveFailures}
-        `;
-        
-        console.warn(message);
-        
-        // Aqui você pode implementar envio de email/Slack/Teams
-        // await emailService.sendAlert('Oracle Down', message);
+        console.log('ℹ️ No ambiente MySQL, não há dependência de Oracle Linked Server');
     }
 
     /**
-     * Retorna o status atual do Oracle
+     * Retorna o status atual
      */
     getStatus() {
         return {
-            isDown: this.isOracleDown,
-            consecutiveFailures: this.consecutiveFailures,
-            lastCheck: this.lastOracleCheck
+            isDown: false, // Nunca down no ambiente MySQL
+            consecutiveFailures: 0,
+            lastCheck: this.lastOracleCheck,
+            message: 'Ambiente MySQL - sem dependência Oracle'
         };
     }
 
@@ -112,7 +56,7 @@ Falhas consecutivas: ${this.consecutiveFailures}
         this.isOracleDown = false;
         this.consecutiveFailures = 0;
         this.lastOracleCheck = null;
-        console.log('🔄 Status do Oracle monitor resetado');
+        console.log('🔄 Status do monitor resetado');
     }
 }
 

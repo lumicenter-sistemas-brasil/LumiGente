@@ -1,6 +1,5 @@
-const sql = require('mssql');
-const { getDatabasePool } = require('../config/db'); // Importa a função de conexão centralizada
-const { getHierarchyLevel } = require('../utils/hierarchyHelper'); // Mantém a importação do helper
+const { getDatabasePool } = require('../config/db');
+const { getHierarchyLevel } = require('../utils/hierarchyHelper');
 
 class HierarchyManager {
     constructor() {
@@ -9,10 +8,9 @@ class HierarchyManager {
 
     /**
      * Obtém o pool de conexão do banco de dados de forma centralizada.
-     * @returns {Promise<sql.ConnectionPool>}
+     * @returns {Promise<mysql.Pool>}
      */
     async getPool() {
-        // Utiliza a função importada para garantir uma única fonte de conexão.
         return await getDatabasePool();
     }
 
@@ -26,52 +24,57 @@ class HierarchyManager {
         try {
             const pool = await this.getPool();
             
-            const funcionarioQuery = cpf 
-                ? `SELECT TOP 1 CENTRO_CUSTO, DEPARTAMENTO, NOME, CPF FROM TAB_HIST_SRA WHERE MATRICULA = @matricula AND CPF = @cpf ORDER BY CASE WHEN STATUS_GERAL = 'ATIVO' THEN 0 ELSE 1 END, MATRICULA DESC`
-                : `SELECT TOP 1 CENTRO_CUSTO, DEPARTAMENTO, NOME, CPF FROM TAB_HIST_SRA WHERE MATRICULA = @matricula ORDER BY CASE WHEN STATUS_GERAL = 'ATIVO' THEN 0 ELSE 1 END, MATRICULA DESC`;
-            
-            const funcionarioRequest = pool.request().input('matricula', sql.VarChar, matricula);
+            let funcionarioRows;
             if (cpf) {
-                funcionarioRequest.input('cpf', sql.VarChar, cpf);
+                [funcionarioRows] = await pool.execute(
+                    `SELECT CENTRO_CUSTO, DEPARTAMENTO, NOME, CPF FROM TAB_HIST_SRA 
+                     WHERE MATRICULA = ? AND CPF = ? 
+                     ORDER BY CASE WHEN STATUS_GERAL = 'ATIVO' THEN 0 ELSE 1 END, MATRICULA DESC 
+                     LIMIT 1`,
+                    [matricula, cpf]
+                );
+            } else {
+                [funcionarioRows] = await pool.execute(
+                    `SELECT CENTRO_CUSTO, DEPARTAMENTO, NOME, CPF FROM TAB_HIST_SRA 
+                     WHERE MATRICULA = ? 
+                     ORDER BY CASE WHEN STATUS_GERAL = 'ATIVO' THEN 0 ELSE 1 END, MATRICULA DESC 
+                     LIMIT 1`,
+                    [matricula]
+                );
             }
             
-            const funcionarioResult = await funcionarioRequest.query(funcionarioQuery);
-            
-            if (funcionarioResult.recordset.length === 0) {
+            if (funcionarioRows.length === 0) {
                 return { path: '', departamento: 'Não definido', get level() { return 0; } };
             }
             
-            const funcionario = funcionarioResult.recordset[0];
+            const funcionario = funcionarioRows[0];
             const cpfParaUsar = cpf || funcionario.CPF;
             
-            const hierarquiaResult = await pool.request()
-                .input('matricula', sql.VarChar, matricula)
-                .input('cpf', sql.VarChar, cpfParaUsar)
-                .query(`
-                    SELECT TOP 1 DEPTO_ATUAL, DESCRICAO_ATUAL, HIERARQUIA_COMPLETA
-                    FROM HIERARQUIA_CC 
-                    WHERE RESPONSAVEL_ATUAL = @matricula AND (CPF_RESPONSAVEL = @cpf OR CPF_RESPONSAVEL IS NULL)
-                    ORDER BY LEN(HIERARQUIA_COMPLETA) DESC
-                `);
+            const [hierarquiaRows] = await pool.execute(`
+                SELECT DEPTO_ATUAL, DESCRICAO_ATUAL, HIERARQUIA_COMPLETA
+                FROM HIERARQUIA_CC 
+                WHERE RESPONSAVEL_ATUAL = ? AND (CPF_RESPONSAVEL = ? OR CPF_RESPONSAVEL IS NULL)
+                ORDER BY LENGTH(HIERARQUIA_COMPLETA) DESC
+                LIMIT 1
+            `, [matricula, cpfParaUsar]);
             
             let path = '';
             let departamento = funcionario.DEPARTAMENTO || 'Não definido';
             
-            if (hierarquiaResult.recordset.length > 0) {
-                const hierarquia = hierarquiaResult.recordset[0];
+            if (hierarquiaRows.length > 0) {
+                const hierarquia = hierarquiaRows[0];
                 path = hierarquia.HIERARQUIA_COMPLETA;
             } else {
-                const hierarquiaTrabalhoResult = await pool.request()
-                    .input('deptoAtual', sql.VarChar, funcionario.DEPARTAMENTO)
-                    .query(`
-                        SELECT TOP 1 DEPTO_ATUAL, HIERARQUIA_COMPLETA
-                        FROM HIERARQUIA_CC 
-                        WHERE TRIM(DEPTO_ATUAL) = TRIM(@deptoAtual)
-                        ORDER BY LEN(HIERARQUIA_COMPLETA) DESC
-                    `);
+                const [hierarquiaTrabalhoRows] = await pool.execute(`
+                    SELECT DEPTO_ATUAL, HIERARQUIA_COMPLETA
+                    FROM HIERARQUIA_CC 
+                    WHERE TRIM(DEPTO_ATUAL) = TRIM(?)
+                    ORDER BY LENGTH(HIERARQUIA_COMPLETA) DESC
+                    LIMIT 1
+                `, [funcionario.DEPARTAMENTO]);
                 
-                if (hierarquiaTrabalhoResult.recordset.length > 0) {
-                    path = hierarquiaTrabalhoResult.recordset[0].HIERARQUIA_COMPLETA;
+                if (hierarquiaTrabalhoRows.length > 0) {
+                    path = hierarquiaTrabalhoRows[0].HIERARQUIA_COMPLETA;
                 }
             }
 
@@ -118,16 +121,29 @@ class HierarchyManager {
     async getSubordinates(matricula, cpf = null) {
         try {
             const pool = await this.getPool();
-            const query = cpf
-                ? `SELECT DISTINCT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF, u.LastLogin FROM Users u JOIN HIERARQUIA_CC h ON u.Matricula = h.RESPONSAVEL_ATUAL AND u.CPF = h.CPF_RESPONSAVEL WHERE h.RESPONSAVEL_ATUAL = @matricula AND h.CPF_RESPONSAVEL = @cpf AND u.IsActive = 1 ORDER BY u.NomeCompleto`
-                : `SELECT DISTINCT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF, u.LastLogin FROM Users u JOIN HIERARQUIA_CC h ON u.Matricula = h.RESPONSAVEL_ATUAL WHERE h.RESPONSAVEL_ATUAL = @matricula AND u.IsActive = 1 ORDER BY u.NomeCompleto`;
+            let rows;
             
-            const request = pool.request().input('matricula', sql.VarChar, matricula);
-            if (cpf) request.input('cpf', sql.VarChar, cpf);
-            
-            const result = await request.query(query);
+            if (cpf) {
+                [rows] = await pool.execute(
+                    `SELECT DISTINCT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF, u.LastLogin 
+                     FROM Users u 
+                     JOIN HIERARQUIA_CC h ON u.Matricula = h.RESPONSAVEL_ATUAL AND u.CPF = h.CPF_RESPONSAVEL 
+                     WHERE h.RESPONSAVEL_ATUAL = ? AND h.CPF_RESPONSAVEL = ? AND u.IsActive = 1 
+                     ORDER BY u.NomeCompleto`,
+                    [matricula, cpf]
+                );
+            } else {
+                [rows] = await pool.execute(
+                    `SELECT DISTINCT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF, u.LastLogin 
+                     FROM Users u 
+                     JOIN HIERARQUIA_CC h ON u.Matricula = h.RESPONSAVEL_ATUAL 
+                     WHERE h.RESPONSAVEL_ATUAL = ? AND u.IsActive = 1 
+                     ORDER BY u.NomeCompleto`,
+                    [matricula]
+                );
+            }
 
-            const recordsWithLevel = result.recordset.map(record => ({
+            const recordsWithLevel = rows.map(record => ({
                 ...record,
                 HierarchyLevel: getHierarchyLevel(record.HierarchyPath, record.Matricula, record.Departamento)
             })).sort((a, b) => b.HierarchyLevel - a.HierarchyLevel || a.NomeCompleto.localeCompare(b.NomeCompleto));
@@ -145,16 +161,39 @@ class HierarchyManager {
     async getSuperiors(matricula, cpf = null) {
         try {
             const pool = await this.getPool();
-            const query = cpf 
-                ? `SELECT DISTINCT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF FROM Users u JOIN HIERARQUIA_CC h ON ((u.Matricula = h.NIVEL_1_MATRICULA_RESP AND u.CPF = h.CPF_RESPONSAVEL) OR (u.Matricula = h.NIVEL_2_MATRICULA_RESP AND u.CPF = h.CPF_RESPONSAVEL) OR (u.Matricula = h.NIVEL_3_MATRICULA_RESP AND u.CPF = h.CPF_RESPONSAVEL) OR (u.Matricula = h.NIVEL_4_MATRICULA_RESP AND u.CPF = h.CPF_RESPONSAVEL)) WHERE h.RESPONSAVEL_ATUAL = @matricula AND h.CPF_RESPONSAVEL = @cpf AND u.IsActive = 1 AND u.Matricula != @matricula ORDER BY u.NomeCompleto`
-                : `SELECT DISTINCT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF FROM Users u JOIN HIERARQUIA_CC h ON (u.Matricula = h.NIVEL_1_MATRICULA_RESP OR u.Matricula = h.NIVEL_2_MATRICULA_RESP OR u.Matricula = h.NIVEL_3_MATRICULA_RESP OR u.Matricula = h.NIVEL_4_MATRICULA_RESP) WHERE h.RESPONSAVEL_ATUAL = @matricula AND u.IsActive = 1 AND u.Matricula != @matricula ORDER BY u.NomeCompleto`;
-
-            const request = pool.request().input('matricula', sql.VarChar, matricula);
-            if (cpf) request.input('cpf', sql.VarChar, cpf);
+            let rows;
             
-            const result = await request.query(query);
+            if (cpf) {
+                [rows] = await pool.execute(
+                    `SELECT DISTINCT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF 
+                     FROM Users u 
+                     JOIN HIERARQUIA_CC h ON (
+                         (u.Matricula = h.NIVEL_1_MATRICULA_RESP AND u.CPF = h.CPF_RESPONSAVEL) OR 
+                         (u.Matricula = h.NIVEL_2_MATRICULA_RESP AND u.CPF = h.CPF_RESPONSAVEL) OR 
+                         (u.Matricula = h.NIVEL_3_MATRICULA_RESP AND u.CPF = h.CPF_RESPONSAVEL) OR 
+                         (u.Matricula = h.NIVEL_4_MATRICULA_RESP AND u.CPF = h.CPF_RESPONSAVEL)
+                     ) 
+                     WHERE h.RESPONSAVEL_ATUAL = ? AND h.CPF_RESPONSAVEL = ? AND u.IsActive = 1 AND u.Matricula != ? 
+                     ORDER BY u.NomeCompleto`,
+                    [matricula, cpf, matricula]
+                );
+            } else {
+                [rows] = await pool.execute(
+                    `SELECT DISTINCT u.Id, u.NomeCompleto, u.Departamento, u.HierarchyPath, u.Matricula, u.CPF 
+                     FROM Users u 
+                     JOIN HIERARQUIA_CC h ON (
+                         u.Matricula = h.NIVEL_1_MATRICULA_RESP OR 
+                         u.Matricula = h.NIVEL_2_MATRICULA_RESP OR 
+                         u.Matricula = h.NIVEL_3_MATRICULA_RESP OR 
+                         u.Matricula = h.NIVEL_4_MATRICULA_RESP
+                     ) 
+                     WHERE h.RESPONSAVEL_ATUAL = ? AND u.IsActive = 1 AND u.Matricula != ? 
+                     ORDER BY u.NomeCompleto`,
+                    [matricula, matricula]
+                );
+            }
             
-            const recordsWithLevel = result.recordset.map(record => ({
+            const recordsWithLevel = rows.map(record => ({
                 ...record,
                 HierarchyLevel: getHierarchyLevel(record.HierarchyPath, record.Matricula, record.Departamento)
             })).sort((a, b) => b.HierarchyLevel - a.HierarchyLevel || a.NomeCompleto.localeCompare(b.NomeCompleto));
@@ -173,73 +212,69 @@ class HierarchyManager {
         try {
             const pool = await this.getPool();
             
-            // Verificar se o usuário tem dados necessários
             if (!currentUser || !currentUser.userId) {
                 console.log('❌ Usuário inválido para buscar usuários acessíveis');
                 return [];
             }
             
-            // IMPORTANTE: Verificar se é RH/T&D considerando também a FILIAL
-            // Para evitar que gestores de Manaus sejam identificados como RH/T&D de SJP
             const isHRTDWithFilial = await this.checkHRTDWithFilial(currentUser, pool);
             const directOnly = Boolean(options.directReportsOnly);
             
             if (isHRTDWithFilial && !directOnly) {
                 let query = `SELECT Id as userId, NomeCompleto as nomeCompleto, Departamento as departamento, HierarchyPath as hierarchyPath, Matricula, 'RH_TD_ACCESS' as TipoRelacao FROM Users WHERE IsActive = 1`;
+                const params = [];
+                
                 if (options.department && options.department !== 'Todos') {
-                    query += ` AND Departamento = @department`;
+                    query += ` AND Departamento = ?`;
+                    params.push(options.department);
                 }
                 query += ` ORDER BY NomeCompleto`;
                 
-                const request = pool.request();
-                if (options.department && options.department !== 'Todos') {
-                    request.input('department', sql.NVarChar, options.department);
-                }
-                const result = await request.query(query);
+                const [rows] = await pool.execute(query, params);
                 
-                // Verificar se result.recordset existe e é um array
-                if (!result.recordset || !Array.isArray(result.recordset)) {
+                if (!rows || !Array.isArray(rows)) {
                     console.log('⚠️ Resultado inválido da query RH/TD, retornando array vazio');
                     return [];
                 }
                 
-                return result.recordset.map(record => ({ 
+                return rows.map(record => ({ 
                     ...record, 
                     hierarchyLevel: getHierarchyLevel(record.hierarchyPath, record.Matricula, record.departamento) 
                 }));
             }
             
-            // Verificar se o usuário tem matrícula para verificação de gestor
             if (!currentUser.matricula) {
                 console.log('⚠️ Usuário sem matrícula, retornando apenas ele mesmo');
-                const result = await pool.request().input('currentUserId', sql.Int, currentUser.userId).query(`SELECT Id as userId, NomeCompleto as nomeCompleto, Departamento as departamento, HierarchyPath as hierarchyPath, Matricula FROM Users WHERE IsActive = 1 AND Id = @currentUserId ORDER BY NomeCompleto`);
+                const [rows] = await pool.execute(
+                    `SELECT Id as userId, NomeCompleto as nomeCompleto, Departamento as departamento, HierarchyPath as hierarchyPath, Matricula FROM Users WHERE IsActive = 1 AND Id = ? ORDER BY NomeCompleto`,
+                    [currentUser.userId]
+                );
                 
-                if (!result.recordset || !Array.isArray(result.recordset)) {
+                if (!rows || !Array.isArray(rows)) {
                     return [];
                 }
                 
-                return result.recordset.map(record => ({ 
+                return rows.map(record => ({ 
                     ...record, 
                     hierarchyLevel: getHierarchyLevel(record.hierarchyPath, record.userId, record.departamento) 
                 }));
             }
             
-            const isManagerCheck = await pool.request()
-                .input('userMatricula', sql.VarChar, currentUser.matricula)
-                .input('userFilial', sql.VarChar, currentUser.Filial || currentUser.filial || '')
-                .query(`
-                    SELECT COUNT(*) as count 
-                    FROM HIERARQUIA_CC 
-                    WHERE (RESPONSAVEL_ATUAL = @userMatricula OR NIVEL_1_MATRICULA_RESP = @userMatricula OR NIVEL_2_MATRICULA_RESP = @userMatricula OR NIVEL_3_MATRICULA_RESP = @userMatricula OR NIVEL_4_MATRICULA_RESP = @userMatricula)
-                    AND (FILIAL = @userFilial OR (@userFilial = '' AND FILIAL IS NULL))
-                `);
-            const isManager = isManagerCheck.recordset[0].count > 0;
+            const [isManagerRows] = await pool.execute(`
+                SELECT COUNT(*) as count 
+                FROM HIERARQUIA_CC 
+                WHERE (RESPONSAVEL_ATUAL = ? OR NIVEL_1_MATRICULA_RESP = ? OR NIVEL_2_MATRICULA_RESP = ? OR NIVEL_3_MATRICULA_RESP = ? OR NIVEL_4_MATRICULA_RESP = ?)
+                AND (FILIAL = ? OR (? = '' AND FILIAL IS NULL))
+            `, [
+                currentUser.matricula, currentUser.matricula, currentUser.matricula, currentUser.matricula, currentUser.matricula,
+                currentUser.Filial || currentUser.filial || '', currentUser.Filial || currentUser.filial || ''
+            ]);
+            
+            const isManager = isManagerRows[0].count > 0;
             
             if (isManager) {
-                const request = pool.request()
-                    .input('userMatricula', sql.VarChar, currentUser.matricula)
-                    .input('userFilial', sql.VarChar, currentUser.Filial || currentUser.filial || '');
-
+                const userFilial = currentUser.Filial || currentUser.filial || '';
+                
                 let query = `
                     WITH UsuariosAcessiveis AS (
                         SELECT DISTINCT
@@ -253,16 +288,16 @@ class HierarchyManager {
                         FROM Users u
                         INNER JOIN TAB_HIST_SRA s ON u.Matricula = s.MATRICULA AND u.CPF = s.CPF
                         INNER JOIN HIERARQUIA_CC h ON (
-                            h.RESPONSAVEL_ATUAL = @userMatricula
-                            OR h.NIVEL_1_MATRICULA_RESP = @userMatricula
-                            OR h.NIVEL_2_MATRICULA_RESP = @userMatricula
-                            OR h.NIVEL_3_MATRICULA_RESP = @userMatricula
-                            OR h.NIVEL_4_MATRICULA_RESP = @userMatricula
+                            h.RESPONSAVEL_ATUAL = ?
+                            OR h.NIVEL_1_MATRICULA_RESP = ?
+                            OR h.NIVEL_2_MATRICULA_RESP = ?
+                            OR h.NIVEL_3_MATRICULA_RESP = ?
+                            OR h.NIVEL_4_MATRICULA_RESP = ?
                         )
                         WHERE u.IsActive = 1
                           AND s.STATUS_GERAL = 'ATIVO'
                           AND (TRIM(s.DEPARTAMENTO) = TRIM(h.DEPTO_ATUAL) OR s.MATRICULA = h.RESPONSAVEL_ATUAL)
-                          AND (h.FILIAL = @userFilial OR (@userFilial = '' AND h.FILIAL IS NULL))
+                          AND (h.FILIAL = ? OR (? = '' AND h.FILIAL IS NULL))
 
                         UNION
 
@@ -275,22 +310,27 @@ class HierarchyManager {
                             u.Matricula,
                             'PROPRIO_USUARIO'
                         FROM Users u
-                        WHERE u.Matricula = @userMatricula AND u.IsActive = 1
+                        WHERE u.Matricula = ? AND u.IsActive = 1
                     )
                     SELECT DISTINCT userId, nomeCompleto, departamento, descricaoDepartamento, hierarchyPath, Matricula, TipoRelacao
                     FROM UsuariosAcessiveis
                 `;
+                
+                const params = [
+                    currentUser.matricula, currentUser.matricula, currentUser.matricula, currentUser.matricula, currentUser.matricula,
+                    userFilial, userFilial, currentUser.matricula
+                ];
 
                 if (options.department && options.department !== 'Todos') {
-                    query += ` WHERE TRIM(ISNULL(descricaoDepartamento, departamento)) = @department OR TipoRelacao = 'PROPRIO_USUARIO'`;
-                    request.input('department', sql.NVarChar, options.department);
+                    query += ` WHERE TRIM(IFNULL(descricaoDepartamento, departamento)) = ? OR TipoRelacao = 'PROPRIO_USUARIO'`;
+                    params.push(options.department);
                 }
 
                 query += ` ORDER BY nomeCompleto`;
 
-                const result = await request.query(query);
+                const [rows] = await pool.execute(query, params);
                  
-                if (!result.recordset || !Array.isArray(result.recordset)) {
+                if (!rows || !Array.isArray(rows)) {
                     console.log('⚠️ Resultado inválido da query de gestor, retornando array vazio');
                     return [];
                 }
@@ -298,46 +338,45 @@ class HierarchyManager {
                 const managerInfo = await this.getManagerHierarchyData(currentUser, pool);
 
                 const filteredRecords = directOnly
-                    ? result.recordset.filter(record => this.isDirectSubordinateRecord(record, managerInfo))
-                    : result.recordset;
+                    ? rows.filter(record => this.isDirectSubordinateRecord(record, managerInfo))
+                    : rows;
 
                 return filteredRecords.map(record => ({ 
                     ...record, 
                     hierarchyLevel: getHierarchyLevel(record.hierarchyPath, record.userId, record.departamento) 
                 }));
             } else {
-                const result = await pool.request().input('currentUserId', sql.Int, currentUser.userId).query(`SELECT Id as userId, NomeCompleto as nomeCompleto, Departamento as departamento, HierarchyPath as hierarchyPath, Matricula FROM Users WHERE IsActive = 1 AND Id = @currentUserId ORDER BY NomeCompleto`);
+                const [rows] = await pool.execute(
+                    `SELECT Id as userId, NomeCompleto as nomeCompleto, Departamento as departamento, HierarchyPath as hierarchyPath, Matricula FROM Users WHERE IsActive = 1 AND Id = ? ORDER BY NomeCompleto`,
+                    [currentUser.userId]
+                );
                 
-                if (!result.recordset || !Array.isArray(result.recordset)) {
+                if (!rows || !Array.isArray(rows)) {
                     console.log('⚠️ Resultado inválido da query de usuário comum, retornando array vazio');
                     return [];
                 }
                 
-                return result.recordset.map(record => ({ 
+                return rows.map(record => ({ 
                     ...record, 
                     hierarchyLevel: getHierarchyLevel(record.hierarchyPath, record.userId, record.departamento) 
                 }));
             }
         } catch (error) {
             console.error('❌ Erro ao buscar usuários acessíveis:', error);
-            // Retornar array vazio em caso de erro para evitar quebrar o frontend
             return [];
         }
     }
 
     /**
-     * Verifica se o usuário é RH/T&D considerando também a filial para evitar conflitos
-     * entre gestores de Manaus e RH/T&D de SJP
+     * Verifica se o usuário é RH/T&D considerando também a filial
      */
     async checkHRTDWithFilial(currentUser, pool) {
         try {
             const departamento = currentUser.departamento ? currentUser.departamento.toUpperCase() : '';
             const filial = currentUser.Filial || currentUser.filial || '';
             
-            // Verificar se é RH baseado no código do departamento (122134101 = DEPARTAMENTO ADM/RH/SESMT)
             const isHRByCode = departamento === '122134101';
             
-            // Verificações mais abrangentes para RH
             const isHR = isHRByCode || 
                          departamento.includes('RH') || 
                          departamento.includes('RECURSOS HUMANOS') ||
@@ -349,7 +388,6 @@ class HierarchyManager {
                          departamento.includes('DEPARTAMENTO ADM/RH/SESMT') ||
                          departamento.includes('RH/SESMT');
                          
-            // Verificações mais abrangentes para T&D
             const isTD = departamento.includes('DEPARTAMENTO TREINAM&DESENVOLV') ||
                          departamento.includes('TREINAMENTO') ||
                          departamento.includes('DESENVOLVIMENTO') ||
@@ -359,13 +397,10 @@ class HierarchyManager {
                          departamento.includes('DESENVOLV') ||
                          departamento.includes('TREINAMENTO E DESENVOLVIMENTO');
             
-            // Se não é RH/T&D por departamento, retornar false
             if (!isHR && !isTD) {
                 return false;
             }
             
-            // IMPORTANTE: Verificar se é realmente RH/T&D considerando a filial
-            // Para gestores de Manaus com departamento 122134101, não devem ser considerados RH/T&D
             if (isHRByCode && filial && filial.toUpperCase().includes('MANAUS')) {
                 console.log(`🔍 Usuário ${currentUser.nomeCompleto} tem departamento RH (${departamento}) mas é de Manaus (${filial}) - NÃO é RH/T&D`);
                 return false;
@@ -406,25 +441,18 @@ class HierarchyManager {
             let activeSet = new Set();
             if (middle.length > 0) {
                 const uniqueMiddle = [...new Set(middle)];
-                const request = pool.request();
-                const placeholders = [];
+                const placeholders = uniqueMiddle.map(() => '?').join(', ');
 
-                uniqueMiddle.forEach((code, index) => {
-                    const param = `dep${index}`;
-                    request.input(param, sql.VarChar, code);
-                    placeholders.push(`@${param}`);
-                });
-
-                if (placeholders.length > 0) {
+                if (placeholders) {
                     const query = `
                         SELECT DISTINCT TRIM(DEPARTAMENTO) AS codigo
                         FROM TAB_HIST_SRA
                         WHERE STATUS_GERAL = 'ATIVO'
-                          AND TRIM(DEPARTAMENTO) IN (${placeholders.join(', ')})
+                          AND TRIM(DEPARTAMENTO) IN (${placeholders})
                     `;
-                    const result = await request.query(query);
+                    const [rows] = await pool.execute(query, uniqueMiddle);
                     activeSet = new Set(
-                        result.recordset
+                        rows
                             .map(row => (row.codigo || '').trim())
                             .filter(Boolean)
                     );
@@ -471,9 +499,10 @@ class HierarchyManager {
     async getUsersForFeedback() {
         try {
             const pool = await this.getPool();
-            const query = `SELECT Id as userId, NomeCompleto as nomeCompleto, Departamento as departamento, DescricaoDepartamento as descricaoDepartamento, HierarchyPath as hierarchyPath FROM Users WHERE IsActive = 1 ORDER BY NomeCompleto`;
-            const result = await pool.request().query(query);
-            return result.recordset.map(record => ({ ...record, hierarchyLevel: getHierarchyLevel(record.hierarchyPath, record.userId, record.departamento) }));
+            const [rows] = await pool.execute(
+                `SELECT Id as userId, NomeCompleto as nomeCompleto, Departamento as departamento, DescricaoDepartamento as descricaoDepartamento, HierarchyPath as hierarchyPath FROM Users WHERE IsActive = 1 ORDER BY NomeCompleto`
+            );
+            return rows.map(record => ({ ...record, hierarchyLevel: getHierarchyLevel(record.hierarchyPath, record.userId, record.departamento) }));
         } catch (error) {
             console.error('Erro ao buscar usuários para feedback:', error);
             throw error;
@@ -481,12 +510,36 @@ class HierarchyManager {
     }
 
     /**
-     * Sincroniza a hierarquia de um utilizador específico via Stored Procedure.
+     * Sincroniza a hierarquia de um utilizador específico.
+     * Convertido de Stored Procedure para código Node.js.
      */
     async syncUserHierarchy(userId) {
         try {
             const pool = await this.getPool();
-            await pool.request().input('userId', sql.Int, userId).query(`EXEC sp_SyncUserHierarchy @UserId = @userId`);
+            
+            // Buscar dados do usuário
+            const [userRows] = await pool.execute(
+                `SELECT Id, Matricula, CPF, Departamento FROM Users WHERE Id = ?`,
+                [userId]
+            );
+            
+            if (userRows.length === 0) {
+                console.log(`⚠️ Usuário ${userId} não encontrado para sincronização`);
+                return false;
+            }
+            
+            const user = userRows[0];
+            
+            // Buscar informações de hierarquia
+            const { path, departamento } = await this.getHierarchyInfo(user.Matricula, user.CPF);
+            
+            // Atualizar usuário com nova hierarquia
+            await pool.execute(
+                `UPDATE Users SET HierarchyPath = ?, Departamento = ?, updated_at = NOW() WHERE Id = ?`,
+                [path, departamento, userId]
+            );
+            
+            console.log(`✅ Hierarquia sincronizada para usuário ${userId}`);
             return true;
         } catch (error) {
             console.error('Erro ao sincronizar hierarquia do usuário:', error);
@@ -495,12 +548,31 @@ class HierarchyManager {
     }
 
     /**
-     * Sincroniza a hierarquia de todos os utilizadores via Stored Procedure.
+     * Sincroniza a hierarquia de todos os utilizadores.
+     * Convertido de Stored Procedure para código Node.js.
      */
     async syncAllHierarchies() {
         try {
             const pool = await this.getPool();
-            await pool.request().query(`EXEC sp_SyncUserHierarchy`);
+            
+            // Buscar todos os usuários ativos
+            const [users] = await pool.execute(
+                `SELECT Id, Matricula, CPF FROM Users WHERE IsActive = 1`
+            );
+            
+            console.log(`🔄 Iniciando sincronização de hierarquia para ${users.length} usuários...`);
+            
+            let synced = 0;
+            for (const user of users) {
+                try {
+                    await this.syncUserHierarchy(user.Id);
+                    synced++;
+                } catch (err) {
+                    console.warn(`⚠️ Erro ao sincronizar usuário ${user.Id}: ${err.message}`);
+                }
+            }
+            
+            console.log(`✅ Sincronização concluída: ${synced}/${users.length} usuários`);
             return true;
         } catch (error) {
             console.error('Erro ao sincronizar todas as hierarquias:', error);
@@ -514,8 +586,10 @@ class HierarchyManager {
     async getHierarchyStats() {
         try {
             const pool = await this.getPool();
-            const result = await pool.request().query(`SELECT COUNT(*) as count, Departamento FROM Users WHERE IsActive = 1 GROUP BY Departamento ORDER BY COUNT(*) DESC`);
-            return result.recordset;
+            const [rows] = await pool.execute(
+                `SELECT COUNT(*) as count, Departamento FROM Users WHERE IsActive = 1 GROUP BY Departamento ORDER BY COUNT(*) DESC`
+            );
+            return rows;
         } catch (error) {
             console.error('Erro ao buscar estatísticas da hierarquia:', error);
             throw error;
@@ -524,12 +598,13 @@ class HierarchyManager {
 
     async getManagerHierarchyData(currentUser, pool) {
         try {
-            const result = await pool.request()
-                .input('managerId', sql.Int, currentUser.userId)
-                .query(`SELECT Departamento, HierarchyPath FROM Users WHERE Id = @managerId`);
+            const [rows] = await pool.execute(
+                `SELECT Departamento, HierarchyPath FROM Users WHERE Id = ?`,
+                [currentUser.userId]
+            );
 
-            if (result.recordset.length > 0) {
-                const record = result.recordset[0];
+            if (rows.length > 0) {
+                const record = rows[0];
                 return {
                     departamento: (record.Departamento || '').trim(),
                     hierarchyPath: record.HierarchyPath || ''

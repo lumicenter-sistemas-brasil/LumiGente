@@ -82,7 +82,7 @@ const Humor = {
                 <h4>${humorLabels[humor.score]}</h4>
                 ${descriptionHtml}
                 <p style="font-size: 12px; color: #9ca3af; margin-top: 16px;">
-                    Registrado em ${new Date(new Date(humor.created_at).getTime() + 180 * 60 * 1000).toLocaleString('pt-BR')}
+                    Registrado em ${humor.updated_at ? new Date(humor.updated_at).toLocaleString('pt-BR') : 'Data não disponível'}
                 </p>
             </div>
         `;
@@ -214,7 +214,7 @@ const Humor = {
                         <div style="display: flex; flex-direction: column; align-items: center; margin-left: 12px; min-width: 90px;">
                             ${mood.icon}
                             <span style="margin-top: 4px; font-weight: 600; color: ${mood.color}; font-size: 13px;">${mood.label}</span>
-                            <p style="margin-top: 6px; font-size: 12px; color: #9ca3af;">${new Date(new Date(entry.created_at).getTime() + 180 * 60 * 1000).toLocaleDateString('pt-BR')}</p>
+                            <p style="margin-top: 6px; font-size: 12px; color: #9ca3af;">${entry.updated_at ? new Date(entry.updated_at).toLocaleDateString('pt-BR') : entry.created_at ? new Date(entry.created_at).toLocaleDateString('pt-BR') : 'Data não disponível'}</p>
                         </div>
                     </div>
                 `;
